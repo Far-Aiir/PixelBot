@@ -79,7 +79,7 @@ class Program
         }
             client.Ready += async () =>
         {
-            await client.SetGameAsync("p/help | http://blaze.ml");
+            await client.SetGameAsync("p/help | blaze.ml");
             Console.WriteLine("PixelBot > ONLINE!");
             Console.Title = "PixelBot";
         };
@@ -124,6 +124,7 @@ class Program
         };
         client.GuildAvailable += async (g) =>
         {
+            Console.WriteLine($"Guild Online > {g.Name} - {g.Id}");
             if (g.Id == 252388688766435328 || g.Id == 282731527161511936)
             {
                 Console.WriteLine($"Removed {g.Name} - {g.Id} due to blacklist");
@@ -399,7 +400,7 @@ public class Info : ModuleBase
     string PruneText = "```md" + Environment.NewLine + "[ p/prune all ]( Prune all messages )" + Environment.NewLine + "[ p/prune user (@User) ]( Prune a users messages )" + Environment.NewLine + "[ p/prune bot ]( Prune bot messages )" + Environment.NewLine + "[ p/prune image ]( Prune attachments )" + Environment.NewLine + "[ p/prune embed ]( Prune embeds )" + Environment.NewLine + "[ p/prune link ]( Prune links )" + Environment.NewLine + "[ p/prune commands ]( Prune messages that start with p/ m/ / ! = % )" + Environment.NewLine + "[ p/prune text (Text) ](Find and prune messages that contain the TEXT )```";
     string GameText = "```md" + Environment.NewLine + "[ p/steam ]( Steam user info and game info )" + Environment.NewLine + "[ p/mc ]( Minecraft user skins and server ping/status )" + Environment.NewLine + "[ p/vg ]( Vainglory game info, user info and matches )" + Environment.NewLine + "[ p/osu ]( Osu! game info and user info )" + Environment.NewLine + "[ p/xbox ]( Xbox live status and user info )```";
     string TempVoiceText = "```md" + Environment.NewLine + "[ p/temp create ]( Create a temp voice channel )" + Environment.NewLine + "[ p/temp invite (User) ]( Invite a user to your channel )" + Environment.NewLine + "[ p/temp kick (User) ]( Kick a user from your channel )" + Environment.NewLine + "[ p/temp toggle ]( Toggle so anyone can join your channel )```";
-
+    
     [Command("help")]
     public async Task help(string Option = "Help")
     {
@@ -893,12 +894,12 @@ public class Info : ModuleBase
             {
                 Text = $"Bot Invite p/invite | Want a custom command or feature? then please contact me"
             },
-            Url = "http://blaze.ml",
-            Description = "Created by <@190590364871032834> | Visit the website for a list of commands and info"
+            Url = "https://blaze.ml",
+            Description = "Created by xXBuilderBXx#9113 | Visit the website for a list of commands and info"
         };
         embed.AddField(x =>
         {
-            x.Name = "Info"; x.Value = "Language C#" + Environment.NewLine + "Library .net 1.0" + Environment.NewLine + $"Guilds {GuildCount}" + Environment.NewLine + "My Guild | WJTYdNb"; x.IsInline = true;
+            x.Name = "Info"; x.Value = "Language C#" + Environment.NewLine + "Library .net 1.0" + Environment.NewLine + $"Guilds {GuildCount}" + Environment.NewLine + "My Guild | WJTYdNb" + Environment.NewLine + "[Website](https://blaze.ml)" + Environment.NewLine + "[Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0)" + Environment.NewLine + "[Github](https://github.com/ArchboxDev/PixelBot)"; x.IsInline = true;
         });
         embed.AddField(x =>
         {
@@ -912,6 +913,11 @@ public class Info : ModuleBase
     public async Task roll()
     {
         var random = new Random((int)DateTime.Now.Ticks); var randomValue = random.Next(1, 7); await Context.Channel.SendMessageAsync($"{Context.User.Username} Rolled a {randomValue}");
+    }
+    [Command("update")]
+    public async Task update()
+    {
+        
     }
 
     [Command("invite")]
