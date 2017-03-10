@@ -71,7 +71,6 @@ class Program
         await InstallCommands();
         if (Environment.UserName != "Brandan")
         {
-            MysqlHost = "localhost";
             System.Timers.Timer timer = new System.Timers.Timer();
             timer.Interval = 60000;
             timer.Elapsed += Timer;
