@@ -18,12 +18,12 @@ Developed in visual studio with C# by xXBuilderBXx
 - Temp voice channel creation
 
 ## Invite
-https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0
+[Invite](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0)
 
 ## Website
 For a list of commands visit the website
-https://blaze.ml/pixelbot/
+[Website](https://blaze.ml/pixelbot/)
 
 If you have a suggestion/issue please use this github or join my guild WJTYdNb
 ## Source?
-Bot Code /PixelBot/Program.cs
+[Main Code](https://github.com/ArchboxDev/PixelBot/blob/master/PixelBot/Program.cs)
