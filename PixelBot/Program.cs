@@ -46,6 +46,7 @@ class Program
     private DependencyMap map;
     public async Task Run()
     {
+        DisableConsoleQuickEdit.Go();
         string TokenPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\Tokens.txt";
         Console.WriteLine(TokenPath);
         using (Stream stream = File.Open(TokenPath, FileMode.Open))
@@ -464,7 +465,7 @@ public class Info : ModuleBase
     {
         await Context.Channel.SendMessageAsync("Misc Commands" + MiscText);
     }
-
+    
     [Command("game")]
     public async Task game()
     {
@@ -498,6 +499,8 @@ public class Info : ModuleBase
     [Alias("vg u")]
     public async Task vg(string Region = null, string VGUser = null)
     {
+        
+
         if (Region == null || VGUser == null)
         {
             await Context.Channel.SendMessageAsync("`No region or user > p/vg (Region) (User) | na | eu | sa | ea | sg`");
@@ -505,7 +508,7 @@ public class Info : ModuleBase
         }
         if (Region == "na" || Region == "eu" || Region == "sa" || Region == "ea" || Region == "sg")
         {
-            HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players/?filter[playerName]=" + VGUser);
+            HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerName]=" + VGUser);
             httpWebRequest.Method = WebRequestMethods.Http.Get;
             httpWebRequest.Headers.Add("Authorization", Program.VaingloryKey);
             httpWebRequest.Headers.Add("X-TITLE-ID", "semc-vainglory");
@@ -516,18 +519,17 @@ public class Info : ModuleBase
                 Stream receiveStream = response.GetResponseStream();
                 StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
                 var Req = readStream.ReadToEnd();
-                dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(Req);
-                
-                var embed = new EmbedBuilder()
-                {
-                    Title = $"Vainglory | {VGUser}",
-                    Description = "```md" + Environment.NewLine + $"<Level {stuff.data.attributes.stats.level}> <XP {stuff.data.attributes.stats.xp}> <LifetimeGold {stuff.data.attributes.stats.lifetimeGold}>" + Environment.NewLine + $"<Wins {stuff.data.attributes.stats.wins}> <Played {stuff.data.attributes.stats.played}> <PlayedRank {stuff.data.attributes.stats.played_ranked}>```",
-                    Footer = new EmbedFooterBuilder()
-                    {
-                        Text = $"Created {stuff.data.attributes.createdAt}"
-                    }
-                };
-                await Context.Channel.SendMessageAsync("", false, embed);
+                dynamic JA = Newtonsoft.Json.Linq.JObject.Parse(Req);
+                dynamic JO = Newtonsoft.Json.Linq.JArray.Parse(JA.data);
+                dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(JO);
+                Console.WriteLine(stuff);
+                //dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(JO.ToString());
+                //var embed = new EmbedBuilder()
+                //{
+                    //Title = $"Vainglory | {VGUser}",
+                    //Description = "```md" + Environment.NewLine + $"<Level {stuff.attributes.stats.level}> <XP {stuff.attributes.stats.xp}> <LifetimeGold {stuff.attributes.stats.lifetimeGold}>" + Environment.NewLine + $"<Wins {stuff.attributes.stats.wins}> <Played {stuff.attributes.stats.played}> <PlayedRank {stuff.attributes.stats.played_ranked}>```"
+                //};
+                //await Context.Channel.SendMessageAsync("", false, embed);
             }
             catch
             {
