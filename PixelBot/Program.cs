@@ -26,6 +26,7 @@ using System.Threading;
 using System.Timers;
 using Discord.Addons.InteractiveCommands;
 using Discord.Addons.Preconditions;
+using Discord.Addons.Paginator;
 
 class Program
 {
@@ -47,7 +48,8 @@ class Program
     public async Task Run()
     {
         DisableConsoleQuickEdit.Go();
-        string TokenPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\Tokens.txt";
+        
+    string TokenPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\Tokens.txt";
         Console.WriteLine(TokenPath);
         using (Stream stream = File.Open(TokenPath, FileMode.Open))
         {
@@ -170,13 +172,14 @@ class Program
                 }
             }
         };
-        
         await client.LoginAsync(TokenType.Bot, DiscordToken);
         await client.StartAsync();
         await Task.Delay(-1);
     }
+
     public async Task InstallCommands()
     {
+        client.UsePaginator(map);
         client.MessageReceived += HandleCommand;
         await commands.AddModulesAsync(Assembly.GetEntryAssembly());
     }
@@ -396,88 +399,7 @@ class Program
 }
 public class Info : ModuleBase
 {
-    string MiscText = "```md" + Environment.NewLine + "[ p/bot ]( Bot information such as new features, website, invite link )" + Environment.NewLine + "[ p/guild ]( Get info about the guild such as the owner )" + Environment.NewLine + "[ p/user (User) ]( Get info about a user | Use names or mentions )" + Environment.NewLine + "[ p/roll ]( Roll a dice from 1 to 6 )" + Environment.NewLine + "[ p/flip ]( Flip a coin and land heads or tails )```";
-    string PruneText = "```md" + Environment.NewLine + "[ p/prune all ]( Prune all messages )" + Environment.NewLine + "[ p/prune user (@User) ]( Prune a users messages )" + Environment.NewLine + "[ p/prune bot ]( Prune bot messages )" + Environment.NewLine + "[ p/prune image ]( Prune attachments )" + Environment.NewLine + "[ p/prune embed ]( Prune embeds )" + Environment.NewLine + "[ p/prune link ]( Prune links )" + Environment.NewLine + "[ p/prune commands ]( Prune messages that start with p/ m/ / ! = % )" + Environment.NewLine + "[ p/prune text (Text) ](Find and prune messages that contain the TEXT )```";
-    string GameText = "```md" + Environment.NewLine + "[ p/steam ]( Steam user info and game info )" + Environment.NewLine + "[ p/mc ]( Minecraft user skins and server ping/status )" + Environment.NewLine + "[ p/vg ]( Vainglory game info, user info and matches )" + Environment.NewLine + "[ p/osu ]( Osu! game info and user info )" + Environment.NewLine + "[ p/xbox ]( Xbox live status and user info )```";
-    string TempVoiceText = "```md" + Environment.NewLine + "[ p/temp create ]( Create a temp voice channel )" + Environment.NewLine + "[ p/temp invite (User) ]( Invite a user to your channel )" + Environment.NewLine + "[ p/temp kick (User) ]( Kick a user from your channel )" + Environment.NewLine + "[ p/temp toggle ]( Toggle so anyone can join your channel )```";
     
-    [Command("help")]
-    public async Task help(string Option = "Help")
-    {
-        var BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id) as IGuildUser;
-        if (!BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
-        {
-            await Context.Channel.SendMessageAsync("`This bot required permission | Embed Links | to work`");
-            return;
-        }
-        string HelpText = "```md" + Environment.NewLine + "[ p/misc ]( Guild/User Info | Dice Roll | Coin Flip )" + Environment.NewLine + "[ p/prune ]( Prune Messages | Embeds | Links | Text Match )" + Environment.NewLine + "[ p/game ]( Steam | Osu! | Minecraft )" + Environment.NewLine + "[ p/tw ]( Twitch channel lookup and notifications )" + Environment.NewLine + "[ p/yt ]( Coming Soon )" + Environment.NewLine + "[ p/temp ]( Create A Temp Voice Channel )```";
-        if (Option == "all")
-        {
-            await Context.Channel.SendMessageAsync($"{Context.User.Username} I have sent you you a full list of commands");
-            var allemebed = new EmbedBuilder()
-            {
-                Title = "Commands List"
-            };
-            allemebed.AddField(x =>
-            {
-                x.Name = "Misc"; x.Value = MiscText;
-            });
-            allemebed.AddField(x =>
-            {
-                x.Name = "Prune"; x.Value = PruneText;
-            });
-            allemebed.AddField(x =>
-            {
-                x.Name = "Game"; x.Value = GameText;
-            });
-            allemebed.AddField(x =>
-            {
-                x.Name = "Media"; x.Value = "[ p/tw ]( Twitch Commands )" + Environment.NewLine + "[ p/yt ]( Coming Soon )";
-            });
-            allemebed.AddField(x =>
-            {
-                x.Name = "VoiceTemp"; x.Value = TempVoiceText;
-            });
-            allemebed.Color = new Color(40, 40, 120);
-            var DM = await Context.User.CreateDMChannelAsync();
-            await DM.SendMessageAsync("", false, allemebed);
-        }
-        else
-        {
-            var embed = new EmbedBuilder()
-            {
-                Title = "Help Commands",
-                Description = HelpText,
-                Footer = new EmbedFooterBuilder()
-                {
-                    Text = "To get a full list of commands do | p/help all | Or visit the website http://blaze.ml"
-                },
-                Color = new Color(40, 40, 120)
-            };
-            await Context.Channel.SendMessageAsync("", false, embed);
-        }
-
-
-    }
-
-    [Command("misc")]
-    public async Task misc()
-    {
-        await Context.Channel.SendMessageAsync("Misc Commands" + MiscText);
-    }
-    
-    [Command("game")]
-    public async Task game()
-    {
-        await Context.Channel.SendMessageAsync("Game Commands" + GameText);
-    }
-
-    [Command("temp")]
-    public async Task temp()
-    {
-        await Context.Channel.SendMessageAsync("TempVoice Commands" + TempVoiceText);
-    }
-
     [Command("vainglory")]
     [Alias("vg")]
     public async Task vainglory()
@@ -689,18 +611,7 @@ public class Info : ModuleBase
         await Context.Channel.SendMessageAsync("", false, embed);
     }
 
-    [Command("prune")]
-    [Alias("purge, clean, tidy")]
-    public async Task prune()
-    {
-        var BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!BotUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have access to manage messages`");
-            return;
-        }
-        await Context.Channel.SendMessageAsync("Prune Commands" + PruneText);
-    }
+    
 
     [Command("guild")]
     public async Task guild(string arg = "guild")
@@ -2226,6 +2137,144 @@ public class Info : ModuleBase
         }
     }
 }
+
+public class Help : ModuleBase
+{
+    private readonly PaginationService paginator;
+    public Help(PaginationService PagService)
+    {
+        paginator = PagService;
+    }
+    string MiscText = "[ p/bot ]( Bot information such as new features, website, invite link )" + Environment.NewLine + "[ p/guild ]( Get info about the guild such as the owner )" + Environment.NewLine + "[ p/user (User) ]( Get info about a user | Use names or mentions )" + Environment.NewLine + "[ p/roll ]( Roll a dice from 1 to 6 )" + Environment.NewLine + "[ p/flip ]( Flip a coin and land heads or tails )```";
+    string PruneText = "[ p/prune all ]( Prune all messages )" + Environment.NewLine + "[ p/prune user (@User) ]( Prune a users messages )" + Environment.NewLine + "[ p/prune bot ]( Prune bot messages )" + Environment.NewLine + "[ p/prune image ]( Prune attachments )" + Environment.NewLine + "[ p/prune embed ]( Prune embeds )" + Environment.NewLine + "[ p/prune link ]( Prune links )" + Environment.NewLine + "[ p/prune commands ]( Prune messages that start with p/ m/ / ! = % )" + Environment.NewLine + "[ p/prune text (Text) ](Find and prune messages that contain the TEXT )```";
+    string GameText = "[ p/steam ]( Steam user info and game info )" + Environment.NewLine + "[ p/mc ]( Minecraft user skins and server ping/status )" + Environment.NewLine + "[ p/vg ]( Vainglory game info, user info and matches )" + Environment.NewLine + "[ p/osu ]( Osu! game info and user info )" + Environment.NewLine + "[ p/xbox ]( Xbox live status and user info )```";
+    string TempVoiceText = "[ p/temp create ]( Create a temp voice channel )" + Environment.NewLine + "[ p/temp invite (User) ]( Invite a user to your channel )" + Environment.NewLine + "[ p/temp kick (User) ]( Kick a user from your channel )" + Environment.NewLine + "[ p/temp toggle ]( Toggle so anyone can join your channel )```";
+    string MediaText = "[ p/tw (Channel) ]( Get info about a channel )" + Environment.NewLine + "[ p/tw s (Channel ]( Get 3 channel names )" + Environment.NewLine + "[ p/tw n (Option) (Channel) ]( Get a notification when a streamer goes live )" + Environment.NewLine + "[ p/tw l (Option) ]( Get a list of notification settings )" + Environment.NewLine + "[ p/tw r (Option) (Channel) ]( Remove a channel from notification setting )```";
+
+    [Command("help")]
+    [Alias("commands")]
+    public async Task pag(string Option = "")
+    {
+        var pages = new List<string>
+            {
+                "```md" + Environment.NewLine + "< Info     | Commands 🡺 >" + Environment.NewLine + "This is a bot```",
+                "```md" + Environment.NewLine + "< 🡸 Info |     Misc     | Games 🡺 >" + Environment.NewLine + MiscText,
+                "```md" + Environment.NewLine + "< 🡸 Misc |     Games     | Media 🡺 >" + Environment.NewLine + GameText,
+                "```md" + Environment.NewLine + "< 🡸 Games |     Media     | Prune 🡺 >" + Environment.NewLine + MediaText,
+            "```md" + Environment.NewLine + "< 🡸 Games |     Prune     | Temp Voice 🡺 >" + Environment.NewLine + PruneText,
+                "```md" + Environment.NewLine + "< 🡸 Prune |     Temp Voice >" + Environment.NewLine + TempVoiceText
+        };
+        var message = new PaginatedMessage(pages, "Commands List", new Color(40, 40, 120), Context.User);
+        if (Context.Channel is IPrivateChannel)
+        {
+            await paginator.SendPaginatedMessageAsync(Context.Channel, message);
+        }
+        var BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id) as IGuildUser;
+        if (Option == "all")
+        {
+            await Context.Channel.SendMessageAsync($"{Context.User.Username} I have sent you you a full list of commands");
+            var allemebed = new EmbedBuilder()
+            {
+                Title = "Commands List"
+            };
+            allemebed.AddField(x =>
+            {
+                x.Name = "Misc"; x.Value = "```md" + Environment.NewLine + MiscText;
+            });
+            allemebed.AddField(x =>
+            {
+                x.Name = "Game"; x.Value = "```md" + Environment.NewLine + GameText;
+            });
+            allemebed.AddField(x =>
+            {
+                x.Name = "Media"; x.Value = "```md" + Environment.NewLine + MediaText;
+            });
+            allemebed.AddField(x =>
+            {
+                x.Name = "Prune"; x.Value = "```md" + Environment.NewLine + PruneText;
+            });
+            allemebed.AddField(x =>
+            {
+                x.Name = "VoiceTemp"; x.Value = "```md" + Environment.NewLine + TempVoiceText;
+            });
+            allemebed.Color = new Color(40, 40, 120);
+            var DM = await Context.User.CreateDMChannelAsync();
+            await DM.SendMessageAsync("", false, allemebed);
+            return;
+        }
+        string HelpText = "```md" + Environment.NewLine + "[ p/misc ]( Guild/User Info | Dice Roll | Coin Flip )" + Environment.NewLine + "[ p/prune ]( Prune Messages | Embeds | Links | Text Match )" + Environment.NewLine + "[ p/game ]( Steam | Osu! | Minecraft )" + Environment.NewLine + "[ p/media ]( Twitch Commands )" + Environment.NewLine + "[ p/temp ]( Create A Temp Voice Channel )```";
+        if (!BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
+        {
+            await Context.Channel.SendMessageAsync(HelpText);
+            return;
+        }
+        if (!BotUser.GetPermissions(Context.Channel as ITextChannel).AddReactions || !BotUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+        {
+            string PermReact = "Add Reactions: :x:";
+            string PermManage = "Manage Messages :x:";
+            if (BotUser.GetPermissions(Context.Channel as ITextChannel).AddReactions)
+            {
+                PermReact = "Add Reactions :white_check_mark: ";
+            }
+            if (BotUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+            {
+                PermManage = "Manage Messages :white_check_mark: ";
+            }
+            var embed = new EmbedBuilder()
+            {
+                Title = "Help Commands",
+                Description = HelpText + "For an interactive help menu add these permissions" + Environment.NewLine + $"{PermReact} | {PermManage}",
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = "To get a full list of commands do | p/help all | Or visit the website http://blaze.ml"
+                },
+                Color = new Color(40, 40, 120)
+            };
+            await Context.Channel.SendMessageAsync("", false, embed);
+            return;
+        }
+        await paginator.SendPaginatedMessageAsync(Context.Channel, message);
+    }
+
+    [Command("misc")]
+    public async Task misc()
+    {
+        await Context.Channel.SendMessageAsync("Misc Commands" + MiscText);
+    }
+
+    [Command("game")]
+    [Alias("games")]
+    public async Task game()
+    {
+        await Context.Channel.SendMessageAsync("Game Commands" + GameText);
+    }
+
+    [Command("temp")]
+    public async Task temp()
+    {
+        await Context.Channel.SendMessageAsync("TempVoice Commands" + TempVoiceText);
+    }
+
+    [Command("media")]
+    public async Task media()
+    {
+        await Context.Channel.SendMessageAsync("Media Commands" + MediaText);
+    }
+
+    [Command("prune")]
+    [Alias("purge, clean, tidy")]
+    public async Task prune()
+    {
+        var BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+        if (!BotUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+        {
+            await Context.Channel.SendMessageAsync("`Bot does not have access to manage messages`");
+            return;
+        }
+        await Context.Channel.SendMessageAsync("Prune Commands" + PruneText);
+    }
+}
+
 public class Steam : InteractiveModuleBase
 {
     [Command("steam claim", RunMode = RunMode.Async)]
