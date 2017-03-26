@@ -48,8 +48,8 @@ class Program
     public async Task Run()
     {
         DisableConsoleQuickEdit.Go();
-        
-    string TokenPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\Tokens.txt";
+
+        string TokenPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\Tokens.txt";
         Console.WriteLine(TokenPath);
         using (Stream stream = File.Open(TokenPath, FileMode.Open))
         {
@@ -72,111 +72,126 @@ class Program
         commands = new CommandService();
         map = new DependencyMap();
         await InstallCommands();
+
+        client.Ready += async () =>
+    {
+        await client.SetGameAsync("p/help | blaze.ml");
+        Console.WriteLine("PixelBot > Onling in " + client.Guilds.Count + " Guilds");
+        Console.Title = "PixelBot - Online!";
         if (Environment.UserName != "Brandan")
         {
+            UpdateBotStats();
             System.Timers.Timer timer = new System.Timers.Timer();
             timer.Interval = 60000;
             timer.Elapsed += Timer;
             timer.Start();
         }
-            client.Ready += async () =>
-        {
-            await client.SetGameAsync("p/help | blaze.ml");
-            Console.WriteLine("PixelBot > ONLINE!");
-            Console.Title = "PixelBot";
-        };
+    };
         client.LeftGuild += (g) =>
         {
-            Console.WriteLine($"Left Guild > {g.Name} - {g.Id}");
-            return Task.CompletedTask;
+            if (Environment.UserName != "Brandan")
+            {
+                UpdateBotStats();
+                Console.WriteLine($"Left Guild > {g.Name} - {g.Id}");
+            }
+                return Task.CompletedTask;
         };
         client.JoinedGuild += async (g) =>
         {
-            if (g.Id == 252388688766435328 || g.Id == 282731527161511936)
+            if (Environment.UserName != "Brandan")
             {
-                Console.WriteLine($"Removed {g.Name} - {g.Id} due to blacklist");
-                await g.LeaveAsync();
-                return;
-            }
-            if (Environment.UserName == "Brandan")
-            {
-                return;
-            }
+                UpdateBotStats();
+                if (g.Id == 252388688766435328 || g.Id == 282731527161511936)
+                {
+                    Console.WriteLine($"Removed {g.Name} - {g.Id} due to blacklist");
+                    await g.LeaveAsync();
+                    return;
+                }
                 MySQLConnection myConn;
-            MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
-            myConn.Open();
-            string stm = $"SELECT guild FROM guilds WHERE guild='{g.Id}'";
-            MySQLCommand cmd = new MySQLCommand(stm, myConn);
-            MyReader = cmd.ExecuteReaderEx();
-            if (!MyReader.HasRows)
-            {
-                Console.WriteLine($"New Guild > {g.Name} - {g.Id}");
-                string Command = $"INSERT INTO guilds(guild) VALUES ('{g.Id}')";
-                MySQLCommand cmd2 = new MySQLCommand(Command, myConn);
-                cmd2.ExecuteNonQuery();
-            }
-            myConn.Close();
-            if (g.Id == 252388688766435328 || g.Id == 282731527161511936)
-            {
-                await g.LeaveAsync();
-                return;
+                MySQLDataReader MyReader = null;
+                myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
+                myConn.Open();
+                string stm = $"SELECT guild FROM guilds WHERE guild='{g.Id}'";
+                MySQLCommand cmd = new MySQLCommand(stm, myConn);
+                MyReader = cmd.ExecuteReaderEx();
+                if (!MyReader.HasRows)
+                {
+                    Console.WriteLine($"New Guild > {g.Name} - {g.Id}");
+                    string Command = $"INSERT INTO guilds(guild) VALUES ('{g.Id}')";
+                    MySQLCommand cmd2 = new MySQLCommand(Command, myConn);
+                    cmd2.ExecuteNonQuery();
+                }
+                myConn.Close();
             }
             Console.WriteLine($"Joined Guild {g.Name} - {g.Id}");
         };
         client.GuildAvailable += async (g) =>
         {
-            Console.WriteLine($"Guild Online > {g.Name} - {g.Id}");
-            if (g.Id == 252388688766435328 || g.Id == 282731527161511936)
+            if (Environment.UserName != "Brandan")
             {
-                Console.WriteLine($"Removed {g.Name} - {g.Id} due to blacklist");
-                await g.LeaveAsync();
-                return;
+                if (g.Id == 252388688766435328 || g.Id == 282731527161511936)
+                {
+                    Console.WriteLine($"Removed {g.Name} - {g.Id} due to blacklist");
+                    await g.LeaveAsync();
+                    return;
+                }
+                MySQLConnection myConn;
+                MySQLDataReader MyReader = null;
+                myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
+                myConn.Open();
+                string stm = $"SELECT guild FROM guilds WHERE guild='{g.Id}'";
+                MySQLCommand cmd = new MySQLCommand(stm, myConn);
+                MyReader = cmd.ExecuteReaderEx();
+                myConn.Close();
+                if (!MyReader.HasRows)
+                {
+                    Console.WriteLine($"New Guild > {g.Name} - {g.Id}");
+                    string Command = $"INSERT INTO guilds(guild) VALUES ('{g.Id}')";
+                    MySQLCommand cmd2 = new MySQLCommand(Command, myConn);
+                    cmd2.ExecuteNonQuery();
+                }
             }
-            if (Environment.UserName == "Brandan")
-            {
-                return;
-            }
-            MySQLConnection myConn;
-            MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
-            myConn.Open();
-            string stm = $"SELECT guild FROM guilds WHERE guild='{g.Id}'";
-            MySQLCommand cmd = new MySQLCommand(stm, myConn);
-            MyReader = cmd.ExecuteReaderEx();
-            myConn.Close();
-            if (!MyReader.HasRows)
-            {
-                Console.WriteLine($"New Guild > {g.Name} - {g.Id}");
-                string Command = $"INSERT INTO guilds(guild) VALUES ('{g.Id}')";
-                MySQLCommand cmd2 = new MySQLCommand(Command, myConn);
-                cmd2.ExecuteNonQuery();
-            }
-            Console.WriteLine($"Guild Online > {g.Name} - {g.Id}");
-            
         };
+
         client.UserVoiceStateUpdated += async (u, v, s) =>
         {
-            if (Environment.UserName == "Brandan")
+            if (Environment.UserName != "Brandan")
             {
-                return;
-            }
-            if (s.VoiceChannel == null)
-            {
-                foreach (var Chan in v.VoiceChannel.Guild.VoiceChannels)
+                if (s.VoiceChannel == null)
                 {
-                    if (Chan.Name == $"Temp-{u.Username}")
+                    foreach (var Chan in v.VoiceChannel.Guild.VoiceChannels)
                     {
-                        await Chan.DeleteAsync();
+                        if (Chan.Name == $"Temp-{u.Username}")
+                        {
+                            await Chan.DeleteAsync();
+                        }
                     }
                 }
             }
         };
+
         await client.LoginAsync(TokenType.Bot, DiscordToken);
         await client.StartAsync();
         await Task.Delay(-1);
     }
+    public void UpdateBotStats()
+    {
+        var request = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/277933222015401985/stats");
+        request.ContentType = "application/json";
+        request.Headers.Add("Authorization", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiIxOTA1OTAzNjQ4NzEwMzI4MzQiLCJyYW5kIjoyMjQsImlhdCI6MTQ4MTY3MTAxNX0.6PkpNIYlGKCEXTvZoDfjSUqeGkfSF8G9Ki4WohncJ0c");
+        request.Method = "POST";
+        using (var streamWriter = new StreamWriter(request.GetRequestStream()))
+        {
+            string json = "{\"server_count\":\"" + client.Guilds.Count.ToString() + "\"}";
 
+            streamWriter.Write(json);
+        }
+        var response = (HttpWebResponse)request.GetResponse();
+        using (var streamReader = new StreamReader(response.GetResponseStream()))
+        {
+            var result = streamReader.ReadToEnd();
+        }
+    }
     public async Task InstallCommands()
     {
         client.UsePaginator(map);
@@ -399,7 +414,26 @@ class Program
 }
 public class Info : ModuleBase
 {
-    
+    [Command("json")]
+    public async Task json()
+    {
+        var request = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/277933222015401985/stats");
+        request.ContentType = "application/json";
+        request.Headers.Add("Authorization", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiIxOTA1OTAzNjQ4NzEwMzI4MzQiLCJyYW5kIjoyMjQsImlhdCI6MTQ4MTY3MTAxNX0.6PkpNIYlGKCEXTvZoDfjSUqeGkfSF8G9Ki4WohncJ0c");
+        request.Method = "POST";
+        var Guilds = await Context.Client.GetGuildsAsync();
+        using (var streamWriter = new StreamWriter(request.GetRequestStream()))
+        {
+            string json = "{\"server_count\":\"" + "50" + "\"}";
+
+            streamWriter.Write(json);
+        }
+        var response = (HttpWebResponse)request.GetResponse();
+        using (var streamReader = new StreamReader(response.GetResponseStream()))
+        {
+            var result = streamReader.ReadToEnd();
+        }
+    }
     [Command("vainglory")]
     [Alias("vg")]
     public async Task vainglory()
@@ -611,8 +645,6 @@ public class Info : ModuleBase
         await Context.Channel.SendMessageAsync("", false, embed);
     }
 
-    
-
     [Command("guild")]
     public async Task guild(string arg = "guild")
     {
@@ -811,7 +843,7 @@ public class Info : ModuleBase
         };
         embed.AddField(x =>
         {
-            x.Name = "Info"; x.Value = "Language C#" + Environment.NewLine + "Library .net 1.0" + Environment.NewLine + $"Guilds {GuildCount}" + Environment.NewLine + "My Guild | WJTYdNb" + Environment.NewLine + "[Website](https://blaze.ml)" + Environment.NewLine + "[Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0)" + Environment.NewLine + "[Github](https://github.com/ArchboxDev/PixelBot)"; x.IsInline = true;
+            x.Name = "Info"; x.Value = "Language C#" + Environment.NewLine + "Library .net 1.0" + Environment.NewLine + $"Guilds {GuildCount}" + Environment.NewLine + "[My Guild](http://discord.gg/WJTYdNb)" + Environment.NewLine + "[Website](https://blaze.ml)" + Environment.NewLine + "[Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0)" + Environment.NewLine + "[Github](https://github.com/ArchboxDev/PixelBot)"; x.IsInline = true;
         });
         embed.AddField(x =>
         {
@@ -825,11 +857,6 @@ public class Info : ModuleBase
     public async Task roll()
     {
         var random = new Random((int)DateTime.Now.Ticks); var randomValue = random.Next(1, 7); await Context.Channel.SendMessageAsync($"{Context.User.Username} Rolled a {randomValue}");
-    }
-    [Command("update")]
-    public async Task update()
-    {
-        
     }
 
     [Command("invite")]
@@ -2155,20 +2182,7 @@ public class Help : ModuleBase
     [Alias("commands")]
     public async Task pag(string Option = "")
     {
-        var pages = new List<string>
-            {
-                "```md" + Environment.NewLine + "< Info     | Commands 🡺 >" + Environment.NewLine + "This is a bot```",
-                "```md" + Environment.NewLine + "< 🡸 Info |     Misc     | Games 🡺 >" + Environment.NewLine + MiscText,
-                "```md" + Environment.NewLine + "< 🡸 Misc |     Games     | Media 🡺 >" + Environment.NewLine + GameText,
-                "```md" + Environment.NewLine + "< 🡸 Games |     Media     | Prune 🡺 >" + Environment.NewLine + MediaText,
-            "```md" + Environment.NewLine + "< 🡸 Games |     Prune     | Temp Voice 🡺 >" + Environment.NewLine + PruneText,
-                "```md" + Environment.NewLine + "< 🡸 Prune |     Temp Voice >" + Environment.NewLine + TempVoiceText
-        };
-        var message = new PaginatedMessage(pages, "Commands List", new Color(40, 40, 120), Context.User);
-        if (Context.Channel is IPrivateChannel)
-        {
-            await paginator.SendPaginatedMessageAsync(Context.Channel, message);
-        }
+        
         var BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id) as IGuildUser;
         if (Option == "all")
         {
@@ -2233,6 +2247,17 @@ public class Help : ModuleBase
             await Context.Channel.SendMessageAsync("", false, embed);
             return;
         }
+        var Guilds = await Context.Client.GetGuildsAsync();
+        var pages = new List<string>
+            {
+                "```md" + Environment.NewLine + "< Info     | Commands 🡺 >" + Environment.NewLine + "Language C# | Library .net 1.0" + Environment.NewLine + $"Guilds {Guilds.Count}``` For a full list of commands do **p/help all** or visit the website" + Environment.NewLine + "[Website](https://blaze.ml) | [Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0) | [Github](https://github.com/ArchboxDev/PixelBot) | [My Guild](http://discord.gg/WJTYdNb)",
+                "```md" + Environment.NewLine + "< 🡸 Info |     Misc     | Games 🡺 >" + Environment.NewLine + MiscText,
+                "```md" + Environment.NewLine + "< 🡸 Misc |     Games     | Media 🡺 >" + Environment.NewLine + GameText,
+                "```md" + Environment.NewLine + "< 🡸 Games |     Media     | Prune 🡺 >" + Environment.NewLine + MediaText,
+            "```md" + Environment.NewLine + "< 🡸 Games |     Prune     | Temp Voice 🡺 >" + Environment.NewLine + PruneText,
+                "```md" + Environment.NewLine + "< 🡸 Prune |     Temp Voice >" + Environment.NewLine + TempVoiceText
+        };
+        var message = new PaginatedMessage(pages, "Commands List", new Color(40, 40, 120), Context.User);
         await paginator.SendPaginatedMessageAsync(Context.Channel, message);
     }
 
