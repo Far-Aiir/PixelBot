@@ -27,3 +27,4 @@ For a list of commands visit the website
 If you have a suggestion/issue please use this github or join my guild WJTYdNb
 ## Source?
 [Main Code](https://github.com/ArchboxDev/PixelBot/blob/master/PixelBot/Program.cs)
+Please do not download/rehost/steal my bot it should only be used to look at for people intrested in coding or want to see how the bot works
