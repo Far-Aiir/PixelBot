@@ -2264,26 +2264,26 @@ public class Help : ModuleBase
     [Command("misc")]
     public async Task misc()
     {
-        await Context.Channel.SendMessageAsync("Misc Commands" + MiscText);
+        await Context.Channel.SendMessageAsync("Misc Commands ```md" + Environment.NewLine + MiscText);
     }
 
     [Command("game")]
     [Alias("games")]
     public async Task game()
     {
-        await Context.Channel.SendMessageAsync("Game Commands" + GameText);
+        await Context.Channel.SendMessageAsync("Game Commands ```md" + Environment.NewLine + GameText);
     }
 
     [Command("temp")]
     public async Task temp()
     {
-        await Context.Channel.SendMessageAsync("TempVoice Commands" + TempVoiceText);
+        await Context.Channel.SendMessageAsync("TempVoice Commands ```md" + Environment.NewLine + TempVoiceText);
     }
 
     [Command("media")]
     public async Task media()
     {
-        await Context.Channel.SendMessageAsync("Media Commands" + MediaText);
+        await Context.Channel.SendMessageAsync("Media Commands ```md" + Environment.NewLine + MediaText);
     }
 
     [Command("prune")]
@@ -2296,7 +2296,7 @@ public class Help : ModuleBase
             await Context.Channel.SendMessageAsync("`Bot does not have access to manage messages`");
             return;
         }
-        await Context.Channel.SendMessageAsync("Prune Commands" + PruneText);
+        await Context.Channel.SendMessageAsync("Prune Commands ```md" + Environment.NewLine + PruneText);
     }
 }
 
