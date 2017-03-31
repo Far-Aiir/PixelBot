@@ -27,6 +27,7 @@ using System.Timers;
 using Discord.Addons.InteractiveCommands;
 using Discord.Addons.Preconditions;
 using Discord.Addons.Paginator;
+using OverwatchAPI;
 
 class Program
 {
@@ -35,7 +36,7 @@ class Program
     public static string MysqlHost;
     public static string MysqlUser;
     public static string MysqlPass;
-    public static string TwitchClient;
+    public static string TwitchToken;
     public static string TwitchOauth;
     public static string SteamKey;
     public static string OsuKey;
@@ -59,7 +60,7 @@ class Program
                 MysqlHost = reader.ReadLine();
                 MysqlUser = reader.ReadLine();
                 MysqlPass = reader.ReadLine();
-                TwitchClient = reader.ReadLine();
+                TwitchToken = reader.ReadLine();
                 TwitchOauth = reader.ReadLine();
                 SteamKey = reader.ReadLine();
                 OsuKey = reader.ReadLine();
@@ -307,18 +308,17 @@ class Program
 
     private async void Timer(object sender, ElapsedEventArgs e)
     {
-        var clientt = new TwitchAuthenticatedClient(TwitchClient, TwitchOauth);
-        MySQLConnection myConn;
+        var Client = new TwitchAuthenticatedClient(TwitchToken, TwitchOauth);
+        MySQLConnection DB;
         MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
-        myConn.Open();
+        DB = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
+        DB.Open();
         string RS = $"SELECT type, userid, guild, channel, twitch, live FROM twitch";
-        MySQLCommand cmd = new MySQLCommand(RS, myConn);
+        MySQLCommand cmd = new MySQLCommand(RS, DB);
         MyReader = cmd.ExecuteReaderEx();
-        myConn.Close();
         while (MyReader.Read())
         {
-            if (clientt.IsLive(MyReader.GetString(4)) == true)
+            if (Client.IsLive(MyReader.GetString(4)) == true)
             {
                 if (MyReader.GetString(0) == "channel")
                 {
@@ -328,7 +328,7 @@ class Program
                         {
                             IGuild Guild = client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
                             ITextChannel Channel = await Guild.GetChannelAsync(Convert.ToUInt64(MyReader.GetString(3))) as ITextChannel;
-                            var TwitchChannel = clientt.GetChannel(MyReader.GetString(4));
+                            var TwitchChannel = Client.GetChannel(MyReader.GetString(4));
                             var embed = new EmbedBuilder()
                             {
                                 Title = $"TWITCH - {TwitchChannel.DisplayName} is live playing {TwitchChannel.Game}",
@@ -341,16 +341,15 @@ class Program
                                 ThumbnailUrl = TwitchChannel.Logo
                             };
                             await Channel.SendMessageAsync("", false, embed);
+                            string update = $"UPDATE twitch SET live='yes' WHERE type='channel' AND guild='{MyReader.GetString(2)}' AND channel='{MyReader.GetString(3)}' AND twitch='{MyReader.GetString(4)}'";
+                            MySQLCommand upcmd = new MySQLCommand(update, DB);
+                            upcmd.ExecuteNonQuery();
                         }
                         catch
                         {
-                            Console.WriteLine("Cannot request twitch");
+                            Console.WriteLine($"Twitch Error Channel > G: {MyReader.GetString(2)} U: {MyReader.GetString(1)} T: {MyReader.GetString(4)}");
                         }
-                        myConn.Open();
-                        string update = $"UPDATE twitch SET live='yes' WHERE type='channel' AND guild='{MyReader.GetString(2)}' AND channel='{MyReader.GetString(3)}' AND twitch='{MyReader.GetString(4)}'";
-                        MySQLCommand upcmd = new MySQLCommand(update, myConn);
-                        upcmd.ExecuteNonQuery();
-                        myConn.Close();
+                        
                     }
                 }
                 if (MyReader.GetString(0) == "user")
@@ -361,7 +360,7 @@ class Program
                         {
                             IGuild Guild = client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
                             IUser User = await Guild.GetUserAsync(Convert.ToUInt64(MyReader.GetString(1))) as IUser;
-                            var TwitchChannel = clientt.GetChannel(MyReader.GetString(4));
+                            var TwitchChannel = Client.GetChannel(MyReader.GetString(4));
                             var embed = new EmbedBuilder()
                             {
                                 Title = $"TWITCH - {TwitchChannel.DisplayName} is live playing {TwitchChannel.Game}",
@@ -375,18 +374,15 @@ class Program
                             };
                             var DM = await User.CreateDMChannelAsync();
                             await DM.SendMessageAsync("", false, embed);
+                            string update = $"UPDATE twitch SET live='yes' WHERE type='user' AND userid='{MyReader.GetString(1)}' AND twitch='{MyReader.GetString(4)}'";
+                            MySQLCommand upcmd = new MySQLCommand(update, DB);
+                            upcmd.ExecuteNonQuery();
                         }
                         catch
                         {
-                            Console.WriteLine("Cannot request twitch");
+                            Console.WriteLine($"Twitch Error User > G: {MyReader.GetString(2)} U: {MyReader.GetString(1)} T: {MyReader.GetString(4)}");
                         }
-                        myConn.Open();
-                        string update = $"UPDATE twitch SET live='yes' WHERE type='user' AND userid='{MyReader.GetString(1)}' AND twitch='{MyReader.GetString(4)}'";
-                        MySQLCommand upcmd = new MySQLCommand(update, myConn);
-                        upcmd.ExecuteNonQuery();
-                        myConn.Close();
                     }
-                    
                 }
 
             }
@@ -394,46 +390,23 @@ class Program
             {
                 if (MyReader.GetString(0) == "channel")
                 {
-                    myConn.Open();
                     string update = $"UPDATE twitch SET live='no' WHERE type='channel' AND guild='{MyReader.GetString(2)}' AND channel='{MyReader.GetString(3)}' AND twitch='{MyReader.GetString(4)}'";
-                    MySQLCommand upcmd = new MySQLCommand(update, myConn);
+                    MySQLCommand upcmd = new MySQLCommand(update, DB);
                     upcmd.ExecuteNonQuery();
-                    myConn.Close();
                 }
                 if (MyReader.GetString(0) == "user")
                 {
-                    myConn.Open();
                     string update = $"UPDATE twitch SET live='no' WHERE type='user' AND  userid='{MyReader.GetString(1)}' AND twitch='{MyReader.GetString(4)}'";
-                    MySQLCommand upcmd = new MySQLCommand(update, myConn);
+                    MySQLCommand upcmd = new MySQLCommand(update, DB);
                     upcmd.ExecuteNonQuery();
-                    myConn.Close();
                 }
             }
         }
+        DB.Close();
     }
 }
 public class Info : ModuleBase
 {
-    [Command("json")]
-    public async Task json()
-    {
-        var request = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/277933222015401985/stats");
-        request.ContentType = "application/json";
-        request.Headers.Add("Authorization", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiIxOTA1OTAzNjQ4NzEwMzI4MzQiLCJyYW5kIjoyMjQsImlhdCI6MTQ4MTY3MTAxNX0.6PkpNIYlGKCEXTvZoDfjSUqeGkfSF8G9Ki4WohncJ0c");
-        request.Method = "POST";
-        var Guilds = await Context.Client.GetGuildsAsync();
-        using (var streamWriter = new StreamWriter(request.GetRequestStream()))
-        {
-            string json = "{\"server_count\":\"" + "50" + "\"}";
-
-            streamWriter.Write(json);
-        }
-        var response = (HttpWebResponse)request.GetResponse();
-        using (var streamReader = new StreamReader(response.GetResponseStream()))
-        {
-            var result = streamReader.ReadToEnd();
-        }
-    }
     [Command("vainglory")]
     [Alias("vg")]
     public async Task vainglory()
@@ -569,6 +542,47 @@ public class Info : ModuleBase
         await Context.Channel.SendMessageAsync("", false, embed);
     }
 
+    [Command("ow")]
+    public async Task ow(string User = "")
+    {
+        if (!User.Contains("#") | OverwatchAPIHelpers.IsValidBattletag(User) == false)
+        {
+            await Context.Channel.SendMessageAsync("`Overwatch user/tag not found | Example SirDoombox#2603`");
+            return;
+        }
+        OverwatchPlayer player = new OverwatchPlayer(User);
+        await player.DetectPlatform();
+        await player.DetectRegionPC();
+        await player.UpdateStats();
+        var CasualStats = player.CasualStats.GetHero("AllHeroes");
+        var RankedStats = player.CompetitiveStats.GetHero("AllHeroes");
+        int Achievements = 0;
+        foreach (var A in player.Achievements)
+        {
+            foreach (var B in A)
+            {
+                if (B.IsUnlocked)
+                {
+                    Achievements++;
+                }
+            }
+        }
+        var embed = new EmbedBuilder()
+        {
+            Author = new EmbedAuthorBuilder()
+            {
+                Name = $"{User} | {player.Region} | (Level: {player.PlayerLevel}) | (Rank: {player.CompetitiveRank})",
+                IconUrl = "https://cdn2.iconfinder.com/data/icons/overwatch-players-icons/512/Overwatch-512.png",
+                Url = player.ProfileURL
+            },
+            ThumbnailUrl = player.ProfileURL,
+            Color = new Color(250, 160, 46),
+            Timestamp = player.ProfileLastDownloaded.Date,
+            Description = "```md" + Environment.NewLine + $"<Achievements {Achievements}>" + Environment.NewLine + $"<Casual Games won {CasualStats.GetCategory("Game").GetStat("Games Won").Value} | Time {CasualStats.GetCategory("Game").GetStat("Time Played").Value} Seconds>" + Environment.NewLine + $"<Ranked Games played {RankedStats.GetCategory("Game").GetStat("Games Played").Value} | Time {RankedStats.GetCategory("Game").GetStat("Time Played").Value} Seconds>```More stats coming soon"
+        };
+        await Context.Channel.SendMessageAsync("", false, embed);
+    }
+
     [Command("xbox")]
     public async Task xboxuser(string User)
     {
@@ -590,6 +604,7 @@ public class Info : ModuleBase
         StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
         var Req = readStream.ReadToEnd();
         var UserID = "";
+        Console.WriteLine(Req);
         foreach (var Number in Req.Where(char.IsNumber))
         {
             UserID = UserID + Number;
@@ -856,7 +871,8 @@ public class Info : ModuleBase
     [Alias("dice")]
     public async Task roll()
     {
-        var random = new Random((int)DateTime.Now.Ticks); var randomValue = random.Next(1, 7); await Context.Channel.SendMessageAsync($"{Context.User.Username} Rolled a {randomValue}");
+        var random = new Random((int)DateTime.Now.Ticks); var randomValue = random.Next(1, 7);
+        await Context.Channel.SendMessageAsync($"{Context.User.Username} Rolled a {randomValue}");
     }
 
     [Command("invite")]
@@ -1436,19 +1452,24 @@ public class Info : ModuleBase
     public async Task tempcreate()
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!Bot.GuildPermissions.Connect)
+        if (!Bot.GuildPermissions.Connect || !Bot.GuildPermissions.ManageChannels || !Bot.GuildPermissions.ManageRoles)
         {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission voice connect`");
-            return;
-        }
-        if (!Bot.GuildPermissions.ManageChannels)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage channels`");
-            return;
-        }
-        if (!Bot.GuildPermissions.ManageRoles)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage roles`");
+            string Connect = "Voice Connect :x: :white_check_mark: ";
+            string Manage = "Manage Channels :x:";
+            string Roles = "Manage Roles :x:";
+            if (Bot.GuildPermissions.Connect)
+            {
+                Connect = "Voice Connect :white_check_mark:";
+            }
+            if (Bot.GuildPermissions.ManageChannels)
+            {
+                Connect = "Manage Channels :white_check_mark:";
+            }
+            if (Bot.GuildPermissions.ManageRoles)
+            {
+                Connect = "Manage Roles :white_check_mark:";
+            }
+            await Context.Channel.SendMessageAsync("Bot is missing permissions" + Environment.NewLine + Connect + Environment.NewLine + Manage + Environment.NewLine + Roles);
             return;
         }
         IGuildUser User = await Context.Guild.GetUserAsync(Context.User.Id);
@@ -1459,6 +1480,7 @@ public class Info : ModuleBase
         }
         var DenyConnect = new OverwritePermissions(0, 36700160);
         var BotPerm = new OverwritePermissions(269484048, 0);
+        var AllowConnect = new OverwritePermissions(36700160, 0);
         IVoiceChannel MyChan = null;
         foreach (var Chan in await Context.Guild.GetVoiceChannelsAsync())
         {
@@ -1472,6 +1494,7 @@ public class Info : ModuleBase
             IVoiceChannel Chan = await Context.Guild.CreateVoiceChannelAsync($"Temp-{Context.User.Username}");
             await Chan.AddPermissionOverwriteAsync(Bot, BotPerm);
             await Chan.AddPermissionOverwriteAsync(Context.Guild.EveryoneRole, DenyConnect);
+            await Chan.AddPermissionOverwriteAsync(Context.User, AllowConnect);
             await Context.Channel.SendMessageAsync("You have created a temp voice channel | It will be deleted when you disconnect from the voice service (Switching to other voice channels is fine)");
         }
         else
@@ -1484,14 +1507,24 @@ public class Info : ModuleBase
     public async Task tempinvite(IUser User = null)
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!Bot.GuildPermissions.ManageChannels)
+        if (!Bot.GuildPermissions.Connect || !Bot.GuildPermissions.ManageChannels || !Bot.GuildPermissions.ManageRoles)
         {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage channels`");
-            return;
-        }
-        if (!Bot.GuildPermissions.ManageRoles)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage roles`");
+            string Connect = "Voice Connect :x: :white_check_mark: ";
+            string Manage = "Manage Channels :x:";
+            string Roles = "Manage Roles :x:";
+            if (Bot.GuildPermissions.Connect)
+            {
+                Connect = "Voice Connect :white_check_mark:";
+            }
+            if (Bot.GuildPermissions.ManageChannels)
+            {
+                Connect = "Manage Channels :white_check_mark:";
+            }
+            if (Bot.GuildPermissions.ManageRoles)
+            {
+                Connect = "Manage Roles :white_check_mark:";
+            }
+            await Context.Channel.SendMessageAsync("Bot is missing permissions" + Environment.NewLine + Connect + Environment.NewLine + Manage + Environment.NewLine + Roles);
             return;
         }
         IGuildUser GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
@@ -1524,14 +1557,24 @@ public class Info : ModuleBase
     public async Task tempkick(IUser User = null)
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!Bot.GuildPermissions.ManageChannels)
+        if (!Bot.GuildPermissions.Connect || !Bot.GuildPermissions.ManageChannels || !Bot.GuildPermissions.ManageRoles)
         {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage channels`");
-            return;
-        }
-        if (!Bot.GuildPermissions.ManageRoles)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage roles`");
+            string Connect = "Voice Connect :x: :white_check_mark: ";
+            string Manage = "Manage Channels :x:";
+            string Roles = "Manage Roles :x:";
+            if (Bot.GuildPermissions.Connect)
+            {
+                Connect = "Voice Connect :white_check_mark:";
+            }
+            if (Bot.GuildPermissions.ManageChannels)
+            {
+                Connect = "Manage Channels :white_check_mark:";
+            }
+            if (Bot.GuildPermissions.ManageRoles)
+            {
+                Connect = "Manage Roles :white_check_mark:";
+            }
+            await Context.Channel.SendMessageAsync("Bot is missing permissions" + Environment.NewLine + Connect + Environment.NewLine + Manage + Environment.NewLine + Roles);
             return;
         }
         IGuildUser GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
@@ -1563,14 +1606,24 @@ public class Info : ModuleBase
     public async Task temptoggle()
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!Bot.GuildPermissions.ManageChannels)
+        if (!Bot.GuildPermissions.Connect || !Bot.GuildPermissions.ManageChannels || !Bot.GuildPermissions.ManageRoles)
         {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage channels`");
-            return;
-        }
-        if (!Bot.GuildPermissions.ManageRoles)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage roles`");
+            string Connect = "Voice Connect :x: :white_check_mark: ";
+            string Manage = "Manage Channels :x:";
+            string Roles = "Manage Roles :x:";
+            if (Bot.GuildPermissions.Connect)
+            {
+                Connect = "Voice Connect :white_check_mark:";
+            }
+            if (Bot.GuildPermissions.ManageChannels)
+            {
+                Connect = "Manage Channels :white_check_mark:";
+            }
+            if (Bot.GuildPermissions.ManageRoles)
+            {
+                Connect = "Manage Roles :white_check_mark:";
+            }
+            await Context.Channel.SendMessageAsync("Bot is missing permissions" + Environment.NewLine + Connect + Environment.NewLine + Manage + Environment.NewLine + Roles);
             return;
         }
         IGuildUser GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
@@ -1857,7 +1910,7 @@ public class Info : ModuleBase
             await Context.Channel.SendMessageAsync("`Enter a channel name to search | p/tw s (User)`");
             return;
         }
-        var client = new TwitchAuthenticatedClient(Program.TwitchClient, Program.TwitchOauth);
+        var client = new TwitchAuthenticatedClient(Program.TwitchToken, Program.TwitchOauth);
         var Usearch = client.SearchChannels(Search).List;
         var embed = new EmbedBuilder()
         {
@@ -1889,7 +1942,7 @@ public class Info : ModuleBase
             await Context.Channel.SendMessageAsync("", false, infoembed);
             return;
         }
-        var client = new TwitchAuthenticatedClient(Program.TwitchClient, Program.TwitchOauth);
+        var client = new TwitchAuthenticatedClient(Program.TwitchToken, Program.TwitchOauth);
         var t = client.GetChannel(Channel);
         if (t.CreatedAt.Year == 0001)
         {
@@ -1938,7 +1991,7 @@ public class Info : ModuleBase
             await Context.Channel.SendMessageAsync("`Enter a channel name | p/tw notify me (Channel) - Sends a message in DMS | p/tw notify here (Channel) - Sends a message in this channel (Server Owner Only!)`");
             return;
         }
-        var client = new TwitchAuthenticatedClient(Program.TwitchClient, Program.TwitchOauth);
+        var client = new TwitchAuthenticatedClient(Program.TwitchToken, Program.TwitchOauth);
         var t = client.GetChannel(Channel);
         if (t.CreatedAt.Year == 0001)
         {
@@ -2163,6 +2216,15 @@ public class Info : ModuleBase
             await Context.Channel.SendMessageAsync($"You have remove {Channel} notifications from this channel");
         }
     }
+
+    [Command("math")]
+    [Alias("calc")]
+    public async Task math([Remainder] string Math)
+    {
+        var interpreter = new DynamicExpresso.Interpreter();
+        var result = interpreter.Eval(Math);
+        await Context.Channel.SendMessageAsync(result.ToString());
+    }
 }
 
 public class Help : ModuleBase
@@ -2172,9 +2234,9 @@ public class Help : ModuleBase
     {
         paginator = PagService;
     }
-    string MiscText = "[ p/bot ]( Bot information such as new features, website, invite link )" + Environment.NewLine + "[ p/guild ]( Get info about the guild such as the owner )" + Environment.NewLine + "[ p/user (User) ]( Get info about a user | Use names or mentions )" + Environment.NewLine + "[ p/roll ]( Roll a dice from 1 to 6 )" + Environment.NewLine + "[ p/flip ]( Flip a coin and land heads or tails )```";
+    string MiscText = "[ p/bot ]( Bot information such as new features, website, invite link )" + Environment.NewLine + "[ p/guild ]( Get info about the guild such as the owner )" + Environment.NewLine + "[ p/user (User) ]( Get info about a user | Use names or mentions )" + Environment.NewLine + "[ p/roll ]( Roll a dice from 1 to 6 )" + Environment.NewLine + "[ p/flip ]( Flip a coin and land heads or tails )" + Environment.NewLine + "[ p/math (Math) ]( Solve some math )```";
     string PruneText = "[ p/prune all ]( Prune all messages )" + Environment.NewLine + "[ p/prune user (@User) ]( Prune a users messages )" + Environment.NewLine + "[ p/prune bot ]( Prune bot messages )" + Environment.NewLine + "[ p/prune image ]( Prune attachments )" + Environment.NewLine + "[ p/prune embed ]( Prune embeds )" + Environment.NewLine + "[ p/prune link ]( Prune links )" + Environment.NewLine + "[ p/prune commands ]( Prune messages that start with p/ m/ / ! = % )" + Environment.NewLine + "[ p/prune text (Text) ](Find and prune messages that contain the TEXT )```";
-    string GameText = "[ p/steam ]( Steam user info and game info )" + Environment.NewLine + "[ p/mc ]( Minecraft user skins and server ping/status )" + Environment.NewLine + "[ p/vg ]( Vainglory game info, user info and matches )" + Environment.NewLine + "[ p/osu ]( Osu! game info and user info )" + Environment.NewLine + "[ p/xbox ]( Xbox live status and user info )```";
+    string GameText = "[ p/steam ]( Steam user info and game info )" + Environment.NewLine + "[ p/ow (User#Tag) ]( Overwatch stats )" + Environment.NewLine + "[ p/mc ]( Minecraft user skins and server ping/status )" + Environment.NewLine + "[ p/vg ]( Vainglory game info, user info and matches )" + Environment.NewLine + "[ p/osu ]( Osu! game info and user info )" + Environment.NewLine + "[ p/xbox ]( Xbox live status and user info )```";
     string TempVoiceText = "[ p/temp create ]( Create a temp voice channel )" + Environment.NewLine + "[ p/temp invite (User) ]( Invite a user to your channel )" + Environment.NewLine + "[ p/temp kick (User) ]( Kick a user from your channel )" + Environment.NewLine + "[ p/temp toggle ]( Toggle so anyone can join your channel )```";
     string MediaText = "[ p/tw (Channel) ]( Get info about a channel )" + Environment.NewLine + "[ p/tw s (Channel ]( Get 3 channel names )" + Environment.NewLine + "[ p/tw n (Option) (Channel) ]( Get a notification when a streamer goes live )" + Environment.NewLine + "[ p/tw l (Option) ]( Get a list of notification settings )" + Environment.NewLine + "[ p/tw r (Option) (Channel) ]( Remove a channel from notification setting )```";
 
@@ -2182,7 +2244,6 @@ public class Help : ModuleBase
     [Alias("commands")]
     public async Task pag(string Option = "")
     {
-        
         var BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id) as IGuildUser;
         if (Option == "all")
         {
@@ -2207,11 +2268,7 @@ public class Help : ModuleBase
             {
                 x.Name = "Prune"; x.Value = "```md" + Environment.NewLine + PruneText;
             });
-            allemebed.AddField(x =>
-            {
-                x.Name = "VoiceTemp"; x.Value = "```md" + Environment.NewLine + TempVoiceText;
-            });
-            allemebed.Color = new Color(40, 40, 120);
+            allemebed.Color = new Color(0, 191, 255);
             var DM = await Context.User.CreateDMChannelAsync();
             await DM.SendMessageAsync("", false, allemebed);
             return;
@@ -2242,7 +2299,7 @@ public class Help : ModuleBase
                 {
                     Text = "To get a full list of commands do | p/help all | Or visit the website http://blaze.ml"
                 },
-                Color = new Color(40, 40, 120)
+                Color = new Color(0, 191, 255)
             };
             await Context.Channel.SendMessageAsync("", false, embed);
             return;
@@ -2250,14 +2307,13 @@ public class Help : ModuleBase
         var Guilds = await Context.Client.GetGuildsAsync();
         var pages = new List<string>
             {
-                "```md" + Environment.NewLine + "< Info     | Commands 🡺 >" + Environment.NewLine + "Language C# | Library .net 1.0" + Environment.NewLine + $"Guilds {Guilds.Count}``` For a full list of commands do **p/help all** or visit the website" + Environment.NewLine + "[Website](https://blaze.ml) | [Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0) | [Github](https://github.com/ArchboxDev/PixelBot) | [My Guild](http://discord.gg/WJTYdNb)",
-                "```md" + Environment.NewLine + "< 🡸 Info |     Misc     | Games 🡺 >" + Environment.NewLine + MiscText,
-                "```md" + Environment.NewLine + "< 🡸 Misc |     Games     | Media 🡺 >" + Environment.NewLine + GameText,
-                "```md" + Environment.NewLine + "< 🡸 Games |     Media     | Prune 🡺 >" + Environment.NewLine + MediaText,
-            "```md" + Environment.NewLine + "< 🡸 Games |     Prune     | Temp Voice 🡺 >" + Environment.NewLine + PruneText,
-                "```md" + Environment.NewLine + "< 🡸 Prune |     Temp Voice >" + Environment.NewLine + TempVoiceText
+                "```md" + Environment.NewLine + "< Info     | Commands ► >" + Environment.NewLine + "Language C# | Library .net 1.0" + Environment.NewLine + $"Guilds {Guilds.Count}``` For a full list of commands do **p/help all** or visit the website" + Environment.NewLine + "[Website](https://blaze.ml) | [Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0) | [Github](https://github.com/ArchboxDev/PixelBot) | [My Guild](http://discord.gg/WJTYdNb)",
+                "```md" + Environment.NewLine + "< ◄ Info |     Misc     | Games ► >" + Environment.NewLine + MiscText,
+                "```md" + Environment.NewLine + "< ◄ Misc |     Games     | Media ► >" + Environment.NewLine + GameText,
+                "```md" + Environment.NewLine + "< ◄ Games |     Media     | Prune ► >" + Environment.NewLine + MediaText,
+            "```md" + Environment.NewLine + "<  Games |     Prune >" + Environment.NewLine + PruneText
         };
-        var message = new PaginatedMessage(pages, "Commands List", new Color(40, 40, 120), Context.User);
+        var message = new PaginatedMessage(pages, "Commands List", new Color(0, 191, 255), Context.User);
         await paginator.SendPaginatedMessageAsync(Context.Channel, message);
     }
 
