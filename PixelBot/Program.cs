@@ -10,19 +10,13 @@ using System.Reflection;
 using MySQLDriverCS;
 using System.IO;
 using System.Net.Sockets;
-using System.Net.Http;
-using osu.Objects;
 using System.Net;
 using Google.Apis.YouTube.v3;
 using Google.Apis.Services;
-using osu;
 using Newtonsoft.Json;
 using SteamStoreQuery;
 using PortableSteam;
 using TwitchCSharp.Clients;
-using NReco.ImageGenerator;
-using MalApi;
-using System.Threading;
 using System.Timers;
 using Discord.Addons.InteractiveCommands;
 using Discord.Addons.Preconditions;
@@ -31,25 +25,9 @@ using OverwatchAPI;
 
 class Program
 {
-    static void Main(string[] args) => new Program().Run().GetAwaiter().GetResult();
-    public static string DiscordToken;
-    public static string MysqlHost;
-    public static string MysqlUser;
-    public static string MysqlPass;
-    public static string TwitchToken;
-    public static string TwitchOauth;
-    public static string SteamKey;
-    public static string OsuKey;
-    public static string XboxKey;
-    public static string VaingloryKey;
-    public static string YoutubeKey;
-    private DiscordSocketClient client;
-    private CommandService commands;
-    private DependencyMap map;
-    public async Task Run()
+    static void Main()
     {
         DisableConsoleQuickEdit.Go();
-
         string TokenPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\Tokens.txt";
         Console.WriteLine(TokenPath);
         using (Stream stream = File.Open(TokenPath, FileMode.Open))
@@ -67,38 +45,72 @@ class Program
                 XboxKey = reader.ReadLine();
                 VaingloryKey = reader.ReadLine();
                 YoutubeKey = reader.ReadLine();
+                DbotsAPI = reader.ReadLine();
             }
         }
+        new Program().Run().GetAwaiter().GetResult();
+    }
+    public static string DiscordToken;
+    public static string MysqlHost;
+    public static string MysqlUser;
+    public static string MysqlPass;
+    public static string TwitchToken;
+    public static string TwitchOauth;
+    public static string SteamKey;
+    public static string OsuKey;
+    public static string XboxKey;
+    public static string VaingloryKey;
+    public static string YoutubeKey;
+    public static string DbotsAPI;
+    private DiscordSocketClient client;
+    private CommandService commands;
+    private DependencyMap map;
+    public async Task Run()
+    {
         client = new DiscordSocketClient();
         commands = new CommandService();
         map = new DependencyMap();
         await InstallCommands();
 
         client.Ready += async () =>
-    {
-        await client.SetGameAsync("p/help | blaze.ml");
-        Console.WriteLine("PixelBot > Onling in " + client.Guilds.Count + " Guilds");
-        Console.Title = "PixelBot - Online!";
-        if (Environment.UserName != "Brandan")
         {
-            UpdateBotStats();
-            System.Timers.Timer timer = new System.Timers.Timer();
-            timer.Interval = 60000;
-            timer.Elapsed += Timer;
-            timer.Start();
-        }
-    };
-        client.LeftGuild += (g) =>
-        {
+            if (true)
+            {
+                await client.SetGameAsync("Bot Maintenance");
+                return;
+            }
+            await client.SetGameAsync("p/help | blaze.ml");
+            Console.WriteLine("PixelBot > Onling in " + client.Guilds.Count + " Guilds");
+            Console.Title = "PixelBot - Online!";
             if (Environment.UserName != "Brandan")
             {
                 UpdateBotStats();
-                Console.WriteLine($"Left Guild > {g.Name} - {g.Id}");
+                System.Timers.Timer timer = new System.Timers.Timer();
+                timer.Interval = 60000;
+                timer.Elapsed += Timer;
+                timer.Start();
             }
-                return Task.CompletedTask;
+        };
+        
+        client.LeftGuild += (g) =>
+        {
+            if (false)
+            {
+                if (Environment.UserName != "Brandan")
+                {
+                    UpdateBotStats();
+                    Console.WriteLine($"Left Guild > {g.Name} - {g.Id}");
+                }
+            }
+            return Task.CompletedTask;
         };
         client.JoinedGuild += async (g) =>
         {
+            if (true)
+            {
+                await g.DefaultChannel.SendMessageAsync("Bot is under Maintenance please wait");
+                return;
+            }
             if (Environment.UserName != "Brandan")
             {
                 UpdateBotStats();
@@ -128,6 +140,10 @@ class Program
         };
         client.GuildAvailable += async (g) =>
         {
+            if (true)
+            {
+                return;
+            }
             if (Environment.UserName != "Brandan")
             {
                 if (g.Id == 252388688766435328 || g.Id == 282731527161511936)
@@ -139,23 +155,28 @@ class Program
                 MySQLConnection myConn;
                 MySQLDataReader MyReader = null;
                 myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
+
                 myConn.Open();
-                string stm = $"SELECT guild FROM guilds WHERE guild='{g.Id}'";
+                string stm = $"SELECT guild FROM guilds WHERE guild='{g.Id.ToString()}'";
                 MySQLCommand cmd = new MySQLCommand(stm, myConn);
                 MyReader = cmd.ExecuteReaderEx();
-                myConn.Close();
                 if (!MyReader.HasRows)
                 {
-                    Console.WriteLine($"New Guild > {g.Name} - {g.Id}");
+                Console.WriteLine($"New Guild > {g.Name} - {g.Id}");
                     string Command = $"INSERT INTO guilds(guild) VALUES ('{g.Id}')";
                     MySQLCommand cmd2 = new MySQLCommand(Command, myConn);
                     cmd2.ExecuteNonQuery();
                 }
+                myConn.Close();
             }
         };
 
         client.UserVoiceStateUpdated += async (u, v, s) =>
         {
+            if (true)
+            {
+                return;
+            }
             if (Environment.UserName != "Brandan")
             {
                 if (s.VoiceChannel == null)
@@ -170,7 +191,6 @@ class Program
                 }
             }
         };
-
         await client.LoginAsync(TokenType.Bot, DiscordToken);
         await client.StartAsync();
         await Task.Delay(-1);
@@ -179,7 +199,7 @@ class Program
     {
         var request = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/277933222015401985/stats");
         request.ContentType = "application/json";
-        request.Headers.Add("Authorization", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiIxOTA1OTAzNjQ4NzEwMzI4MzQiLCJyYW5kIjoyMjQsImlhdCI6MTQ4MTY3MTAxNX0.6PkpNIYlGKCEXTvZoDfjSUqeGkfSF8G9Ki4WohncJ0c");
+        request.Headers.Add("Authorization", DbotsAPI);
         request.Method = "POST";
         using (var streamWriter = new StreamWriter(request.GetRequestStream()))
         {
@@ -212,6 +232,11 @@ class Program
         if (Environment.UserName == "Brandan")
         {
             if (!(message.HasStringPrefix("tp/", ref argPos))) return;
+            if (true)
+            {
+                await message.Channel.SendMessageAsync("Bot is under Maintenance please wait");
+                return;
+            }
             var context = new CommandContext(client, message);
             var result = await commands.ExecuteAsync(context, argPos, map);
             if (!result.IsSuccess)
@@ -228,6 +253,11 @@ class Program
         else
         {
             if (!(message.HasStringPrefix("p/", ref argPos) || message.HasMentionPrefix(client.CurrentUser, ref argPos))) return;
+            if (true)
+            {
+                await message.Channel.SendMessageAsync("Bot is under Maintenance please wait");
+                return;
+            }
             var context = new CommandContext(client, message);
             var result = await commands.ExecuteAsync(context, argPos, map);
             if (!result.IsSuccess)
@@ -349,7 +379,7 @@ class Program
                         {
                             Console.WriteLine($"Twitch Error Channel > G: {MyReader.GetString(2)} U: {MyReader.GetString(1)} T: {MyReader.GetString(4)}");
                         }
-                        
+
                     }
                 }
                 if (MyReader.GetString(0) == "user")
@@ -582,7 +612,8 @@ public class Info : ModuleBase
         };
         await Context.Channel.SendMessageAsync("", false, embed);
     }
-
+    
+    
     [Command("xbox")]
     public async Task xboxuser(string User)
     {
@@ -2566,4 +2597,7 @@ public class MineStat
 
     #endregion
 }
+
+
+
 
