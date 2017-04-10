@@ -62,6 +62,7 @@ class Program
     public static string VaingloryKey;
     public static string YoutubeKey;
     public static string DbotsAPI;
+    public static bool FirstStart = false;
     private DiscordSocketClient client;
     private CommandService commands;
     private DependencyMap map;
@@ -71,55 +72,46 @@ class Program
         commands = new CommandService();
         map = new DependencyMap();
         await InstallCommands();
-
         client.Ready += async () =>
         {
-            if (true)
-            {
-                await client.SetGameAsync("Bot Maintenance");
-                return;
-            }
-            await client.SetGameAsync("p/help | blaze.ml");
             Console.WriteLine("PixelBot > Onling in " + client.Guilds.Count + " Guilds");
             Console.Title = "PixelBot - Online!";
             if (Environment.UserName != "Brandan")
             {
-                UpdateBotStats();
-                System.Timers.Timer timer = new System.Timers.Timer();
-                timer.Interval = 60000;
-                timer.Elapsed += Timer;
-                timer.Start();
-            }
-        };
-        
-        client.LeftGuild += (g) =>
-        {
-            if (false)
-            {
-                if (Environment.UserName != "Brandan")
+                if (FirstStart == false)
                 {
+                    FirstStart = true;
+                    await client.SetGameAsync($"p/help | https://blaze.ml | {client.Guilds.Count} Guilds");
                     UpdateBotStats();
-                    Console.WriteLine($"Left Guild > {g.Name} - {g.Id}");
+                    Timer timer = new System.Timers.Timer();
+                    timer.Interval = 60000;
+                    timer.Elapsed += Timer;
+                    timer.Start();
                 }
             }
-            return Task.CompletedTask;
+        };
+        client.LeftGuild += async (g) =>
+        {
+            if (Environment.UserName != "Brandan")
+            {
+                await client.SetGameAsync($"p/help | https://blaze.ml | {client.Guilds.Count} Guilds");
+                UpdateBotStats();
+                Console.WriteLine($"Left Guild > {g.Name} - {g.Id}");
+            }
         };
         client.JoinedGuild += async (g) =>
         {
-            if (true)
-            {
-                await g.DefaultChannel.SendMessageAsync("Bot is under Maintenance please wait");
-                return;
-            }
             if (Environment.UserName != "Brandan")
             {
-                UpdateBotStats();
                 if (g.Id == 252388688766435328 || g.Id == 282731527161511936)
                 {
                     Console.WriteLine($"Removed {g.Name} - {g.Id} due to blacklist");
                     await g.LeaveAsync();
                     return;
                 }
+                await client.SetGameAsync($"p/help | https://blaze.ml | {client.Guilds.Count} Guilds");
+                UpdateBotStats();
+                
                 MySQLConnection myConn;
                 MySQLDataReader MyReader = null;
                 myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
@@ -140,10 +132,6 @@ class Program
         };
         client.GuildAvailable += async (g) =>
         {
-            if (true)
-            {
-                return;
-            }
             if (Environment.UserName != "Brandan")
             {
                 if (g.Id == 252388688766435328 || g.Id == 282731527161511936)
@@ -155,7 +143,6 @@ class Program
                 MySQLConnection myConn;
                 MySQLDataReader MyReader = null;
                 myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
-
                 myConn.Open();
                 string stm = $"SELECT guild FROM guilds WHERE guild='{g.Id.ToString()}'";
                 MySQLCommand cmd = new MySQLCommand(stm, myConn);
@@ -168,27 +155,6 @@ class Program
                     cmd2.ExecuteNonQuery();
                 }
                 myConn.Close();
-            }
-        };
-
-        client.UserVoiceStateUpdated += async (u, v, s) =>
-        {
-            if (true)
-            {
-                return;
-            }
-            if (Environment.UserName != "Brandan")
-            {
-                if (s.VoiceChannel == null)
-                {
-                    foreach (var Chan in v.VoiceChannel.Guild.VoiceChannels)
-                    {
-                        if (Chan.Name == $"Temp-{u.Username}")
-                        {
-                            await Chan.DeleteAsync();
-                        }
-                    }
-                }
             }
         };
         await client.LoginAsync(TokenType.Bot, DiscordToken);
@@ -232,11 +198,7 @@ class Program
         if (Environment.UserName == "Brandan")
         {
             if (!(message.HasStringPrefix("tp/", ref argPos))) return;
-            if (true)
-            {
-                await message.Channel.SendMessageAsync("Bot is under Maintenance please wait");
-                return;
-            }
+            
             var context = new CommandContext(client, message);
             var result = await commands.ExecuteAsync(context, argPos, map);
             if (!result.IsSuccess)
@@ -245,7 +207,7 @@ class Program
                 {
                     if (result.ErrorReason == "This input does not match any overload.")
                     {
-                        await context.Channel.SendMessageAsync("You can only use this command 2 times every half a minute");
+                        //await context.Channel.SendMessageAsync("You can only use this command 2 times every half a minute");
                     }
                 }
             }
@@ -253,11 +215,7 @@ class Program
         else
         {
             if (!(message.HasStringPrefix("p/", ref argPos) || message.HasMentionPrefix(client.CurrentUser, ref argPos))) return;
-            if (true)
-            {
-                await message.Channel.SendMessageAsync("Bot is under Maintenance please wait");
-                return;
-            }
+            
             var context = new CommandContext(client, message);
             var result = await commands.ExecuteAsync(context, argPos, map);
             if (!result.IsSuccess)
@@ -266,13 +224,13 @@ class Program
                 {
                     if (result.ErrorReason == "This input does not match any overload.")
                     {
-                        await context.Channel.SendMessageAsync("You can only use this command 2 times every half a minute");
+                        //await context.Channel.SendMessageAsync("You can only use this command 2 times every half a minute");
                     }
                 }
             }
         }
     }
-    public async Task YTNOTIFY()
+    public void YTNOTIFY()
     {
         MySQLConnection myConn;
         MySQLDataReader MyReader = null;
@@ -335,7 +293,6 @@ class Program
             }
         });
     }
-
     private async void Timer(object sender, ElapsedEventArgs e)
     {
         var Client = new TwitchAuthenticatedClient(TwitchToken, TwitchOauth);
@@ -354,6 +311,9 @@ class Program
                 {
                     if (MyReader.GetString(5) == "no")
                     {
+                        string update = $"UPDATE twitch SET live='yes' WHERE type='channel' AND guild='{MyReader.GetString(2)}' AND channel='{MyReader.GetString(3)}' AND twitch='{MyReader.GetString(4)}'";
+                        MySQLCommand upcmd = new MySQLCommand(update, DB);
+                        upcmd.ExecuteNonQuery();
                         try
                         {
                             IGuild Guild = client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
@@ -371,9 +331,7 @@ class Program
                                 ThumbnailUrl = TwitchChannel.Logo
                             };
                             await Channel.SendMessageAsync("", false, embed);
-                            string update = $"UPDATE twitch SET live='yes' WHERE type='channel' AND guild='{MyReader.GetString(2)}' AND channel='{MyReader.GetString(3)}' AND twitch='{MyReader.GetString(4)}'";
-                            MySQLCommand upcmd = new MySQLCommand(update, DB);
-                            upcmd.ExecuteNonQuery();
+                            
                         }
                         catch
                         {
@@ -386,6 +344,9 @@ class Program
                 {
                     if (MyReader.GetString(5) == "no")
                     {
+                        string update = $"UPDATE twitch SET live='yes' WHERE type='user' AND userid='{MyReader.GetString(1)}' AND twitch='{MyReader.GetString(4)}'";
+                        MySQLCommand upcmd = new MySQLCommand(update, DB);
+                        upcmd.ExecuteNonQuery();
                         try
                         {
                             IGuild Guild = client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
@@ -404,9 +365,7 @@ class Program
                             };
                             var DM = await User.CreateDMChannelAsync();
                             await DM.SendMessageAsync("", false, embed);
-                            string update = $"UPDATE twitch SET live='yes' WHERE type='user' AND userid='{MyReader.GetString(1)}' AND twitch='{MyReader.GetString(4)}'";
-                            MySQLCommand upcmd = new MySQLCommand(update, DB);
-                            upcmd.ExecuteNonQuery();
+                            
                         }
                         catch
                         {
@@ -612,8 +571,7 @@ public class Info : ModuleBase
         };
         await Context.Channel.SendMessageAsync("", false, embed);
     }
-    
-    
+
     [Command("xbox")]
     public async Task xboxuser(string User)
     {
@@ -1286,6 +1244,7 @@ public class Info : ModuleBase
     {
         await Context.Channel.SendMessageAsync("`Coming Soon`");
     }
+
     [Command("yt user")]
     public async Task ytuser([Remainder] string User = "null")
     {
@@ -1310,6 +1269,7 @@ public class Info : ModuleBase
         return;
         await Context.Channel.SendMessageAsync("**/yt notify add (Channel ID)** - Add a  youtube streamer to your notification settings" + Environment.NewLine + "**/yt notify list** - List all of your youtube notification settings" + Environment.NewLine + "**/yt notify remove (Channel ID)** - Remove a youtube streamer from your notification settings");
     }
+
     [Command("yt notify add")]
     public async Task ytadd([Remainder] string User = "null")
     {
@@ -1335,6 +1295,7 @@ public class Info : ModuleBase
         MyReader.Close();
         myConn.Close();
     }
+
     [Command("yt notify list")]
     public async Task ytlist()
     {
@@ -1357,6 +1318,7 @@ public class Info : ModuleBase
         string line = string.Join(Environment.NewLine, YTList.ToArray());
         await Context.Channel.SendMessageAsync(line);
     }
+
     [Command("yt notify remove")]
     public async Task ytdel([Remainder] string User = "null")
     {
@@ -1836,7 +1798,7 @@ public class Info : ModuleBase
         });
         await Context.Channel.SendMessageAsync("", false, embed);
     }
-    
+
     [Command("osu")]
     public async Task osu(string User = null)
     {
