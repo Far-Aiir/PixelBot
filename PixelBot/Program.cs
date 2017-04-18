@@ -25,11 +25,16 @@ using OverwatchAPI;
 
 class Program
 {
+    public static string TempVoiceDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\TempVoice\\";
     static void Main()
     {
         DisableConsoleQuickEdit.Go();
         string TokenPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\Tokens.txt";
-        Console.WriteLine(TokenPath);
+        Directory.CreateDirectory(TempVoiceDir);
+        if (PixelBot.Properties.Settings.Default.Blacklist == null)
+        {
+            PixelBot.Properties.Settings.Default.Blacklist = new System.Collections.Specialized.StringCollection();
+        }
         using (Stream stream = File.Open(TokenPath, FileMode.Open))
         {
             using (StreamReader reader = new StreamReader(stream))
@@ -83,9 +88,9 @@ class Program
                     FirstStart = true;
                     await client.SetGameAsync($"p/help | https://blaze.ml | {client.Guilds.Count} Guilds");
                     UpdateBotStats();
-                    Timer timer = new System.Timers.Timer();
+                    Timer timer = new Timer();
                     timer.Interval = 60000;
-                    timer.Elapsed += Timer;
+                    timer.Elapsed += TwitchTimer;
                     timer.Start();
                 }
             }
@@ -103,7 +108,8 @@ class Program
         {
             if (Environment.UserName != "Brandan")
             {
-                if (g.Id == 252388688766435328 || g.Id == 282731527161511936)
+                //(g.Id == 252388688766435328 || g.Id == 282731527161511936
+                if (PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
                 {
                     Console.WriteLine($"Removed {g.Name} - {g.Id} due to blacklist");
                     await g.LeaveAsync();
@@ -134,7 +140,7 @@ class Program
         {
             if (Environment.UserName != "Brandan")
             {
-                if (g.Id == 252388688766435328 || g.Id == 282731527161511936)
+                if (PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
                 {
                     Console.WriteLine($"Removed {g.Name} - {g.Id} due to blacklist");
                     await g.LeaveAsync();
@@ -149,12 +155,46 @@ class Program
                 MyReader = cmd.ExecuteReaderEx();
                 if (!MyReader.HasRows)
                 {
-                Console.WriteLine($"New Guild > {g.Name} - {g.Id}");
+                    Console.WriteLine($"New Guild > {g.Name} - {g.Id}");
                     string Command = $"INSERT INTO guilds(guild) VALUES ('{g.Id}')";
                     MySQLCommand cmd2 = new MySQLCommand(Command, myConn);
                     cmd2.ExecuteNonQuery();
                 }
                 myConn.Close();
+            }
+        };
+        client.UserVoiceStateUpdated += async (u, v, s) =>
+        {
+            if (Environment.UserName != "Brandan")
+            {
+                return;
+            }
+            if (s.VoiceChannel == null)
+            {
+                foreach (var Chan in v.VoiceChannel.Guild.VoiceChannels)
+                {
+                    if (File.Exists($"{TempVoiceDir}{Chan.Id.ToString()}.txt"))
+                    {
+                        using (Stream stream = File.Open($"{TempVoiceDir}{Chan.Id.ToString()}.txt", FileMode.Open))
+                        {
+                            using (StreamReader reader = new StreamReader(stream))
+                            {
+                                if (u.Id.ToString() == reader.ReadLine())
+                                {
+                                    try
+                                    {
+                                        await Chan.DeleteAsync();
+                                        File.Delete($"{TempVoiceDir}{Chan.Id.ToString()}.txt");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"[TempVoice] > Could not delete {Chan.Name} - {ex}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         };
         await client.LoginAsync(TokenType.Bot, DiscordToken);
@@ -201,8 +241,21 @@ class Program
             
             var context = new CommandContext(client, message);
             var result = await commands.ExecuteAsync(context, argPos, map);
-            if (!result.IsSuccess)
+            if (result.IsSuccess)
             {
+                if (message.Channel is IPrivateChannel)
+                {
+                    Console.WriteLine($"[Command] > (DM) {message.Author.Username} executed {message.Content}");
+                }
+                else
+                {
+                    var GuildUser = message.Author as IGuildUser;
+                    Console.WriteLine($"[Command] > ({GuildUser.Guild.Name}) {message.Author.Username} executed {message.Content}");
+                }
+            }
+            else
+            {
+                Console.WriteLine(result.ErrorReason);
                 if (message.Content.Contains("vg "))
                 {
                     if (result.ErrorReason == "This input does not match any overload.")
@@ -293,9 +346,9 @@ class Program
             }
         });
     }
-    private async void Timer(object sender, ElapsedEventArgs e)
+    private async void TwitchTimer(object sender, ElapsedEventArgs e)
     {
-        var Client = new TwitchAuthenticatedClient(TwitchToken, TwitchOauth);
+        var TwitchClient = new TwitchAuthenticatedClient(TwitchToken, TwitchOauth);
         MySQLConnection DB;
         MySQLDataReader MyReader = null;
         DB = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
@@ -305,7 +358,7 @@ class Program
         MyReader = cmd.ExecuteReaderEx();
         while (MyReader.Read())
         {
-            if (Client.IsLive(MyReader.GetString(4)) == true)
+            if (TwitchClient.IsLive(MyReader.GetString(4)) == true)
             {
                 if (MyReader.GetString(0) == "channel")
                 {
@@ -318,7 +371,7 @@ class Program
                         {
                             IGuild Guild = client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
                             ITextChannel Channel = await Guild.GetChannelAsync(Convert.ToUInt64(MyReader.GetString(3))) as ITextChannel;
-                            var TwitchChannel = Client.GetChannel(MyReader.GetString(4));
+                            var TwitchChannel = TwitchClient.GetChannel(MyReader.GetString(4));
                             var embed = new EmbedBuilder()
                             {
                                 Title = $"TWITCH - {TwitchChannel.DisplayName} is live playing {TwitchChannel.Game}",
@@ -351,7 +404,7 @@ class Program
                         {
                             IGuild Guild = client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
                             IUser User = await Guild.GetUserAsync(Convert.ToUInt64(MyReader.GetString(1))) as IUser;
-                            var TwitchChannel = Client.GetChannel(MyReader.GetString(4));
+                            var TwitchChannel = TwitchClient.GetChannel(MyReader.GetString(4));
                             var embed = new EmbedBuilder()
                             {
                                 Title = $"TWITCH - {TwitchChannel.DisplayName} is live playing {TwitchChannel.Game}",
@@ -394,11 +447,11 @@ class Program
         DB.Close();
     }
 }
-public class Info : ModuleBase
+public class CommandClass : ModuleBase
 {
     [Command("vainglory")]
     [Alias("vg")]
-    public async Task vainglory()
+    public async Task Vainglory()
     {
         var embed = new EmbedBuilder()
         {
@@ -415,7 +468,7 @@ public class Info : ModuleBase
 
     [Command("vg user"), Ratelimit(2, 0.30, Measure.Minutes)]
     [Alias("vg u")]
-    public async Task vg(string Region = null, string VGUser = null)
+    public async Task Vg(string Region = null, string VGUser = null)
     {
         
 
@@ -462,7 +515,7 @@ public class Info : ModuleBase
 
     [Command("vg match"), Ratelimit(2, 1, Measure.Minutes)]
     [Alias("vg m")]
-    public async Task vg2(string Region, [Remainder] string VGUser)
+    public async Task Vg2(string Region, [Remainder] string VGUser)
     {
         if (Region == "na" || Region == "eu" || Region == "sa" || Region == "ea" || Region == "sg")
         {
@@ -505,7 +558,7 @@ public class Info : ModuleBase
     }
 
     [Command("xbox")]
-    public async Task xbox()
+    public async Task Xbox()
     {
         HttpWebRequest GetUserId = (HttpWebRequest)WebRequest.Create("http://support.xbox.com/en-US/LiveStatus/GetHeaderStatusModule");
         GetUserId.Method = WebRequestMethods.Http.Get;
@@ -532,7 +585,7 @@ public class Info : ModuleBase
     }
 
     [Command("ow")]
-    public async Task ow(string User = "")
+    public async Task Ow(string User = "")
     {
         if (!User.Contains("#") | OverwatchAPIHelpers.IsValidBattletag(User) == false)
         {
@@ -573,7 +626,7 @@ public class Info : ModuleBase
     }
 
     [Command("xbox")]
-    public async Task xboxuser(string User)
+    public async Task Xboxuser(string User)
     {
         await Context.Channel.SendMessageAsync("Disabled due to not working");
         return;
@@ -650,7 +703,7 @@ public class Info : ModuleBase
     }
 
     [Command("guild")]
-    public async Task guild(string arg = "guild")
+    public async Task Guild(string arg = "guild")
     {
         if (arg.ToLower() == "role" || arg.ToLower() == "roles")
         {
@@ -732,7 +785,7 @@ public class Info : ModuleBase
     }
 
     [Command("user")]
-    public async Task user([Remainder] string User = null)
+    public async Task User([Remainder] string User = null)
     {
         IGuildUser GuildUser = null;
         if (User == null)
@@ -814,7 +867,7 @@ public class Info : ModuleBase
 
     [Command("info")]
     [Alias("bot")]
-    public async Task info()
+    public async Task Info()
     {
         List<string> Feature = new List<string>();
         MySQLConnection myConn;
@@ -858,14 +911,14 @@ public class Info : ModuleBase
 
     [Command("roll")]
     [Alias("dice")]
-    public async Task roll()
+    public async Task Roll()
     {
         var random = new Random((int)DateTime.Now.Ticks); var randomValue = random.Next(1, 7);
         await Context.Channel.SendMessageAsync($"{Context.User.Username} Rolled a {randomValue}");
     }
 
     [Command("invite")]
-    public async Task invite()
+    public async Task Invite()
     {
         var embed = new EmbedBuilder()
         {
@@ -877,7 +930,7 @@ public class Info : ModuleBase
 
     [Command("flip")]
     [Alias("coin")]
-    public async Task flip()
+    public async Task Flip()
     { var random = new Random((int)DateTime.Now.Ticks); var randomValue = random.Next(1, 3);
         if (randomValue == 1)
         { await Context.Channel.SendMessageAsync($"{Context.User.Username} Flipped Heads"); }
@@ -886,7 +939,7 @@ public class Info : ModuleBase
     }
 
     [Command("prune all")]
-    public async Task pruneall(string arg = "")
+    public async Task Pruneall(string arg = "")
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -922,7 +975,7 @@ public class Info : ModuleBase
     }
 
     [Command("prune user")]
-    public async Task pruneuser(IUser User = null)
+    public async Task Pruneuser(IUser User = null)
     {
         if (User == null)
         {
@@ -956,7 +1009,7 @@ public class Info : ModuleBase
 
     [Command("prune bots")]
     [Alias("prune bot")]
-    public async Task prunebot()
+    public async Task Prunebot()
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -985,7 +1038,7 @@ public class Info : ModuleBase
 
     [Command("prune images")]
     [Alias("prune image")]
-    public async Task pruneimage()
+    public async Task Pruneimage()
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -1014,7 +1067,7 @@ public class Info : ModuleBase
 
     [Command("prune embeds")]
     [Alias("prune embed")]
-    public async Task pruneembed()
+    public async Task Pruneembed()
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -1043,7 +1096,7 @@ public class Info : ModuleBase
 
     [Command("prune links")]
     [Alias("prune command", "tidy command", "tidy commands", "purge command", "purge commands", "clean command", "clean commands")]
-    public async Task prunelinks()
+    public async Task Prunelinks()
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -1072,7 +1125,7 @@ public class Info : ModuleBase
 
     [Command("prune commands")]
     [Alias("prune command", "tidy command", "tidy commands", "purge command", "purge commands", "clean command", "clean commands")]
-    public async Task prunecommands()
+    public async Task Prunecommands()
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -1100,7 +1153,7 @@ public class Info : ModuleBase
     }
 
     [Command("prune text")]
-    public async Task prunetext([Remainder] string Text = null)
+    public async Task Prunetext([Remainder] string Text = null)
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -1132,7 +1185,7 @@ public class Info : ModuleBase
     }
 
     [Command("mc")]
-    public async Task mc()
+    public async Task Mc()
     {
         var embed = new EmbedBuilder()
         {
@@ -1152,7 +1205,7 @@ public class Info : ModuleBase
     }
 
     [Command("mc ping")]
-    public async Task mcping(string IP = "null")
+    public async Task Mcping(string IP = "null")
     {
         if (IP == "null")
         {
@@ -1193,13 +1246,13 @@ public class Info : ModuleBase
     }
 
     [Command("mc bping")]
-    public async Task mcbping(string IP = "null")
+    public async Task Mcbping(string IP = "null")
     {
         await Context.Channel.SendMessageAsync("`Feature under construction`");
     }
 
     [Command("mc skin")]
-    public async Task mcskin(string Arg = null, [Remainder] string User = null)
+    public async Task Mcskin(string Arg = null, [Remainder] string User = null)
     {
         if (Arg == null)
         {
@@ -1240,13 +1293,13 @@ public class Info : ModuleBase
     }
 
     [Command("yt")]
-    public async Task yt()
+    public async Task Yt()
     {
         await Context.Channel.SendMessageAsync("`Coming Soon`");
     }
 
     [Command("yt user")]
-    public async Task ytuser([Remainder] string User = "null")
+    public async Task Ytuser([Remainder] string User = "null")
     {
         var youtubeService = new YouTubeService(new BaseClientService.Initializer()
         {
@@ -1263,7 +1316,7 @@ public class Info : ModuleBase
     }
 
     [Command("yt notify")]
-    public async Task ytnotify()
+    public async Task Ytnotify()
     {
         await Context.Channel.SendMessageAsync("```fix" + Environment.NewLine + "Feature under construction```");
         return;
@@ -1271,7 +1324,7 @@ public class Info : ModuleBase
     }
 
     [Command("yt notify add")]
-    public async Task ytadd([Remainder] string User = "null")
+    public async Task Ytadd([Remainder] string User = "null")
     {
         await Context.Channel.SendMessageAsync("```fix" + Environment.NewLine + "Feature under construction```");
 
@@ -1297,7 +1350,7 @@ public class Info : ModuleBase
     }
 
     [Command("yt notify list")]
-    public async Task ytlist()
+    public async Task Ytlist()
     {
         List<string> YTList = new List<string>();
         await Context.Channel.SendMessageAsync("```fix" + Environment.NewLine + "Feature under construction```");
@@ -1320,7 +1373,7 @@ public class Info : ModuleBase
     }
 
     [Command("yt notify remove")]
-    public async Task ytdel([Remainder] string User = "null")
+    public async Task Ytdel([Remainder] string User = "null")
     {
         await Context.Channel.SendMessageAsync("```fix" + Environment.NewLine + "Feature under construction```");
 
@@ -1344,7 +1397,7 @@ public class Info : ModuleBase
     }
 
     [Command("profile")]
-    public async Task profile([Remainder] string User = null)
+    public async Task Profile([Remainder] string User = null)
     {
         IGuildUser GuildUser = null;
         if (User == null)
@@ -1441,223 +1494,9 @@ public class Info : ModuleBase
         }
     }
 
-    [Command("temp create")]
-    public async Task tempcreate()
-    {
-        IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!Bot.GuildPermissions.Connect || !Bot.GuildPermissions.ManageChannels || !Bot.GuildPermissions.ManageRoles)
-        {
-            string Connect = "Voice Connect :x: :white_check_mark: ";
-            string Manage = "Manage Channels :x:";
-            string Roles = "Manage Roles :x:";
-            if (Bot.GuildPermissions.Connect)
-            {
-                Connect = "Voice Connect :white_check_mark:";
-            }
-            if (Bot.GuildPermissions.ManageChannels)
-            {
-                Connect = "Manage Channels :white_check_mark:";
-            }
-            if (Bot.GuildPermissions.ManageRoles)
-            {
-                Connect = "Manage Roles :white_check_mark:";
-            }
-            await Context.Channel.SendMessageAsync("Bot is missing permissions" + Environment.NewLine + Connect + Environment.NewLine + Manage + Environment.NewLine + Roles);
-            return;
-        }
-        IGuildUser User = await Context.Guild.GetUserAsync(Context.User.Id);
-        if (User.VoiceChannel == null)
-        {
-            await Context.Channel.SendMessageAsync("`You need to be in a voice channel to use this feature`");
-            return;
-        }
-        var DenyConnect = new OverwritePermissions(0, 36700160);
-        var BotPerm = new OverwritePermissions(269484048, 0);
-        var AllowConnect = new OverwritePermissions(36700160, 0);
-        IVoiceChannel MyChan = null;
-        foreach (var Chan in await Context.Guild.GetVoiceChannelsAsync())
-        {
-            if (Chan.Name == $"Temp-{Context.User.Username}")
-            {
-                MyChan = Chan;
-            }
-        }
-        if (MyChan == null)
-        {
-            IVoiceChannel Chan = await Context.Guild.CreateVoiceChannelAsync($"Temp-{Context.User.Username}");
-            await Chan.AddPermissionOverwriteAsync(Bot, BotPerm);
-            await Chan.AddPermissionOverwriteAsync(Context.Guild.EveryoneRole, DenyConnect);
-            await Chan.AddPermissionOverwriteAsync(Context.User, AllowConnect);
-            await Context.Channel.SendMessageAsync("You have created a temp voice channel | It will be deleted when you disconnect from the voice service (Switching to other voice channels is fine)");
-        }
-        else
-        {
-            await Context.Channel.SendMessageAsync("`You already have a temp channel`");
-        }
-    }
-
-    [Command("temp invite")]
-    public async Task tempinvite(IUser User = null)
-    {
-        IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!Bot.GuildPermissions.Connect || !Bot.GuildPermissions.ManageChannels || !Bot.GuildPermissions.ManageRoles)
-        {
-            string Connect = "Voice Connect :x: :white_check_mark: ";
-            string Manage = "Manage Channels :x:";
-            string Roles = "Manage Roles :x:";
-            if (Bot.GuildPermissions.Connect)
-            {
-                Connect = "Voice Connect :white_check_mark:";
-            }
-            if (Bot.GuildPermissions.ManageChannels)
-            {
-                Connect = "Manage Channels :white_check_mark:";
-            }
-            if (Bot.GuildPermissions.ManageRoles)
-            {
-                Connect = "Manage Roles :white_check_mark:";
-            }
-            await Context.Channel.SendMessageAsync("Bot is missing permissions" + Environment.NewLine + Connect + Environment.NewLine + Manage + Environment.NewLine + Roles);
-            return;
-        }
-        IGuildUser GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-        if (GuildUser.VoiceChannel == null)
-        {
-            await Context.Channel.SendMessageAsync("`You need to be in a voice channel to use this feature`");
-            return;
-        }
-        var AllowConnect = new OverwritePermissions(36700160, 0);
-        IVoiceChannel MyChan = null;
-        foreach (var Chan in await Context.Guild.GetVoiceChannelsAsync())
-        {
-            if (Chan.Name == $"Temp-{Context.User.Username}")
-            {
-                MyChan = Chan;
-            }
-        }
-        if (MyChan == null)
-        {
-            await Context.Channel.SendMessageAsync("Could not find your temp channel");
-        }
-        else
-        {
-            await MyChan.AddPermissionOverwriteAsync(User, AllowConnect);
-            await Context.Channel.SendMessageAsync($"User {User.Username} is now allowed to join your temp channel");
-        }
-    }
-
-    [Command("temp kick")]
-    public async Task tempkick(IUser User = null)
-    {
-        IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!Bot.GuildPermissions.Connect || !Bot.GuildPermissions.ManageChannels || !Bot.GuildPermissions.ManageRoles)
-        {
-            string Connect = "Voice Connect :x: :white_check_mark: ";
-            string Manage = "Manage Channels :x:";
-            string Roles = "Manage Roles :x:";
-            if (Bot.GuildPermissions.Connect)
-            {
-                Connect = "Voice Connect :white_check_mark:";
-            }
-            if (Bot.GuildPermissions.ManageChannels)
-            {
-                Connect = "Manage Channels :white_check_mark:";
-            }
-            if (Bot.GuildPermissions.ManageRoles)
-            {
-                Connect = "Manage Roles :white_check_mark:";
-            }
-            await Context.Channel.SendMessageAsync("Bot is missing permissions" + Environment.NewLine + Connect + Environment.NewLine + Manage + Environment.NewLine + Roles);
-            return;
-        }
-        IGuildUser GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-        if (GuildUser.VoiceChannel == null)
-        {
-            await Context.Channel.SendMessageAsync("`You need to be in a voice channel to use this feature`");
-            return;
-        }
-        IVoiceChannel MyChan = null;
-        foreach (var Chan in await Context.Guild.GetVoiceChannelsAsync())
-        {
-            if (Chan.Name == $"Temp-{Context.User.Username}")
-            {
-                MyChan = Chan;
-            }
-        }
-        if (MyChan == null)
-        {
-            await Context.Channel.SendMessageAsync("Could not find your temp channel");
-        }
-        else
-        {
-            await MyChan.RemovePermissionOverwriteAsync(User);
-            await Context.Channel.SendMessageAsync($"User {User.Username} has been removed from your temp channel");
-        }
-    }
-
-    [Command("temp toggle")]
-    public async Task temptoggle()
-    {
-        IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!Bot.GuildPermissions.Connect || !Bot.GuildPermissions.ManageChannels || !Bot.GuildPermissions.ManageRoles)
-        {
-            string Connect = "Voice Connect :x: :white_check_mark: ";
-            string Manage = "Manage Channels :x:";
-            string Roles = "Manage Roles :x:";
-            if (Bot.GuildPermissions.Connect)
-            {
-                Connect = "Voice Connect :white_check_mark:";
-            }
-            if (Bot.GuildPermissions.ManageChannels)
-            {
-                Connect = "Manage Channels :white_check_mark:";
-            }
-            if (Bot.GuildPermissions.ManageRoles)
-            {
-                Connect = "Manage Roles :white_check_mark:";
-            }
-            await Context.Channel.SendMessageAsync("Bot is missing permissions" + Environment.NewLine + Connect + Environment.NewLine + Manage + Environment.NewLine + Roles);
-            return;
-        }
-        IGuildUser GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-        if (GuildUser.VoiceChannel == null)
-        {
-            await Context.Channel.SendMessageAsync("`You need to be in a voice channel to use this feature`");
-            return;
-        }
-        IVoiceChannel MyChan = null;
-        foreach (var Chan in await Context.Guild.GetVoiceChannelsAsync())
-        {
-            if (Chan.Name == $"Temp-{Context.User.Username}")
-            {
-                MyChan = Chan;
-            }
-        }
-        if (MyChan == null)
-        {
-            await Context.Channel.SendMessageAsync("Could not find your temp channel");
-        }
-        else
-        {
-            var AllowConnect = new OverwritePermissions(36700160, 0);
-            var DenyConnect = new OverwritePermissions(0, 36700160);
-            if (MyChan.GetPermissionOverwrite(Context.Guild.EveryoneRole).Equals(AllowConnect))
-            {
-                await MyChan.AddPermissionOverwriteAsync(Context.Guild.EveryoneRole, DenyConnect);
-                await Context.Channel.SendMessageAsync($"Everyone role disabled for temp channel");
-            }
-            else
-            {
-                await MyChan.AddPermissionOverwriteAsync(Context.Guild.EveryoneRole, AllowConnect);
-                await Context.Channel.SendMessageAsync($"Everyone role enabled for temp channel");
-            }
-
-        }
-    }
-
     [Command("steam game")]
     [Alias("steam g")]
-    public async Task steamg([Remainder] string Game = null)
+    public async Task Steamg([Remainder] string Game = null)
     {
         if (Game == null)
         {
@@ -1688,7 +1527,7 @@ public class Info : ModuleBase
     }
 
     [Command("steam")]
-    public async Task steam()
+    public async Task Steam()
     {
         var infoembed = new EmbedBuilder()
         {
@@ -1706,7 +1545,7 @@ public class Info : ModuleBase
 
     [Command("steam user")]
     [Alias("steam u")]
-    public async Task steamu([Remainder] string User = null)
+    public async Task Steamu([Remainder] string User = null)
     {
         if (User == null)
         {
@@ -1800,7 +1639,7 @@ public class Info : ModuleBase
     }
 
     [Command("osu")]
-    public async Task osu(string User = null)
+    public async Task Osu(string User = null)
     {
         if (User == null)
         {
@@ -1896,7 +1735,7 @@ public class Info : ModuleBase
 
     [Command("tw search")]
     [Alias("tw s")]
-    public async Task tsearch(string Search = null)
+    public async Task Tsearch(string Search = null)
     {
         if (Search == null)
         {
@@ -1914,7 +1753,7 @@ public class Info : ModuleBase
     }
 
     [Command("tw")]
-    public async Task twitchchannel(string Channel = null)
+    public async Task Twitchchannel(string Channel = null)
     {
         if (Channel == null)
         {
@@ -1972,7 +1811,7 @@ public class Info : ModuleBase
 
     [Command("tw notify")]
     [Alias("tw n")]
-    public async Task twn(string Option = null, string Channel = null)
+    public async Task Twn(string Option = null, string Channel = null)
     {
         if (Option == null)
         {
@@ -2067,7 +1906,7 @@ public class Info : ModuleBase
 
     [Command("tw list")]
     [Alias("tw l")]
-    public async Task twl(string Option = null)
+    public async Task Twl(string Option = null)
     {
         if (Option == null)
         {
@@ -2147,7 +1986,7 @@ public class Info : ModuleBase
 
     [Command("tw remove")]
     [Alias("tw r")]
-    public async Task twr(string Option = null, string Channel = null)
+    public async Task Twr(string Option = null, string Channel = null)
     {
         if (Option == null)
         {
@@ -2212,14 +2051,194 @@ public class Info : ModuleBase
 
     [Command("math")]
     [Alias("calc")]
-    public async Task math([Remainder] string Math)
+    public async Task Math([Remainder] string Math)
     {
         var interpreter = new DynamicExpresso.Interpreter();
         var result = interpreter.Eval(Math);
         await Context.Channel.SendMessageAsync(result.ToString());
     }
 }
+public class TempVoiceClass : ModuleBase
+{
+    [Command("temp create")]
+    public async Task Tempcreate()
+    {
+        IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+        if (!Bot.GuildPermissions.Connect)
+        {
+            await Context.Channel.SendMessageAsync("`Bot does not have guild permission voice connect`");
+            return;
+        }
+        if (!Bot.GuildPermissions.ManageChannels)
+        {
+            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage channels`");
+            return;
+        }
+        if (!Bot.GuildPermissions.ManageRoles)
+        {
+            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage roles`");
+            return;
+        }
+        IGuildUser User = await Context.Guild.GetUserAsync(Context.User.Id);
+        if (User.VoiceChannel == null)
+        {
+            await Context.Channel.SendMessageAsync("`You need to be in a voice channel to use this feature`");
+            return;
+        }
+        var DenyConnect = new OverwritePermissions(0, 36700160);
+        var BotPerm = new OverwritePermissions(269484048, 0);
+        foreach(var Item in Directory.GetFiles(Program.TempVoiceDir))
+        {
+            using (Stream stream = File.Open(Item, FileMode.Open))
+            {
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    if (Context.User.Id.ToString() == reader.ReadLine())
+                    {
+                        await Context.Channel.SendMessageAsync("`You already have a temp channel`");
+                        break;
+                    }
+                }
+            }
+        }
+            IVoiceChannel Chan = await Context.Guild.CreateVoiceChannelAsync($"Temp-{Context.User.Username}");
+            using (var tw = new StreamWriter($"{Program.TempVoiceDir}{Chan.Id.ToString()}.txt", true))
+            {
+                tw.WriteLine(Context.User.Id.ToString());
+                tw.Close();
+            }
+            await Chan.AddPermissionOverwriteAsync(Bot, BotPerm);
+            await Chan.AddPermissionOverwriteAsync(Context.Guild.EveryoneRole, DenyConnect);
+            await Context.Channel.SendMessageAsync("You have created a temp voice channel | It will be deleted when you disconnect from the voice service (Switching to other voice channels is fine)");
+           
+    }
+    [Command("temp invite")]
+    public async Task Tempinvite(IUser User = null)
+    {
+        IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+        if (!Bot.GuildPermissions.ManageChannels)
+        {
+            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage channels`");
+            return;
+        }
+        if (!Bot.GuildPermissions.ManageRoles)
+        {
+            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage roles`");
+            return;
+        }
+        IGuildUser GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
+        if (GuildUser.VoiceChannel == null)
+        {
+            await Context.Channel.SendMessageAsync("`You need to be in a voice channel to use this feature`");
+            return;
+        }
+        var AllowConnect = new OverwritePermissions(36700160, 0);
+        IVoiceChannel MyChan = null;
+        foreach (var Chan in await Context.Guild.GetVoiceChannelsAsync())
+        {
+            if (Chan.Name == $"Temp-{Context.User.Username}")
+            {
+                MyChan = Chan;
+            }
+        }
+        if (MyChan == null)
+        {
+            await Context.Channel.SendMessageAsync("Could not find your temp channel");
+        }
+        else
+        {
+            await MyChan.AddPermissionOverwriteAsync(User, AllowConnect);
+            await Context.Channel.SendMessageAsync($"User {User.Username} is now allowed to join your temp channel");
+        }
+    }
+    [Command("temp kick")]
+    public async Task Tempkick(IUser User = null)
+    {
+        IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+        if (!Bot.GuildPermissions.ManageChannels)
+        {
+            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage channels`");
+            return;
+        }
+        if (!Bot.GuildPermissions.ManageRoles)
+        {
+            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage roles`");
+            return;
+        }
+        IGuildUser GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
+        if (GuildUser.VoiceChannel == null)
+        {
+            await Context.Channel.SendMessageAsync("`You need to be in a voice channel to use this feature`");
+            return;
+        }
+        IVoiceChannel MyChan = null;
+        foreach (var Chan in await Context.Guild.GetVoiceChannelsAsync())
+        {
+            if (Chan.Name == $"Temp-{Context.User.Username}")
+            {
+                MyChan = Chan;
+            }
+        }
+        if (MyChan == null)
+        {
+            await Context.Channel.SendMessageAsync("Could not find your temp channel");
+        }
+        else
+        {
+            await MyChan.RemovePermissionOverwriteAsync(User);
+            await Context.Channel.SendMessageAsync($"User {User.Username} has been removed from your temp channel");
+        }
+    }
+    [Command("temp toggle")]
+    public async Task Temptoggle()
+    {
+        IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+        if (!Bot.GuildPermissions.ManageChannels)
+        {
+            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage channels`");
+            return;
+        }
+        if (!Bot.GuildPermissions.ManageRoles)
+        {
+            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage roles`");
+            return;
+        }
+        IGuildUser GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
+        if (GuildUser.VoiceChannel == null)
+        {
+            await Context.Channel.SendMessageAsync("`You need to be in a voice channel to use this feature`");
+            return;
+        }
+        IVoiceChannel MyChan = null;
+        foreach (var Chan in await Context.Guild.GetVoiceChannelsAsync())
+        {
+            if (Chan.Name == $"Temp-{Context.User.Username}")
+            {
+                MyChan = Chan;
+            }
+        }
+        if (MyChan == null)
+        {
+            await Context.Channel.SendMessageAsync("Could not find your temp channel");
+        }
+        else
+        {
+            var AllowConnect = new OverwritePermissions(36700160, 0);
+            var DenyConnect = new OverwritePermissions(0, 36700160);
+            if (MyChan.GetPermissionOverwrite(Context.Guild.EveryoneRole).Equals(AllowConnect))
+            {
+                await MyChan.AddPermissionOverwriteAsync(Context.Guild.EveryoneRole, DenyConnect);
+                await Context.Channel.SendMessageAsync($"Everyone role disabled for temp channel");
+            }
+            else
+            {
+                await MyChan.AddPermissionOverwriteAsync(Context.Guild.EveryoneRole, AllowConnect);
+                await Context.Channel.SendMessageAsync($"Everyone role enabled for temp channel");
+            }
 
+        }
+    }
+}
 public class Help : ModuleBase
 {
     private readonly PaginationService paginator;
@@ -2235,7 +2254,7 @@ public class Help : ModuleBase
 
     [Command("help")]
     [Alias("commands")]
-    public async Task pag(string Option = "")
+    public async Task Pag(string Option = "")
     {
         var BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id) as IGuildUser;
         if (Option == "all")
@@ -2311,33 +2330,33 @@ public class Help : ModuleBase
     }
 
     [Command("misc")]
-    public async Task misc()
+    public async Task Misc()
     {
         await Context.Channel.SendMessageAsync("Misc Commands ```md" + Environment.NewLine + MiscText);
     }
 
     [Command("game")]
     [Alias("games")]
-    public async Task game()
+    public async Task Game()
     {
         await Context.Channel.SendMessageAsync("Game Commands ```md" + Environment.NewLine + GameText);
     }
 
     [Command("temp")]
-    public async Task temp()
+    public async Task Temp()
     {
         await Context.Channel.SendMessageAsync("TempVoice Commands ```md" + Environment.NewLine + TempVoiceText);
     }
 
     [Command("media")]
-    public async Task media()
+    public async Task Media()
     {
         await Context.Channel.SendMessageAsync("Media Commands ```md" + Environment.NewLine + MediaText);
     }
 
     [Command("prune")]
     [Alias("purge, clean, tidy")]
-    public async Task prune()
+    public async Task Prune()
     {
         var BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!BotUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -2352,7 +2371,7 @@ public class Help : ModuleBase
 public class Steam : InteractiveModuleBase
 {
     [Command("steam claim", RunMode = RunMode.Async)]
-    public async Task steamclaim([Remainder] string User = null)
+    public async Task Steamclaim([Remainder] string User = null)
     {
         if (User == null)
         {
@@ -2414,6 +2433,108 @@ public class Steam : InteractiveModuleBase
         else
         {
             await Context.Channel.SendMessageAsync("`Account not claimed`");
+        }
+    }
+}
+public class OwnerCommands : ModuleBase
+{
+    [Command("owner")]
+    [RequireOwner]
+    public async Task Owner()
+    {
+        await Context.Channel.SendMessageAsync("leave (ID) | list (dm) (botcol) | blacklist (add/remove/list)");
+    }
+
+    [Command("o leave")]
+    [RequireOwner]
+    public async Task Leave(ulong ID)
+    {
+        var Guild = await Context.Client.GetGuildAsync(ID);
+        IGuildUser Owner = await Guild.GetOwnerAsync();
+        await Guild.LeaveAsync();
+        Console.WriteLine($"Left {Guild.Name} Owner by {Owner.Username}");
+    }
+
+    [Command("o list")]
+    [RequireOwner]
+    public async Task ListDM(string Option, string Option2)
+    {
+        List<string> GuildList = new List<string>();
+        foreach (var Guild in await Context.Client.GetGuildsAsync())
+        {
+            var Users = await Guild.GetUsersAsync();
+            IGuildUser Owner = await Guild.GetOwnerAsync();
+            if (Option2 == "botcol")
+            {
+                if (Users.Where(x => !x.IsBot).Count() == 1)
+                {
+                    await Guild.LeaveAsync();
+                    GuildList.Add($"{Guild.Name} ({Guild.Id}) - Owner: {Owner.Username} ({Owner.Id}) - {Users.Where(x => !x.IsBot).Count()}/{Users.Where(x => x.IsBot).Count()}");
+                }
+                if (Users.Where(x => !x.IsBot).Count() == 0)
+                {
+                    await Guild.LeaveAsync();
+                    GuildList.Add($"{Guild.Name} ({Guild.Id}) - Owner: {Owner.Username} ({Owner.Id}) - {Users.Where(x => !x.IsBot).Count()}/{Users.Where(x => x.IsBot).Count()}");
+                }
+            }
+            else
+            {
+                GuildList.Add($"{Guild.Name} ({Guild.Id}) - Owner: {Owner.Username} ({Owner.Id}) - {Users.Where(x => !x.IsBot).Count()}/{Users.Where(x => x.IsBot).Count()}");
+            }
+        }
+        string AllGuilds = string.Join(Environment.NewLine, GuildList.ToArray());
+        if (Option == "dm")
+        {
+            IDMChannel DM = await Context.User.CreateDMChannelAsync();
+            await DM.SendMessageAsync(AllGuilds);
+        }
+        else
+        {
+            Console.WriteLine("-----");
+            Console.WriteLine(AllGuilds);
+            Console.WriteLine("-----");
+        }
+    }
+
+    [Command("o blacklist")]
+    [RequireOwner]
+    public async Task Leave(string Option, ulong ID = 0)
+    {
+        if (Option == "list")
+        {
+            List<string> GuildList = new List<string>();
+            foreach(var Item in PixelBot.Properties.Settings.Default.Blacklist)
+            {
+                GuildList.Add(Item);
+            }
+            string BlacklistList = string.Join(Environment.NewLine, GuildList.ToArray());
+            await Context.Channel.SendMessageAsync("**Bot Guild Blacklist**" + Environment.NewLine + BlacklistList);
+        }
+        if (Option == "add")
+        {
+            if (PixelBot.Properties.Settings.Default.Blacklist.Contains(ID.ToString()))
+            {
+                await Context.Channel.SendMessageAsync($"{ID} is already in the blacklist");
+            }
+            else
+            {
+                PixelBot.Properties.Settings.Default.Blacklist.Add(ID.ToString());
+                PixelBot.Properties.Settings.Default.Save();
+                await Context.Channel.SendMessageAsync($"Adding {ID} to blacklist");
+            }
+        }
+        if (Option == "remove")
+        {
+            if (PixelBot.Properties.Settings.Default.Blacklist.Contains(ID.ToString()))
+            {
+                PixelBot.Properties.Settings.Default.Blacklist.Remove(ID.ToString());
+                PixelBot.Properties.Settings.Default.Save();
+                await Context.Channel.SendMessageAsync($"Removed {ID} from blacklist");
+            }
+            else
+            {
+                await Context.Channel.SendMessageAsync($"{ID} is not in the blacklist");
+            }
         }
     }
 }
@@ -2559,7 +2680,3 @@ public class MineStat
 
     #endregion
 }
-
-
-
-
