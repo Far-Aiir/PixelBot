@@ -33,5 +33,17 @@ namespace PixelBot.Properties {
                 this["Blacklist"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool CommandOutput {
+            get {
+                return ((bool)(this["CommandOutput"]));
+            }
+            set {
+                this["CommandOutput"] = value;
+            }
+        }
     }
 }

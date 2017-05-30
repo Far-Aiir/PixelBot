@@ -1,20 +1,11 @@
-﻿using System;
+﻿using Discord.WebSocket;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Discord.WebSocket;
 
 namespace Discord.Addons.Paginator
 {
-    // Version 2.1.1
-    public static class PaginationExtensions
-    {
-        public static DiscordSocketClient UsePaginator(this DiscordSocketClient client, Commands.IDependencyMap map, Func<LogMessage, Task> logger = null)
-        {
-            map.Add(new PaginationService(client, logger));
-            return client;
-        }
-    }
     public class PaginationService
     {
         const string FIRST = "⏮";
@@ -23,29 +14,34 @@ namespace Discord.Addons.Paginator
         const string END = "⏭";
         const string STOP = "⏹";
         
+        internal readonly Func<LogMessage, Task> WriteLog;
 
         private readonly Dictionary<ulong, PaginatedMessage> _messages;
         private readonly DiscordSocketClient _client;
 
         public PaginationService(DiscordSocketClient client, Func<LogMessage, Task> logger = null)
         {
-           
-            _messages = new Dictionary<ulong, PaginatedMessage>(); 
+            _messages = new Dictionary<ulong, PaginatedMessage>();
             _client = client;
             _client.ReactionAdded += OnReactionAdded;
         }
-        
+
+        /// <summary>
+        /// Sends a paginated message (with reaction buttons)
+        /// </summary>
+        /// <param name="channel">The channel this message should be sent to</param>
+        /// <param name="paginated">A <see cref="PaginatedMessage">PaginatedMessage</see> containing the pages.</param>
+        /// <exception cref="Net.HttpException">Thrown if the bot user cannot send a message or add reactions.</exception>
+        /// <returns>The paginated message.</returns>
         public async Task<IUserMessage> SendPaginatedMessageAsync(IMessageChannel channel, PaginatedMessage paginated)
         {
-
             var message = await channel.SendMessageAsync("", embed: paginated.GetEmbed());
 
-            //await message.AddReactionAsync(FIRST);
-            await message.AddReactionAsync(BACK);
-            await message.AddReactionAsync(NEXT);
-            //await message.AddReactionAsync(END);
-            await message.AddReactionAsync(STOP);
-
+            //await message.AddReactionAsync(new Emoji(FIRST));
+            await message.AddReactionAsync(new Emoji(BACK));
+            await message.AddReactionAsync(new Emoji(NEXT));
+            //await message.AddReactionAsync(new Emoji(END));
+            await message.AddReactionAsync(new Emoji(STOP));
             _messages.Add(message.Id, paginated);
 
             return message;
@@ -67,11 +63,11 @@ namespace Discord.Addons.Paginator
                 if (reaction.UserId == _client.CurrentUser.Id) return;
                 if (page.User != null && reaction.UserId != page.User.Id)
                 {
-                    var _ = message.RemoveReactionAsync(reaction.Emoji.Name, reaction.User.Value);
+                    var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
                     return;
                 }
-                await message.RemoveReactionAsync(reaction.Emoji.Name, reaction.User.Value);
-                switch (reaction.Emoji.Name)
+                await message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
+                switch (reaction.Emote.Name)
                 {
                     case FIRST:
                         if (page.CurrentPage == 1) break;
@@ -129,10 +125,11 @@ namespace Discord.Addons.Paginator
         }
 
         internal string Title { get; }
-        internal Color EmbedColor { get; } 
+        internal Color EmbedColor { get; }
         internal IReadOnlyCollection<string> Pages { get; }
         internal IUser User { get; }
         internal int CurrentPage { get; set; }
         internal int Count => Pages.Count;
     }
 }
+

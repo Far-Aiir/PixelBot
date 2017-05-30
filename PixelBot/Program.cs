@@ -9,7 +9,6 @@ using Discord.Commands;
 using System.Reflection;
 using MySQLDriverCS;
 using System.IO;
-using System.Net.Sockets;
 using System.Net;
 using Google.Apis.YouTube.v3;
 using Google.Apis.Services;
@@ -22,14 +21,36 @@ using Discord.Addons.InteractiveCommands;
 using Discord.Addons.Preconditions;
 using Discord.Addons.Paginator;
 using OverwatchAPI;
+using Microsoft.Extensions.DependencyInjection;
 
 class Program
 {
-    public static string TempVoiceDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\TempVoice\\";
+    public static bool DevMode = true;
+    public static string BotPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\";
+    public static string TempVoiceDir = BotPath + "TempVoice\\";
+    public static string DiscordToken;
+    public static string MysqlHost;
+    public static string MysqlUser;
+    public static string MysqlPass;
+    public static string TwitchToken;
+    public static string TwitchOauth;
+    public static string SteamKey;
+    public static string OsuKey;
+    public static string XboxKey;
+    public static string VaingloryKey;
+    public static string YoutubeKey;
+    public static string DbotsAPI;
+    public static bool FirstStart = false;
+    public DiscordSocketClient _client;
+    private CommandService _commands;
+    public static ServiceCollection _map = new ServiceCollection();
+    public static IServiceProvider _provider;
+    public static PaginationService _pagination;
     static void Main()
     {
         DisableConsoleQuickEdit.Go();
-        string TokenPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\Tokens.txt";
+        Console.Title = "PixelBot";
+        string TokenPath = BotPath + "Tokens.txt";
         Directory.CreateDirectory(TempVoiceDir);
         if (PixelBot.Properties.Settings.Default.Blacklist == null)
         {
@@ -53,40 +74,36 @@ class Program
                 DbotsAPI = reader.ReadLine();
             }
         }
-        new Program().Run().GetAwaiter().GetResult();
+        new Program().RunBot().GetAwaiter().GetResult();
     }
-    public static string DiscordToken;
-    public static string MysqlHost;
-    public static string MysqlUser;
-    public static string MysqlPass;
-    public static string TwitchToken;
-    public static string TwitchOauth;
-    public static string SteamKey;
-    public static string OsuKey;
-    public static string XboxKey;
-    public static string VaingloryKey;
-    public static string YoutubeKey;
-    public static string DbotsAPI;
-    public static bool FirstStart = false;
-    private DiscordSocketClient client;
-    private CommandService commands;
-    private DependencyMap map;
-    public async Task Run()
+    
+    public async Task RunBot()
     {
-        client = new DiscordSocketClient();
-        commands = new CommandService();
-        map = new DependencyMap();
-        await InstallCommands();
-        client.Ready += async () =>
+        _client = new DiscordSocketClient();
+        _pagination = new PaginationService(_client);
+        var services = ConfigureServices();
+        await InstallCommands(_provider);
+        _client.Connected += () =>
         {
-            Console.WriteLine("PixelBot > Onling in " + client.Guilds.Count + " Guilds");
             Console.Title = "PixelBot - Online!";
-            if (Environment.UserName != "Brandan")
+            Console.WriteLine($"PixelBot > Connected");
+            return Task.CompletedTask;
+        };
+        _client.Disconnected += (r) =>
+        {
+            Console.Title = "PixelBot - Offline!";
+            Console.WriteLine($"PixelBot > Disconnected");
+            return Task.CompletedTask;
+        };
+        _client.Ready += async () =>
+        {
+            Console.WriteLine($"PixelBot > Online in {_client.Guilds.Count} Guilds");
+            await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
+            if (DevMode == false)
             {
                 if (FirstStart == false)
                 {
                     FirstStart = true;
-                    await client.SetGameAsync($"p/help | https://blaze.ml | {client.Guilds.Count} Guilds");
                     UpdateBotStats();
                     Timer timer = new Timer();
                     timer.Interval = 60000;
@@ -95,27 +112,26 @@ class Program
                 }
             }
         };
-        client.LeftGuild += async (g) =>
+        _client.LeftGuild += async (g) =>
         {
-            if (Environment.UserName != "Brandan")
+            if (DevMode == false)
             {
-                await client.SetGameAsync($"p/help | https://blaze.ml | {client.Guilds.Count} Guilds");
+                await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
                 UpdateBotStats();
                 Console.WriteLine($"Left Guild > {g.Name} - {g.Id}");
             }
         };
-        client.JoinedGuild += async (g) =>
+        _client.JoinedGuild += async (g) =>
         {
-            if (Environment.UserName != "Brandan")
+            if (DevMode == false)
             {
-                //(g.Id == 252388688766435328 || g.Id == 282731527161511936
                 if (PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
                 {
                     Console.WriteLine($"Removed {g.Name} - {g.Id} due to blacklist");
                     await g.LeaveAsync();
                     return;
                 }
-                await client.SetGameAsync($"p/help | https://blaze.ml | {client.Guilds.Count} Guilds");
+                await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ");
                 UpdateBotStats();
                 
                 MySQLConnection myConn;
@@ -136,9 +152,9 @@ class Program
             }
             Console.WriteLine($"Joined Guild {g.Name} - {g.Id}");
         };
-        client.GuildAvailable += async (g) =>
+        _client.GuildAvailable += async (g) =>
         {
-            if (Environment.UserName != "Brandan")
+            if (DevMode == false)
             {
                 if (PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
                 {
@@ -163,9 +179,9 @@ class Program
                 myConn.Close();
             }
         };
-        client.UserVoiceStateUpdated += async (u, v, s) =>
+        _client.UserVoiceStateUpdated += async (u, v, s) =>
         {
-            if (Environment.UserName != "Brandan")
+            if (DevMode == false)
             {
                 return;
             }
@@ -197,33 +213,56 @@ class Program
                 }
             }
         };
-        await client.LoginAsync(TokenType.Bot, DiscordToken);
-        await client.StartAsync();
+        try
+        {
+            await _client.LoginAsync(TokenType.Bot, DiscordToken);
+            await _client.StartAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
         await Task.Delay(-1);
     }
     public void UpdateBotStats()
     {
-        var request = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/277933222015401985/stats");
-        request.ContentType = "application/json";
-        request.Headers.Add("Authorization", DbotsAPI);
-        request.Method = "POST";
-        using (var streamWriter = new StreamWriter(request.GetRequestStream()))
+        try
         {
-            string json = "{\"server_count\":\"" + client.Guilds.Count.ToString() + "\"}";
+            var request = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/277933222015401985/stats");
+            request.ContentType = "application/json";
+            request.Headers.Add("Authorization", DbotsAPI);
+            request.Method = "POST";
+            using (var streamWriter = new StreamWriter(request.GetRequestStream()))
+            {
+                string json = "{\"server_count\":\"" + _client.Guilds.Count.ToString() + "\"}";
 
-            streamWriter.Write(json);
+                streamWriter.Write(json);
+            }
+            var response = (HttpWebResponse)request.GetResponse();
+            using (var streamReader = new StreamReader(response.GetResponseStream()))
+            {
+                var result = streamReader.ReadToEnd();
+            }
         }
-        var response = (HttpWebResponse)request.GetResponse();
-        using (var streamReader = new StreamReader(response.GetResponseStream()))
+        catch (Exception ex)
         {
-            var result = streamReader.ReadToEnd();
+            Console.WriteLine(ex);
         }
     }
-    public async Task InstallCommands()
+    public IServiceProvider ConfigureServices()
     {
-        client.UsePaginator(map);
-        client.MessageReceived += HandleCommand;
-        await commands.AddModulesAsync(Assembly.GetEntryAssembly());
+        var services = new ServiceCollection()
+        .AddSingleton(_client)
+            .AddSingleton(_pagination);
+        return services.BuildServiceProvider();
+
+    }
+    public async Task InstallCommands(IServiceProvider provider)
+    {
+        _commands = new CommandService();
+        await _commands.AddModulesAsync(Assembly.GetEntryAssembly());
+        _provider = provider;
+        _client.MessageReceived += HandleCommand;
     }
     public async Task HandleCommand(SocketMessage messageParam)
     {
@@ -235,22 +274,22 @@ class Program
         {
             return;
         }
-        if (Environment.UserName == "Brandan")
+        if (DevMode == true)
         {
             if (!(message.HasStringPrefix("tp/", ref argPos))) return;
             
-            var context = new CommandContext(client, message);
-            var result = await commands.ExecuteAsync(context, argPos, map);
+            var context = new CommandContext(_client, message);
+            var result = await _commands.ExecuteAsync(context, argPos, _provider);
             if (result.IsSuccess)
             {
                 if (message.Channel is IPrivateChannel)
                 {
-                    Console.WriteLine($"[Command] > (DM) {message.Author.Username} executed {message.Content}");
+                    Console.WriteLine($"[Test Command] > (DM) {message.Author.Username} executed {message.Content}");
                 }
                 else
                 {
                     var GuildUser = message.Author as IGuildUser;
-                    Console.WriteLine($"[Command] > ({GuildUser.Guild.Name}) {message.Author.Username} executed {message.Content}");
+                    Console.WriteLine($"[Test Command] > ({GuildUser.Guild.Name}) {message.Author.Username} executed {message.Content}");
                 }
             }
             else
@@ -267,11 +306,25 @@ class Program
         }
         else
         {
-            if (!(message.HasStringPrefix("p/", ref argPos) || message.HasMentionPrefix(client.CurrentUser, ref argPos))) return;
-            
-            var context = new CommandContext(client, message);
-            var result = await commands.ExecuteAsync(context, argPos, map);
-            if (!result.IsSuccess)
+            if (!(message.HasStringPrefix("p/", ref argPos) || message.HasMentionPrefix(_client.CurrentUser, ref argPos))) return;
+            var context = new CommandContext(_client, message);
+            var result = await _commands.ExecuteAsync(context, argPos, _provider);
+            if (result.IsSuccess)
+            {
+                if (PixelBot.Properties.Settings.Default.CommandOutput == true)
+                {
+                    if (message.Channel is IPrivateChannel)
+                    {
+                        Console.WriteLine($"[Command] > (DM) {message.Author.Username} executed {message.Content}");
+                    }
+                    else
+                    {
+                        var GuildUser = message.Author as IGuildUser;
+                        Console.WriteLine($"[Command] > ({GuildUser.Guild.Name}) {message.Author.Username} executed {message.Content}");
+                    }
+                }
+            }
+            else
             {
                 if (message.Content.Contains("vg "))
                 {
@@ -283,6 +336,7 @@ class Program
             }
         }
     }
+
     public void YTNOTIFY()
     {
         MySQLConnection myConn;
@@ -346,6 +400,7 @@ class Program
             }
         });
     }
+
     private async void TwitchTimer(object sender, ElapsedEventArgs e)
     {
         var TwitchClient = new TwitchAuthenticatedClient(TwitchToken, TwitchOauth);
@@ -369,7 +424,7 @@ class Program
                         upcmd.ExecuteNonQuery();
                         try
                         {
-                            IGuild Guild = client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
+                            IGuild Guild = _client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
                             ITextChannel Channel = await Guild.GetChannelAsync(Convert.ToUInt64(MyReader.GetString(3))) as ITextChannel;
                             var TwitchChannel = TwitchClient.GetChannel(MyReader.GetString(4));
                             var embed = new EmbedBuilder()
@@ -402,7 +457,7 @@ class Program
                         upcmd.ExecuteNonQuery();
                         try
                         {
-                            IGuild Guild = client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
+                            IGuild Guild = _client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
                             IUser User = await Guild.GetUserAsync(Convert.ToUInt64(MyReader.GetString(1))) as IUser;
                             var TwitchChannel = TwitchClient.GetChannel(MyReader.GetString(4));
                             var embed = new EmbedBuilder()
@@ -449,6 +504,71 @@ class Program
 }
 public class CommandClass : ModuleBase
 {
+    [Command("discrim")]
+    public async Task Discrim(int Discrim = 0, string Option = "")
+    {
+        if (Discrim == 0)
+        {
+            await Context.Channel.SendMessageAsync($"`You can search for a discrim using p/discrim {Context.User.Discriminator} guild/global | The guild or global is optional`");
+            return;
+        }
+        List<IGuildUser> GuildUsers = new List<IGuildUser>();
+        var Guilds = await Context.Client.GetGuildsAsync();
+    foreach(var Guild in Guilds)
+        {
+            var Users = await Guild.GetUsersAsync();
+            foreach(var User in Users)
+            {
+                GuildUsers.Add(User);
+            }
+        }
+        
+        List<string> UserList = new List<string>();
+        if (Context.Channel is IPrivateChannel)
+        {
+            foreach (var User in GuildUsers.Where(x => x.DiscriminatorValue == Discrim))
+            {
+                if (!UserList.Contains($"{User.Username}#{User.Discriminator}") && User.Id != Context.User.Id)
+                {
+                    UserList.Add($"{User.Username}#{User.Discriminator}");
+                }
+            }
+        }
+        else
+        {
+            if (Option.ToLower() != "global")
+            {
+                foreach (var GuildUser in GuildUsers.Where(x => x.GuildId == Context.Guild.Id))
+                {
+                    if (!UserList.Contains($"{GuildUser.Username}#{GuildUser.Discriminator} (Guild)") && GuildUser.DiscriminatorValue == Discrim && GuildUser.Id != Context.User.Id)
+                    {
+                        UserList.Add($"{GuildUser.Username}#{GuildUser.Discriminator} (Guild)");
+                    }
+                }
+            }
+            if (Option.ToLower() != "guild")
+            {
+                foreach (var GuildUser in GuildUsers.Where(x => x.GuildId != Context.Guild.Id))
+                {
+                    if (!UserList.Contains($"{GuildUser.Username}#{GuildUser.Discriminator} (Global)") & !UserList.Contains($"{GuildUser.Username}#{GuildUser.Discriminator} (Guild)") && GuildUser.DiscriminatorValue == Discrim && GuildUser.Id != Context.User.Id)
+                    {
+                        UserList.Add($"{GuildUser.Username}#{GuildUser.Discriminator} (Global)");
+                    }
+                }
+            }
+        }
+        
+        if (UserList.Count == 0)
+        {
+            await Context.Channel.SendMessageAsync($"`Could not find any users with the discrim {Discrim}`");
+        }
+        else
+        {
+            string Users = string.Join(Environment.NewLine, UserList.ToArray());
+            await Context.Channel.SendMessageAsync($"**Found {UserList.Count} users with the discrim {Discrim}**" + Environment.NewLine + "```" +Users + "```");
+        }
+    }
+
     [Command("vainglory")]
     [Alias("vg")]
     public async Task Vainglory()
@@ -752,7 +872,7 @@ public class CommandClass : ModuleBase
         }
         int TextChan = 0;
         int VoiceChan = 0;
-        foreach (var emoji in Context.Guild.Emojis)
+        foreach (var emoji in Context.Guild.Emotes)
         {
             Console.WriteLine(emoji.Name);
         }
@@ -785,10 +905,10 @@ public class CommandClass : ModuleBase
     }
 
     [Command("user")]
-    public async Task User([Remainder] string User = null)
+    public async Task User(string User = "")
     {
         IGuildUser GuildUser = null;
-        if (User == null)
+        if (User == "")
         {
             GuildUser = Context.User as IGuildUser;
         }
@@ -798,47 +918,15 @@ public class CommandClass : ModuleBase
             {
                 string RealUser = User;
                 RealUser = RealUser.Replace("<@", "").Replace(">", "");
-                RealUser = RealUser.Replace("!", "");
+                if (RealUser.Contains("!"))
+                {
+                    RealUser = RealUser.Replace("!", "");
+                }
                 GuildUser = await Context.Guild.GetUserAsync(Convert.ToUInt64(RealUser));
-            }
-            bool DiscrimSearch = false;
-            if (User.Length == 4)
-            {
-                DiscrimSearch = true;
             }
             else
             {
-                var Members = await Context.Guild.GetUsersAsync();
-                bool HasMember = false;
-                foreach (var Member in Members)
-                {
-                    if (HasMember == false)
-                    {
-                        if (!Member.IsBot)
-                        {
-                            if (DiscrimSearch == false)
-                            {
-                                char[] arr = Member.Username.ToCharArray();
-                                arr = Array.FindAll<char>(arr, (c => (char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))));
-                                string str = new string(arr);
-                                string LowerUser = str.ToLower();
-                                if (LowerUser.Contains(User.ToLower()))
-                                {
-                                    GuildUser = Member;
-                                    HasMember = true;
-                                }
-                            }
-                            else
-                            {
-                                if (Member.Discriminator == User)
-                                {
-                                    GuildUser = Member;
-                                    HasMember = true;
-                                }
-                            }
-                        }
-                    }
-                }
+                GuildUser = await Context.Guild.GetUserAsync(Convert.ToUInt64(User));
             }
         }
         if (GuildUser == null)
@@ -851,16 +939,14 @@ public class CommandClass : ModuleBase
         {
             Author = new EmbedAuthorBuilder()
             {
-                Name = $"User Info (Click To Me To Get Avatar Image)",
+                Name = $"User Info (Click For Avatar Url)",
                 Url = GuildUser.GetAvatarUrl()
             },
             ThumbnailUrl = GuildUser.GetAvatarUrl(),
             Color = new Color(0, 0, 0),
             Description = $"<@{GuildUser.Id}>" + Environment.NewLine + "```md" + Environment.NewLine + $"<Discrim {GuildUser.Discriminator}> <ID {GuildUser.Id}>" + Environment.NewLine + $"<Joined_Guild {GuildUser.JoinedAt.Value.Date.ToShortDateString()}>" + Environment.NewLine + $"<Created_Account {GuildUser.CreatedAt.Date.ToShortDateString()}>```",
             Footer = new EmbedFooterBuilder()
-            {
-                Text = $"Discrim search broken :/"
-            }
+            { Text = "To lookup a discrim use | p/discrim 0000"}
         };
         await Context.Channel.SendMessageAsync("", false, embed);
     }
@@ -939,7 +1025,7 @@ public class CommandClass : ModuleBase
     }
 
     [Command("prune all")]
-    public async Task Pruneall(string arg = "")
+    public async Task Pruneall(int Ammount = 100)
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -951,31 +1037,33 @@ public class CommandClass : ModuleBase
         var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
         if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
         {
-            await Context.Channel.SendMessageAsync("`You do not have permission to manage messages");
+            await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
             return;
         }
-        int Ammount = 0;
+        if (Ammount < 0)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+            return;
+        }
+        if (Ammount > 100)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+            return;
+        }
+        int Count = 0;
         foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
         {
-            if (arg.Contains("-p"))
+            if (Count != Ammount)
             {
-                Ammount++;
+                Count++;
                 await Item.DeleteAsync();
             }
-            else
-            {
-                if (!Item.IsPinned)
-                {
-                    Ammount++;
-                    await Item.DeleteAsync();
-                }
-            }
         }
-        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Ammount} messages`");
+        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} messages`");
     }
 
     [Command("prune user")]
-    public async Task Pruneuser(IUser User = null)
+    public async Task Pruneuser(IUser User = null, int Ammount = 100)
     {
         if (User == null)
         {
@@ -995,21 +1083,31 @@ public class CommandClass : ModuleBase
             await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
             return;
         }
-        int Ammount = 0;
+        if (Ammount < 0)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+            return;
+        }
+        if (Ammount > 100)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+            return;
+        }
+        int Count = 0;
         foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
         {
-            if (Item.Author.Id == User.Id)
+            if (Count != Ammount & Item.Author.Id == User.Id)
             {
-                Ammount++;
+                Count++;
                 await Item.DeleteAsync();
             }
         }
-        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Ammount} user messages`");
+        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} user messages`");
     }
 
     [Command("prune bots")]
     [Alias("prune bot")]
-    public async Task Prunebot()
+    public async Task Prunebot(int Ammount = 100)
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -1024,21 +1122,31 @@ public class CommandClass : ModuleBase
             await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
             return;
         }
-        int Ammount = 0;
+        if (Ammount < 0)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+            return;
+        }
+        if (Ammount > 100)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+            return;
+        }
+        int Count = 0;
         foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
         {
-            if (Item.Author.IsBot)
+            if (Count != Ammount & Item.Author.IsBot)
             {
-                Ammount++;
+                Count++;
                 await Item.DeleteAsync();
             }
         }
-        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Ammount} bot messages`");
+        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} bot messages`");
     }
 
     [Command("prune images")]
     [Alias("prune image")]
-    public async Task Pruneimage()
+    public async Task Pruneimage(int Ammount = 100)
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -1053,21 +1161,31 @@ public class CommandClass : ModuleBase
             await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
             return;
         }
-        int Ammount = 0;
+        if (Ammount < 0)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+            return;
+        }
+        if (Ammount > 100)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+            return;
+        }
+        int Count = 0;
         foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
         {
-            if (Item.Attachments.Any())
+            if (Count != Ammount & Item.Attachments.Any())
             {
-                Ammount++;
+                Count++;
                 await Item.DeleteAsync();
             }
         }
-        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Ammount} images`");
+        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} images`");
     }
 
     [Command("prune embeds")]
     [Alias("prune embed")]
-    public async Task Pruneembed()
+    public async Task Pruneembed(int Ammount = 100)
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -1082,21 +1200,31 @@ public class CommandClass : ModuleBase
             await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
             return;
         }
-        int Ammount = 0;
+        if (Ammount < 0)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+            return;
+        }
+        if (Ammount > 100)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+            return;
+        }
+        int Count = 0;
         foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
         {
-            if (Item.Embeds.Any())
+            if (Count != Ammount & Item.Embeds.Any())
             {
-                Ammount++;
+                Count++;
                 await Item.DeleteAsync();
             }
         }
-        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Ammount} embeds`");
+        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} embeds`");
     }
 
     [Command("prune links")]
     [Alias("prune command", "tidy command", "tidy commands", "purge command", "purge commands", "clean command", "clean commands")]
-    public async Task Prunelinks()
+    public async Task Prunelinks(int Ammount = 100)
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -1111,21 +1239,31 @@ public class CommandClass : ModuleBase
             await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
             return;
         }
-        int Ammount = 0;
+        if (Ammount < 0)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+            return;
+        }
+        if (Ammount > 100)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+            return;
+        }
+        int Count = 0;
         foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
         {
-            if (Item.Content.Contains("http://") || Item.Content.Contains("https://"))
+            if (Count != Ammount & Item.Content.Contains("http://") || Item.Content.Contains("https://"))
             {
-                Ammount++;
+                Count++;
                 await Item.DeleteAsync();
             }
         }
-        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Ammount} links`");
+        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} links`");
     }
 
     [Command("prune commands")]
     [Alias("prune command", "tidy command", "tidy commands", "purge command", "purge commands", "clean command", "clean commands")]
-    public async Task Prunecommands()
+    public async Task Prunecommands(int Ammount = 100)
     {
         IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
         if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
@@ -1140,16 +1278,26 @@ public class CommandClass : ModuleBase
             await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
             return;
         }
-        int Ammount = 0;
+        if (Ammount < 0)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+            return;
+        }
+        if (Ammount > 100)
+        {
+            await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+            return;
+        }
+        int Count = 0;
         foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
         {
-            if (Item.Content.StartsWith("p/") || Item.Content.StartsWith("/") || Item.Content.StartsWith("!") || Item.Content.StartsWith(",") || Item.Content.StartsWith("=") || Item.Content.StartsWith("%") || Item.Content.StartsWith("b!"))
+            if (Count != Ammount & Item.Content.StartsWith("p/") || Item.Content.StartsWith("/") || Item.Content.StartsWith("!") || Item.Content.StartsWith(",") || Item.Content.StartsWith("=") || Item.Content.StartsWith("%") || Item.Content.StartsWith("b!"))
             {
-                Ammount++;
+                Count++;
                 await Item.DeleteAsync();
             }
         }
-        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Ammount} commands`");
+        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} commands`");
     }
 
     [Command("prune text")]
@@ -1172,16 +1320,16 @@ public class CommandClass : ModuleBase
         {
             await Context.Channel.SendMessageAsync("`You need to specify text | p/prune text (Text) | Replace (Text) with anything`");
         }
-        int Ammount = 0;
+        int Count = 0;
         foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
         {
             if (Item.Content.Contains(Text))
             {
-                Ammount++;
+                Count++;
                 await Item.DeleteAsync();
             }
         }
-        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Ammount} messages`");
+        await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} messages`");
     }
 
     [Command("mc")]
@@ -1217,7 +1365,7 @@ public class CommandClass : ModuleBase
         string Version = "";
         try
         {
-            MineStat ms = new MineStat(IP, 25565);
+            PixelBot.MineStat ms = new PixelBot.MineStat(IP, 25565);
             if (ms.ServerUp)
             {
                 Players = ms.CurrentPlayers;
@@ -2055,211 +2203,28 @@ public class CommandClass : ModuleBase
     {
         var interpreter = new DynamicExpresso.Interpreter();
         var result = interpreter.Eval(Math);
-        await Context.Channel.SendMessageAsync(result.ToString());
-    }
-}
-public class TempVoiceClass : ModuleBase
-{
-    [Command("temp create")]
-    public async Task Tempcreate()
-    {
-        IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!Bot.GuildPermissions.Connect)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission voice connect`");
-            return;
-        }
-        if (!Bot.GuildPermissions.ManageChannels)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage channels`");
-            return;
-        }
-        if (!Bot.GuildPermissions.ManageRoles)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage roles`");
-            return;
-        }
-        IGuildUser User = await Context.Guild.GetUserAsync(Context.User.Id);
-        if (User.VoiceChannel == null)
-        {
-            await Context.Channel.SendMessageAsync("`You need to be in a voice channel to use this feature`");
-            return;
-        }
-        var DenyConnect = new OverwritePermissions(0, 36700160);
-        var BotPerm = new OverwritePermissions(269484048, 0);
-        foreach(var Item in Directory.GetFiles(Program.TempVoiceDir))
-        {
-            using (Stream stream = File.Open(Item, FileMode.Open))
-            {
-                using (StreamReader reader = new StreamReader(stream))
-                {
-                    if (Context.User.Id.ToString() == reader.ReadLine())
-                    {
-                        await Context.Channel.SendMessageAsync("`You already have a temp channel`");
-                        break;
-                    }
-                }
-            }
-        }
-            IVoiceChannel Chan = await Context.Guild.CreateVoiceChannelAsync($"Temp-{Context.User.Username}");
-            using (var tw = new StreamWriter($"{Program.TempVoiceDir}{Chan.Id.ToString()}.txt", true))
-            {
-                tw.WriteLine(Context.User.Id.ToString());
-                tw.Close();
-            }
-            await Chan.AddPermissionOverwriteAsync(Bot, BotPerm);
-            await Chan.AddPermissionOverwriteAsync(Context.Guild.EveryoneRole, DenyConnect);
-            await Context.Channel.SendMessageAsync("You have created a temp voice channel | It will be deleted when you disconnect from the voice service (Switching to other voice channels is fine)");
-           
-    }
-    [Command("temp invite")]
-    public async Task Tempinvite(IUser User = null)
-    {
-        IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!Bot.GuildPermissions.ManageChannels)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage channels`");
-            return;
-        }
-        if (!Bot.GuildPermissions.ManageRoles)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage roles`");
-            return;
-        }
-        IGuildUser GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-        if (GuildUser.VoiceChannel == null)
-        {
-            await Context.Channel.SendMessageAsync("`You need to be in a voice channel to use this feature`");
-            return;
-        }
-        var AllowConnect = new OverwritePermissions(36700160, 0);
-        IVoiceChannel MyChan = null;
-        foreach (var Chan in await Context.Guild.GetVoiceChannelsAsync())
-        {
-            if (Chan.Name == $"Temp-{Context.User.Username}")
-            {
-                MyChan = Chan;
-            }
-        }
-        if (MyChan == null)
-        {
-            await Context.Channel.SendMessageAsync("Could not find your temp channel");
-        }
-        else
-        {
-            await MyChan.AddPermissionOverwriteAsync(User, AllowConnect);
-            await Context.Channel.SendMessageAsync($"User {User.Username} is now allowed to join your temp channel");
-        }
-    }
-    [Command("temp kick")]
-    public async Task Tempkick(IUser User = null)
-    {
-        IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!Bot.GuildPermissions.ManageChannels)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage channels`");
-            return;
-        }
-        if (!Bot.GuildPermissions.ManageRoles)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage roles`");
-            return;
-        }
-        IGuildUser GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-        if (GuildUser.VoiceChannel == null)
-        {
-            await Context.Channel.SendMessageAsync("`You need to be in a voice channel to use this feature`");
-            return;
-        }
-        IVoiceChannel MyChan = null;
-        foreach (var Chan in await Context.Guild.GetVoiceChannelsAsync())
-        {
-            if (Chan.Name == $"Temp-{Context.User.Username}")
-            {
-                MyChan = Chan;
-            }
-        }
-        if (MyChan == null)
-        {
-            await Context.Channel.SendMessageAsync("Could not find your temp channel");
-        }
-        else
-        {
-            await MyChan.RemovePermissionOverwriteAsync(User);
-            await Context.Channel.SendMessageAsync($"User {User.Username} has been removed from your temp channel");
-        }
-    }
-    [Command("temp toggle")]
-    public async Task Temptoggle()
-    {
-        IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-        if (!Bot.GuildPermissions.ManageChannels)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage channels`");
-            return;
-        }
-        if (!Bot.GuildPermissions.ManageRoles)
-        {
-            await Context.Channel.SendMessageAsync("`Bot does not have guild permission manage roles`");
-            return;
-        }
-        IGuildUser GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-        if (GuildUser.VoiceChannel == null)
-        {
-            await Context.Channel.SendMessageAsync("`You need to be in a voice channel to use this feature`");
-            return;
-        }
-        IVoiceChannel MyChan = null;
-        foreach (var Chan in await Context.Guild.GetVoiceChannelsAsync())
-        {
-            if (Chan.Name == $"Temp-{Context.User.Username}")
-            {
-                MyChan = Chan;
-            }
-        }
-        if (MyChan == null)
-        {
-            await Context.Channel.SendMessageAsync("Could not find your temp channel");
-        }
-        else
-        {
-            var AllowConnect = new OverwritePermissions(36700160, 0);
-            var DenyConnect = new OverwritePermissions(0, 36700160);
-            if (MyChan.GetPermissionOverwrite(Context.Guild.EveryoneRole).Equals(AllowConnect))
-            {
-                await MyChan.AddPermissionOverwriteAsync(Context.Guild.EveryoneRole, DenyConnect);
-                await Context.Channel.SendMessageAsync($"Everyone role disabled for temp channel");
-            }
-            else
-            {
-                await MyChan.AddPermissionOverwriteAsync(Context.Guild.EveryoneRole, AllowConnect);
-                await Context.Channel.SendMessageAsync($"Everyone role enabled for temp channel");
-            }
-
-        }
+        await Context.Channel.SendMessageAsync($"`{Math} = {result.ToString()}`");
     }
 }
 public class Help : ModuleBase
 {
-    private readonly PaginationService paginator;
-    public Help(PaginationService PagService)
-    {
-        paginator = PagService;
-    }
-    string MiscText = "[ p/bot ]( Bot information such as new features, website, invite link )" + Environment.NewLine + "[ p/guild ]( Get info about the guild such as the owner )" + Environment.NewLine + "[ p/user (User) ]( Get info about a user | Use names or mentions )" + Environment.NewLine + "[ p/roll ]( Roll a dice from 1 to 6 )" + Environment.NewLine + "[ p/flip ]( Flip a coin and land heads or tails )" + Environment.NewLine + "[ p/math (Math) ]( Solve some math )```";
-    string PruneText = "[ p/prune all ]( Prune all messages )" + Environment.NewLine + "[ p/prune user (@User) ]( Prune a users messages )" + Environment.NewLine + "[ p/prune bot ]( Prune bot messages )" + Environment.NewLine + "[ p/prune image ]( Prune attachments )" + Environment.NewLine + "[ p/prune embed ]( Prune embeds )" + Environment.NewLine + "[ p/prune link ]( Prune links )" + Environment.NewLine + "[ p/prune commands ]( Prune messages that start with p/ m/ / ! = % )" + Environment.NewLine + "[ p/prune text (Text) ](Find and prune messages that contain the TEXT )```";
+    private readonly PaginationService paginator = Program._pagination;
+    string MiscText = "[ p/bot ]( Bot information such as new features, website, invite link )" + Environment.NewLine + "[ p/guild ]( Get info about the guild such as the owner )" + Environment.NewLine + "[ p/discrim ]( Get a list of users with the discrim in the guild or globally )" + Environment.NewLine + "[ p/user (User) ]( Get info about a user | Use names or mentions )" + Environment.NewLine + "[ p/roll ]( Roll a dice from 1 to 6 )" + Environment.NewLine + "[ p/flip ]( Flip a coin and land heads or tails )" + Environment.NewLine + "[ p/math (Math) ]( Solve some math )```";
+    string PruneText = "[ p/prune all (Ammount) ]( Prune all messages )" + Environment.NewLine + "[ p/prune user (@User) (Ammount) ]( Prune a users messages )" + Environment.NewLine + "[ p/prune bot (Ammount) ]( Prune bot messages )" + Environment.NewLine + "[ p/prune image (Ammount) ]( Prune attachments )" + Environment.NewLine + "[ p/prune embed (Ammount) ]( Prune embeds )" + Environment.NewLine + "[ p/prune link (Ammount) ]( Prune links )" + Environment.NewLine + "[ p/prune commands (Ammount) ]( Prune messages that start with p/ m/ / ! = % )" + Environment.NewLine + "[ p/prune text (Text) ](Find and prune messages that contain the TEXT )```";
     string GameText = "[ p/steam ]( Steam user info and game info )" + Environment.NewLine + "[ p/ow (User#Tag) ]( Overwatch stats )" + Environment.NewLine + "[ p/mc ]( Minecraft user skins and server ping/status )" + Environment.NewLine + "[ p/vg ]( Vainglory game info, user info and matches )" + Environment.NewLine + "[ p/osu ]( Osu! game info and user info )" + Environment.NewLine + "[ p/xbox ]( Xbox live status and user info )```";
-    string TempVoiceText = "[ p/temp create ]( Create a temp voice channel )" + Environment.NewLine + "[ p/temp invite (User) ]( Invite a user to your channel )" + Environment.NewLine + "[ p/temp kick (User) ]( Kick a user from your channel )" + Environment.NewLine + "[ p/temp toggle ]( Toggle so anyone can join your channel )```";
     string MediaText = "[ p/tw (Channel) ]( Get info about a channel )" + Environment.NewLine + "[ p/tw s (Channel ]( Get 3 channel names )" + Environment.NewLine + "[ p/tw n (Option) (Channel) ]( Get a notification when a streamer goes live )" + Environment.NewLine + "[ p/tw l (Option) ]( Get a list of notification settings )" + Environment.NewLine + "[ p/tw r (Option) (Channel) ]( Remove a channel from notification setting )```";
 
     [Command("help")]
     [Alias("commands")]
     public async Task Pag(string Option = "")
     {
-        var BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id) as IGuildUser;
-        if (Option == "all")
+        IGuildUser BotUser = null;
+        if (Context.Channel is IPrivateChannel || Option == "all")
         {
-            await Context.Channel.SendMessageAsync($"{Context.User.Username} I have sent you you a full list of commands");
+            if (Option == "all")
+            {
+                await Context.Channel.SendMessageAsync($"{Context.User.Username} I have sent you a full list of commands");
+            }
             var allemebed = new EmbedBuilder()
             {
                 Title = "Commands List"
@@ -2284,6 +2249,10 @@ public class Help : ModuleBase
             var DM = await Context.User.CreateDMChannelAsync();
             await DM.SendMessageAsync("", false, allemebed);
             return;
+        }
+        else
+        {
+            BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id) as IGuildUser;
         }
         string HelpText = "```md" + Environment.NewLine + "[ p/misc ]( Guild/User Info | Dice Roll | Coin Flip )" + Environment.NewLine + "[ p/prune ]( Prune Messages | Embeds | Links | Text Match )" + Environment.NewLine + "[ p/game ]( Steam | Osu! | Minecraft )" + Environment.NewLine + "[ p/media ]( Twitch Commands )" + Environment.NewLine + "[ p/temp ]( Create A Temp Voice Channel )```";
         if (!BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
@@ -2340,12 +2309,6 @@ public class Help : ModuleBase
     public async Task Game()
     {
         await Context.Channel.SendMessageAsync("Game Commands ```md" + Environment.NewLine + GameText);
-    }
-
-    [Command("temp")]
-    public async Task Temp()
-    {
-        await Context.Channel.SendMessageAsync("TempVoice Commands ```md" + Environment.NewLine + TempVoiceText);
     }
 
     [Command("media")]
@@ -2435,248 +2398,4 @@ public class Steam : InteractiveModuleBase
             await Context.Channel.SendMessageAsync("`Account not claimed`");
         }
     }
-}
-public class OwnerCommands : ModuleBase
-{
-    [Command("owner")]
-    [RequireOwner]
-    public async Task Owner()
-    {
-        await Context.Channel.SendMessageAsync("leave (ID) | list (dm) (botcol) | blacklist (add/remove/list)");
-    }
-
-    [Command("o leave")]
-    [RequireOwner]
-    public async Task Leave(ulong ID)
-    {
-        var Guild = await Context.Client.GetGuildAsync(ID);
-        IGuildUser Owner = await Guild.GetOwnerAsync();
-        await Guild.LeaveAsync();
-        Console.WriteLine($"Left {Guild.Name} Owner by {Owner.Username}");
-    }
-
-    [Command("o list")]
-    [RequireOwner]
-    public async Task ListDM(string Option, string Option2)
-    {
-        List<string> GuildList = new List<string>();
-        foreach (var Guild in await Context.Client.GetGuildsAsync())
-        {
-            var Users = await Guild.GetUsersAsync();
-            IGuildUser Owner = await Guild.GetOwnerAsync();
-            if (Option2 == "botcol")
-            {
-                if (Users.Where(x => !x.IsBot).Count() == 1)
-                {
-                    await Guild.LeaveAsync();
-                    GuildList.Add($"{Guild.Name} ({Guild.Id}) - Owner: {Owner.Username} ({Owner.Id}) - {Users.Where(x => !x.IsBot).Count()}/{Users.Where(x => x.IsBot).Count()}");
-                }
-                if (Users.Where(x => !x.IsBot).Count() == 0)
-                {
-                    await Guild.LeaveAsync();
-                    GuildList.Add($"{Guild.Name} ({Guild.Id}) - Owner: {Owner.Username} ({Owner.Id}) - {Users.Where(x => !x.IsBot).Count()}/{Users.Where(x => x.IsBot).Count()}");
-                }
-            }
-            else
-            {
-                GuildList.Add($"{Guild.Name} ({Guild.Id}) - Owner: {Owner.Username} ({Owner.Id}) - {Users.Where(x => !x.IsBot).Count()}/{Users.Where(x => x.IsBot).Count()}");
-            }
-        }
-        string AllGuilds = string.Join(Environment.NewLine, GuildList.ToArray());
-        if (Option == "dm")
-        {
-            IDMChannel DM = await Context.User.CreateDMChannelAsync();
-            await DM.SendMessageAsync(AllGuilds);
-        }
-        else
-        {
-            Console.WriteLine("-----");
-            Console.WriteLine(AllGuilds);
-            Console.WriteLine("-----");
-        }
-    }
-
-    [Command("o blacklist")]
-    [RequireOwner]
-    public async Task Leave(string Option, ulong ID = 0)
-    {
-        if (Option == "list")
-        {
-            List<string> GuildList = new List<string>();
-            foreach(var Item in PixelBot.Properties.Settings.Default.Blacklist)
-            {
-                GuildList.Add(Item);
-            }
-            string BlacklistList = string.Join(Environment.NewLine, GuildList.ToArray());
-            await Context.Channel.SendMessageAsync("**Bot Guild Blacklist**" + Environment.NewLine + BlacklistList);
-        }
-        if (Option == "add")
-        {
-            if (PixelBot.Properties.Settings.Default.Blacklist.Contains(ID.ToString()))
-            {
-                await Context.Channel.SendMessageAsync($"{ID} is already in the blacklist");
-            }
-            else
-            {
-                PixelBot.Properties.Settings.Default.Blacklist.Add(ID.ToString());
-                PixelBot.Properties.Settings.Default.Save();
-                await Context.Channel.SendMessageAsync($"Adding {ID} to blacklist");
-            }
-        }
-        if (Option == "remove")
-        {
-            if (PixelBot.Properties.Settings.Default.Blacklist.Contains(ID.ToString()))
-            {
-                PixelBot.Properties.Settings.Default.Blacklist.Remove(ID.ToString());
-                PixelBot.Properties.Settings.Default.Save();
-                await Context.Channel.SendMessageAsync($"Removed {ID} from blacklist");
-            }
-            else
-            {
-                await Context.Channel.SendMessageAsync($"{ID} is not in the blacklist");
-            }
-        }
-    }
-}
-
-public class MineStat
-{
-    const ushort dataSize = 512; // this will hopefully suffice since the MotD should be <=59 characters
-    const ushort numFields = 6;  // number of values expected from server
-
-    public string Address { get; set; }
-    public ushort Port { get; set; }
-    public string Motd { get; set; }
-    public string Version { get; set; }
-    public string CurrentPlayers { get; set; }
-    public string MaximumPlayers { get; set; }
-    public bool ServerUp { get; set; }
-
-    public MineStat(string address, ushort port)
-    {
-        var rawServerData = new byte[dataSize];
-
-        Address = address;
-        Port = port;
-
-        try
-        {
-            // ToDo: Add timeout
-            var tcpclient = new TcpClient();
-            tcpclient.Connect(address, port);
-            var stream = tcpclient.GetStream();
-            var payload = new byte[] { 0xFE, 0x01 };
-            stream.Write(payload, 0, payload.Length);
-            stream.Read(rawServerData, 0, dataSize);
-            tcpclient.Close();
-        }
-        catch (Exception)
-        {
-            ServerUp = false;
-            return;
-        }
-
-        if (rawServerData == null || rawServerData.Length == 0)
-        {
-            ServerUp = false;
-        }
-        else
-        {
-            var serverData = Encoding.Unicode.GetString(rawServerData).Split("\u0000\u0000\u0000".ToCharArray());
-            if (serverData != null && serverData.Length >= numFields)
-            {
-                ServerUp = true;
-                Version = serverData[2];
-                Motd = serverData[3];
-                CurrentPlayers = serverData[4];
-                MaximumPlayers = serverData[5];
-            }
-            else
-            {
-                ServerUp = false;
-            }
-        }
-    }
-
-    #region Obsolete
-
-    [Obsolete]
-    public string GetAddress()
-    {
-        return Address;
-    }
-
-    [Obsolete]
-    public void SetAddress(string address)
-    {
-        Address = address;
-    }
-
-    [Obsolete]
-    public ushort GetPort()
-    {
-        return Port;
-    }
-
-    [Obsolete]
-    public void SetPort(ushort port)
-    {
-        Port = port;
-    }
-
-    [Obsolete]
-    public string GetMotd()
-    {
-        return Motd;
-    }
-
-    [Obsolete]
-    public void SetMotd(string motd)
-    {
-        Motd = motd;
-    }
-
-    [Obsolete]
-    public string GetVersion()
-    {
-        return Version;
-    }
-
-    [Obsolete]
-    public void SetVersion(string version)
-    {
-        Version = version;
-    }
-
-    [Obsolete]
-    public string GetCurrentPlayers()
-    {
-        return CurrentPlayers;
-    }
-
-    [Obsolete]
-    public void SetCurrentPlayers(string currentPlayers)
-    {
-        CurrentPlayers = currentPlayers;
-    }
-
-    [Obsolete]
-    public string GetMaximumPlayers()
-    {
-        return MaximumPlayers;
-    }
-
-    [Obsolete]
-    public void SetMaximumPlayers(string maximumPlayers)
-    {
-        MaximumPlayers = maximumPlayers;
-    }
-
-    [Obsolete]
-    public bool IsServerUp()
-    {
-        return ServerUp;
-    }
-
-    #endregion
 }
