@@ -22,6 +22,8 @@ using Discord.Addons.Preconditions;
 using Discord.Addons.Paginator;
 using OverwatchAPI;
 using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics;
+using Discord.Audio;
 
 class Program
 {
@@ -46,6 +48,8 @@ class Program
     public static ServiceCollection _map = new ServiceCollection();
     public static IServiceProvider _provider;
     public static PaginationService _pagination;
+    public static Dictionary<ulong, IAudioClient> dictionary =
+            new Dictionary<ulong, IAudioClient>();
     static void Main()
     {
         DisableConsoleQuickEdit.Go();
@@ -76,10 +80,11 @@ class Program
         }
         new Program().RunBot().GetAwaiter().GetResult();
     }
-    
+
     public async Task RunBot()
     {
         _client = new DiscordSocketClient();
+        
         _pagination = new PaginationService(_client);
         var services = ConfigureServices();
         await InstallCommands(_provider);
@@ -133,23 +138,22 @@ class Program
                 }
                 await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ");
                 UpdateBotStats();
-                
-                MySQLConnection myConn;
-                MySQLDataReader MyReader = null;
-                myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
-                myConn.Open();
-                string stm = $"SELECT guild FROM guilds WHERE guild='{g.Id}'";
-                MySQLCommand cmd = new MySQLCommand(stm, myConn);
-                MyReader = cmd.ExecuteReaderEx();
-                if (!MyReader.HasRows)
-                {
-                    Console.WriteLine($"New Guild > {g.Name} - {g.Id}");
-                    string Command = $"INSERT INTO guilds(guild) VALUES ('{g.Id}')";
-                    MySQLCommand cmd2 = new MySQLCommand(Command, myConn);
-                    cmd2.ExecuteNonQuery();
+                    MySQLConnection myConn;
+                    MySQLDataReader MyReader = null;
+                    myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
+                    myConn.Open();
+                    string stm = $"SELECT guild FROM guilds WHERE guild='{g.Id}'";
+                    MySQLCommand cmd = new MySQLCommand(stm, myConn);
+                    MyReader = cmd.ExecuteReaderEx();
+                    if (!MyReader.HasRows)
+                    {
+                        Console.WriteLine($"New Guild > {g.Name} - {g.Id}");
+                        string Command = $"INSERT INTO guilds(guild) VALUES ('{g.Id}')";
+                        MySQLCommand cmd2 = new MySQLCommand(Command, myConn);
+                        cmd2.ExecuteNonQuery();
+                    }
+                    myConn.Close();
                 }
-                myConn.Close();
-            }
             Console.WriteLine($"Joined Guild {g.Name} - {g.Id}");
         };
         _client.GuildAvailable += async (g) =>
@@ -955,44 +959,51 @@ public class CommandClass : ModuleBase
     [Alias("bot")]
     public async Task Info()
     {
-        List<string> Feature = new List<string>();
-        MySQLConnection myConn;
-        MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
-        myConn.Open();
-        string RS = $"SELECT text FROM features";
-        MySQLCommand cmd = new MySQLCommand(RS, myConn);
-        MyReader = cmd.ExecuteReaderEx();
-        myConn.Close();
-        while (MyReader.Read())
+        try
         {
-            Feature.Add("- " + MyReader.GetString(0));
-        }
-        string line = string.Join(Environment.NewLine, Feature.ToArray());
-        int GuildCount = 0;
-        foreach (var Guild in await Context.Client.GetGuildsAsync())
-        {
-            GuildCount = GuildCount + 1;
-        }
-        var embed = new EmbedBuilder()
-        {
-            Title = "Website",
-            Footer = new EmbedFooterBuilder()
+            List<string> Feature = new List<string>();
+            MySQLConnection myConn;
+            MySQLDataReader MyReader = null;
+            myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+            myConn.Open();
+            string RS = $"SELECT text FROM features";
+            MySQLCommand cmd = new MySQLCommand(RS, myConn);
+            MyReader = cmd.ExecuteReaderEx();
+            myConn.Close();
+            while (MyReader.Read())
             {
-                Text = $"Bot Invite p/invite | Want a custom command or feature? then please contact me"
-            },
-            Url = "https://blaze.ml",
-            Description = "Created by xXBuilderBXx#9113 | Visit the website for a list of commands and info"
-        };
-        embed.AddField(x =>
+                Feature.Add("- " + MyReader.GetString(0));
+            }
+            string line = string.Join(Environment.NewLine, Feature.ToArray());
+            int GuildCount = 0;
+            foreach (var Guild in await Context.Client.GetGuildsAsync())
+            {
+                GuildCount = GuildCount + 1;
+            }
+            var embed = new EmbedBuilder()
+            {
+                Title = "Website",
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = $"Bot Invite p/invite | Want a custom command or feature? then please contact me"
+                },
+                Url = "https://blaze.ml",
+                Description = "Created by xXBuilderBXx#9113 | Visit the website for a list of commands and info"
+            };
+            embed.AddField(x =>
+            {
+                x.Name = "Info"; x.Value = "Language C#" + Environment.NewLine + "Library .net 1.0" + Environment.NewLine + $"Guilds {GuildCount}" + Environment.NewLine + "[My Guild](http://discord.gg/WJTYdNb)" + Environment.NewLine + "[Website](https://blaze.ml)" + Environment.NewLine + "[Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0)" + Environment.NewLine + "[Github](https://github.com/ArchboxDev/PixelBot)"; x.IsInline = true;
+            });
+            embed.AddField(x =>
+            {
+                x.Name = "Coming Soon"; x.Value = "```fix" + Environment.NewLine + $"{line}```"; x.IsInline = true;
+            });
+            await Context.Channel.SendMessageAsync("", false, embed);
+        }
+        catch (Exception ex)
         {
-            x.Name = "Info"; x.Value = "Language C#" + Environment.NewLine + "Library .net 1.0" + Environment.NewLine + $"Guilds {GuildCount}" + Environment.NewLine + "[My Guild](http://discord.gg/WJTYdNb)" + Environment.NewLine + "[Website](https://blaze.ml)" + Environment.NewLine + "[Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0)" + Environment.NewLine + "[Github](https://github.com/ArchboxDev/PixelBot)"; x.IsInline = true;
-        });
-        embed.AddField(x =>
-        {
-            x.Name = "Coming Soon"; x.Value = "```fix" + Environment.NewLine + $"{line}```"; x.IsInline = true;
-        });
-        await Context.Channel.SendMessageAsync("", false, embed);
+            Console.WriteLine(ex);
+        }
     }
 
     [Command("roll")]
@@ -2197,6 +2208,68 @@ public class CommandClass : ModuleBase
         }
     }
 
+    [Command("join", RunMode = RunMode.Async)]
+    [RequireOwner]
+    public async Task Join()
+    {
+            IVoiceChannel Channel = null;
+            Channel = (Context.User as IGuildUser).VoiceChannel;
+        await FFMPEG.JoinAudio(Context.Guild, Channel);
+    }
+    [Command("play", RunMode = RunMode.Async)]
+    [RequireOwner]
+    public async Task Play()
+    {
+        IVoiceChannel Channel = null;
+        Channel = (Context.User as IGuildUser).VoiceChannel;
+        IAudioClient AC = null;
+        Program.dictionary.TryGetValue(Context.Guild.Id, out AC);
+        var ffmpeg = FFMPEG.CreateStream("m.mp3");
+        var output = ffmpeg.StandardOutput.BaseStream;
+        var d2 = AC.CreatePCMStream(Discord.Audio.AudioApplication.Mixed);
+        await output.CopyToAsync(d2);
+        await d2.FlushAsync();
+    }
+
+    [Command("ytp", RunMode = RunMode.Async)]
+    [RequireOwner]
+    public async Task TYP(string Url)
+    {
+        IAudioClient AC = null;
+        IVoiceChannel Channel = null;
+        Channel = (Context.User as IGuildUser).VoiceChannel;
+        Program.dictionary.TryGetValue(Context.Guild.Id, out AC);
+        NYoutubeDL.YoutubeDL ytdl = new NYoutubeDL.YoutubeDL();
+        string musicfile = "mp3/" + Url.Replace("https://www.youtube.com/watch?v=", "") + ".mp3";
+        ytdl.Options.FilesystemOptions.Output = "/" + musicfile;
+        ytdl.Options.PostProcessingOptions.ExtractAudio = true;
+        ytdl.Options.PostProcessingOptions.AudioFormat = NYoutubeDL.Helpers.Enums.AudioFormat.mp3;
+        ytdl.VideoUrl = Url;
+        if (!File.Exists("/" + musicfile))
+        {
+            ytdl.PrepareDownload();
+           ytdl.Download();
+            while (ytdl.ProcessRunning) ;
+        }
+        var ffmpeg = FFMPEG.CreateStream(musicfile);
+        var output = ffmpeg.StandardOutput.BaseStream;
+        var d2 = AC.CreatePCMStream(AudioApplication.Mixed);
+        await output.CopyToAsync(d2);
+        await d2.FlushAsync();
+    }
+
+    [Command("stop", RunMode = RunMode.Async)]
+    [RequireOwner]
+    public async Task Stop()
+    {
+        IAudioClient AC = null;
+        IVoiceChannel Channel = null;
+        Channel = (Context.User as IGuildUser).VoiceChannel;
+       Program.dictionary.TryGetValue(Context.Guild.Id, out AC);
+        Program.dictionary.Remove(Context.Guild.Id);
+        await AC.StopAsync();
+    }
+
     [Command("math")]
     [Alias("calc")]
     public async Task Math([Remainder] string Math)
@@ -2397,5 +2470,36 @@ public class Steam : InteractiveModuleBase
         {
             await Context.Channel.SendMessageAsync("`Account not claimed`");
         }
+    }
+}
+
+public class FFMPEG
+{
+    public static Process CreateStream(string path)
+    {
+        var ffmpeg = new ProcessStartInfo
+        {
+            FileName = "ffmpeg",
+            Arguments = $"-i {path} -ac 2 -f s16le -ar 48000 pipe:1",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+        };
+        return Process.Start(ffmpeg);
+    }
+    public static async Task JoinAudio(IGuild guild, IVoiceChannel target)
+    {
+        IAudioClient client;
+        if (Program.dictionary.TryGetValue(guild.Id, out client))
+        {
+            return;
+        }
+        if (target.Guild.Id != guild.Id)
+        {
+            return;
+        }
+
+        var audioClient = await target.ConnectAsync();
+
+        Program.dictionary.Add(guild.Id, audioClient);
     }
 }
