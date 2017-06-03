@@ -510,23 +510,6 @@ class Program
 
 public class Main : ModuleBase
 {
-    [Command("test")]
-    public async Task Test()
-    {
-        foreach(var c in Program._commands.Modules)
-        {
-            foreach(var l in c.Submodules)
-            {
-                foreach(var cm in l.Commands)
-                {
-                    Console.WriteLine(cm.Module.Name + cm.Remarks);
-                }
-            }
-        }
-    }
-
-    
-
     [Command("xbox")]
     public async Task Xbox()
     {
@@ -553,15 +536,7 @@ public class Main : ModuleBase
         };
         await Context.Channel.SendMessageAsync("", false, embed);
     }
-
     
-
-    
-
-    
-
-    
-
     [Command("yt")]
     public async Task Yt()
     {
@@ -762,61 +737,6 @@ public class Main : ModuleBase
         {
 
         }
-    }
-
-   
-
-    
-
-    [Command("join", RunMode = RunMode.Async)]
-    [RequireOwner]
-    public async Task Join()
-    {
-            IVoiceChannel Channel = null;
-            Channel = (Context.User as IGuildUser).VoiceChannel;
-            await FFMPEG.JoinAudio(Context.Guild, Channel);
-    }
-    [Command("play", RunMode = RunMode.Async)]
-    [RequireOwner]
-    public async Task Play()
-    {
-        IVoiceChannel Channel = null;
-        Channel = (Context.User as IGuildUser).VoiceChannel;
-        IAudioClient AC = null;
-        Program.dictionary.TryGetValue(Context.Guild.Id, out AC);
-        var ffmpeg = FFMPEG.CreateStream("m.mp3");
-        var output = ffmpeg.StandardOutput.BaseStream;
-        var d2 = AC.CreatePCMStream(Discord.Audio.AudioApplication.Mixed);
-        await output.CopyToAsync(d2);
-        await d2.FlushAsync();
-    }
-
-    [Command("ytp", RunMode = RunMode.Async)]
-    [RequireOwner]
-    public async Task TYP(string Url)
-    {
-        IAudioClient AC = null;
-        IVoiceChannel Channel = null;
-        Channel = (Context.User as IGuildUser).VoiceChannel;
-
-        Program.dictionary.TryGetValue(Context.Guild.Id, out AC);
-        NYoutubeDL.YoutubeDL ytdl = new NYoutubeDL.YoutubeDL();
-        string musicfile = "mp3/" + Url.Replace("https://www.youtube.com/watch?v=", "") + ".mp3";
-        ytdl.Options.FilesystemOptions.Output = "/" + musicfile;
-        ytdl.Options.PostProcessingOptions.ExtractAudio = true;
-        ytdl.Options.PostProcessingOptions.AudioFormat = NYoutubeDL.Helpers.Enums.AudioFormat.mp3;
-        ytdl.VideoUrl = Url;
-        if (!File.Exists("/" + musicfile))
-        {
-            ytdl.PrepareDownload();
-           ytdl.Download();
-            while (ytdl.ProcessRunning) ;
-        }
-        var ffmpeg = FFMPEG.CreateStream(musicfile);
-        var output = ffmpeg.StandardOutput.BaseStream;
-        var d2 = AC.CreatePCMStream(AudioApplication.Mixed);
-        await output.CopyToAsync(d2);
-        await d2.FlushAsync().ConfigureAwait(false);
     }
 
     [Command("stop", RunMode = RunMode.Async)]
@@ -2634,36 +2554,5 @@ public class Steam : InteractiveModuleBase
         {
             await Context.Channel.SendMessageAsync("`Account not claimed`");
         }
-    }
-}
-
-public class FFMPEG
-{
-    public static Process CreateStream(string path)
-    {
-        var ffmpeg = new ProcessStartInfo
-        {
-            FileName = "ffmpeg",
-            Arguments = $"-i {path} -ac 2 -f s16le -ar 48000 pipe:1",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-        };
-        return Process.Start(ffmpeg);
-    }
-    public static async Task JoinAudio(IGuild guild, IVoiceChannel target)
-    {
-        IAudioClient client;
-        if (Program.dictionary.TryGetValue(guild.Id, out client))
-        {
-            return;
-        }
-        if (target.Guild.Id != guild.Id)
-        {
-            return;
-        }
-
-        var audioClient = await target.ConnectAsync();
-
-        Program.dictionary.Add(guild.Id, audioClient);
     }
 }
