@@ -45,5 +45,17 @@ namespace PixelBot.Properties {
                 this["CommandOutput"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string FeatureList {
+            get {
+                return ((string)(this["FeatureList"]));
+            }
+            set {
+                this["FeatureList"] = value;
+            }
+        }
     }
 }
