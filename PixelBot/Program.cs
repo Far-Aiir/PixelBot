@@ -22,12 +22,10 @@ using Discord.Addons.Preconditions;
 using Discord.Addons.Paginator;
 using OverwatchAPI;
 using Microsoft.Extensions.DependencyInjection;
-using System.Diagnostics;
-using Discord.Audio;
 
 class Program
 {
-    public static bool DevMode = true;
+    public static bool DevMode = false;
     public static string BotPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\";
     public static string TempVoiceDir = BotPath + "TempVoice\\";
     public static string DiscordToken;
@@ -743,7 +741,13 @@ public class Main : ModuleBase
         }
     }
 
-    [Command("math")][Summary("")][Remarks("")]
+    
+}
+public class Misc : ModuleBase
+{
+    [Command("math")]
+    [Summary("math (1 + 1 * 9 / 5 - 3)")]
+    [Remarks("Do some maths calculations")]
     [Alias("calc")]
     public async Task Math([Remainder] string Math)
     {
@@ -751,9 +755,7 @@ public class Main : ModuleBase
         var result = interpreter.Eval(Math);
         await Context.Channel.SendMessageAsync($"`{Math} = {result.ToString()}`");
     }
-}
-public class Misc : ModuleBase
-{
+
     [Command("discrim")]
     [Remarks("discrim (0000)")]
     [Summary("list of guild and global user with a discrim")]
@@ -895,7 +897,7 @@ public class Misc : ModuleBase
                 Name = $"{Context.Guild.Name}"
             },
             ThumbnailUrl = Context.Guild.IconUrl,
-            Color = new Color(0, 0, 0),
+            Color = Program.GetRoleColor(Context),
             Description = $"Owner: {Owner.Mention}```md" + Environment.NewLine + $"[Online](Offline)" + Environment.NewLine + $"<Users> [{MembersOnline}]({Members}) <Bots> [{BotsOnline}]({Bots})" + Environment.NewLine + $"Channels <Text {TextChan}> <Voice {VoiceChan}>" + Environment.NewLine + $"<Roles {Context.Guild.Roles.Count}> <Region {Context.Guild.VoiceRegionId}>" + Environment.NewLine + "List of roles | p/guild roles```",
             Footer = new EmbedFooterBuilder()
             {
@@ -946,7 +948,7 @@ public class Misc : ModuleBase
                 Url = GuildUser.GetAvatarUrl()
             },
             ThumbnailUrl = GuildUser.GetAvatarUrl(),
-            Color = new Color(0, 0, 0),
+            Color = Program.GetRoleColor(Context),
             Description = $"<@{GuildUser.Id}>" + Environment.NewLine + "```md" + Environment.NewLine + $"<Discrim {GuildUser.Discriminator}> <ID {GuildUser.Id}>" + Environment.NewLine + $"<Joined_Guild {GuildUser.JoinedAt.Value.Date.ToShortDateString()}>" + Environment.NewLine + $"<Created_Account {GuildUser.CreatedAt.Date.ToShortDateString()}>```",
             Footer = new EmbedFooterBuilder()
             { Text = "To lookup a discrim use | p/discrim 0000" }
@@ -988,7 +990,8 @@ public class Misc : ModuleBase
                     Text = $"Bot Invite p/invite | Want a custom command or feature? then please contact me"
                 },
                 Url = "https://blaze.ml",
-                Description = "Created by xXBuilderBXx#9113 | Visit the website for a list of commands and info"
+                Description = "Created by xXBuilderBXx#9113 | Visit the website for a list of commands and info",
+                Color = Program.GetRoleColor(Context)
             };
             embed.AddField(x =>
             {
@@ -1021,12 +1024,28 @@ public class Misc : ModuleBase
     [Summary("Invite this bot to your guild")]
     public async Task Invite()
     {
-        var embed = new EmbedBuilder()
+        if (Context.Channel is IPrivateChannel)
         {
-            Title = "",
-            Description = "[Invite this bot to your guild](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0)"
-        };
-        await Context.Channel.SendMessageAsync("", false, embed);
+            await Context.Channel.SendMessageAsync("**Invite this bot to your guild**" + Environment.NewLine + "https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0");
+        }
+        else
+        {
+            IGuildUser BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+            if (BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
+            {
+                var embed = new EmbedBuilder()
+                {
+                    Title = "",
+                    Description = "[Invite this bot to your guild](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0)",
+                    Color = Program.GetRoleColor(Context)
+                };
+                await Context.Channel.SendMessageAsync("", false, embed);
+            }
+            else
+            {
+                await Context.Channel.SendMessageAsync("**Invite this bot to your guild**" + Environment.NewLine + "https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0");
+            }
+        }
     }
 
     [Command("flip")]
@@ -1687,10 +1706,26 @@ public class Media : ModuleBase
         var Usearch = client.SearchChannels(Search).List;
         var embed = new EmbedBuilder()
         {
-            Title = "Channels",
-            Description = $"{Usearch[0].Name} | {Usearch[1].Name} | {Usearch[2].Name}"
+            Title = "Twitch Channels",
+            Description = $"{Usearch[0].Name} | {Usearch[1].Name} | {Usearch[2].Name}",
+            Color = Program.GetRoleColor(Context)
         };
-        await Context.Channel.SendMessageAsync("", false, embed);
+        if (Context.Channel is IPrivateChannel)
+        {
+            await Context.Channel.SendMessageAsync("", false, embed);
+            return;
+        }
+
+        IGuildUser BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+
+        if (BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
+        {
+            await Context.Channel.SendMessageAsync("", false, embed);
+        }
+        else
+        {
+            await Context.Channel.SendMessageAsync("**Twitch Channels**" + Environment.NewLine + $"{Usearch[0].Name} | {Usearch[1].Name} | {Usearch[2].Name}");
+        }
     }
 
     [Command("tw")]
@@ -1698,21 +1733,37 @@ public class Media : ModuleBase
     [Summary("Twitch commands")]
     public async Task Twitch()
     {
-            var infoembed = new EmbedBuilder()
+        var infoembed = new EmbedBuilder()
+        {
+            Author = new EmbedAuthorBuilder()
             {
-                Author = new EmbedAuthorBuilder()
-                {
-                    Name = "Twitch",
-                    IconUrl = "http://vignette3.wikia.nocookie.net/logopedia/images/8/83/Twitch_icon.svg/revision/latest/scale-to-width-down/421?cb=20140727180700",
-                    Url = "https://www.twitch.tv/"
-                },
-                Description = "Twitch channel lookup/search and livestream notifications in channel or user DMs" + Environment.NewLine + "```md" + Environment.NewLine + "[ p/tw (Channel) ]( Get info about a channel )" + Environment.NewLine + "[ p/tw s (Channel ]( Get 3 channel names )" + Environment.NewLine + "[ p/tw n (Option) (Channel) ]( Get a notification when a streamer goes live )" + Environment.NewLine + "[ p/tw l (Option) ]( Get a list of notification settings )" + Environment.NewLine + "[ p/tw r (Option) (Channel) ]( Remove a channel from notification setting )```",
-                Footer = new EmbedFooterBuilder()
-                {
-                    Text = "Options > ME (User DM) | HERE (Guild Channel)"
-                }
-            };
+                Name = "Twitch",
+                IconUrl = "http://vignette3.wikia.nocookie.net/logopedia/images/8/83/Twitch_icon.svg/revision/latest/scale-to-width-down/421?cb=20140727180700",
+                Url = "https://www.twitch.tv/"
+            },
+            Description = "Twitch channel lookup/search and livestream notifications in channel or user DMs" + Environment.NewLine + "```md" + Environment.NewLine + "[ p/tw (Channel) ]( Get info about a channel )" + Environment.NewLine + "[ p/tw s (Channel ]( Get 3 channel names )" + Environment.NewLine + "[ p/tw n (Option) (Channel) ]( Get a notification when a streamer goes live )" + Environment.NewLine + "[ p/tw l (Option) ]( Get a list of notification settings )" + Environment.NewLine + "[ p/tw r (Option) (Channel) ]( Remove a channel from notification setting )```",
+            Footer = new EmbedFooterBuilder()
+            {
+                Text = "Options > ME (User DM) | HERE (Guild Channel)"
+            },
+            Color = Program.GetRoleColor(Context)
+        };
+        if (Context.Channel is IPrivateChannel)
+        {
             await Context.Channel.SendMessageAsync("", false, infoembed);
+        }
+        else
+        {
+            IGuildUser BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+            if (BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
+            {
+                await Context.Channel.SendMessageAsync("", false, infoembed);
+            }
+            else
+            {
+                await Context.Channel.SendMessageAsync("Twitch channel lookup/search and livestream notifications in channel or user DMs" + Environment.NewLine + "```md" + Environment.NewLine + "[ p/tw (Channel) ]( Get info about a channel )" + Environment.NewLine + "[ p/tw s (Channel ]( Get 3 channel names )" + Environment.NewLine + "[ p/tw n (Option) (Channel) ]( Get a notification when a streamer goes live )" + Environment.NewLine + "[ p/tw l (Option) ]( Get a list of notification settings )" + Environment.NewLine + "[ p/tw r (Option) (Channel) ]( Remove a channel from notification setting )" + Environment.NewLine + "<Options > ME (User DM) | HERE (Guild Channel)```");
+            }
+        }
     }
 
     [Command("tw c")]
@@ -1764,8 +1815,19 @@ public class Media : ModuleBase
     [Alias("tw n")]
     [Remarks("tw n (Option) (Channel)")]
     [Summary("Recieve notifications from this twitch channel")]
-    public async Task Twn(string Option = null, string Channel = null)
+    public async Task TwitchNotify(string Option = null, string Channel = null)
     {
+        if (Context.Channel is IPrivateChannel)
+        {
+            await Context.Channel.SendMessageAsync("`Guild channel only!`");
+            return;
+        }
+        IGuildUser BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+        if (!BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
+        {
+            await Context.Channel.SendMessageAsync("`Bot required permission Embed Links`");
+            return;
+        }
         if (Option == null)
         {
             await Context.Channel.SendMessageAsync("`Enter an option | p/tw notify me (Channel) - Sends a message in DMS | p/tw notify here (Channel) - Sends a message in this channel (Server Owner Only!)`");
@@ -1861,8 +1923,13 @@ public class Media : ModuleBase
     [Alias("tw l")]
     [Remarks("tw list (Option)")]
     [Summary("List your twitch notification settings")]
-    public async Task Twl(string Option = null)
+    public async Task TwitchList(string Option = null)
     {
+        if (Context.Channel is IPrivateChannel)
+        {
+            await Context.Channel.SendMessageAsync("`Guild channel only!`");
+            return;
+        }
         if (Option == null)
         {
             await Context.Channel.SendMessageAsync("`Enter an option | p/tw list me | p/tw list guild | p/tw list here`");
@@ -1943,8 +2010,13 @@ public class Media : ModuleBase
     [Alias("tw r")]
     [Remarks("tw r (Option) (Channel)")]
     [Summary("Remove notifications from a twitch channel")]
-    public async Task Twr(string Option = null, string Channel = null)
+    public async Task TwitchRemove(string Option = null, string Channel = null)
     {
+        if (Context.Channel is IPrivateChannel)
+        {
+            await Context.Channel.SendMessageAsync("`Guild channel only!`");
+            return;
+        }
         if (Option == null)
         {
             await Context.Channel.SendMessageAsync("`Enter an option | p/tw remove me (Channel) | p/tw remove here (Channel)");
@@ -2035,9 +2107,9 @@ public class Prune : ModuleBase
                 await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
                 return;
             }
-            if (Ammount > 100)
+            if (Ammount > 30)
             {
-                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                 return;
             }
             int Count = 0;
@@ -2080,9 +2152,9 @@ public class Prune : ModuleBase
                 await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
                 return;
             }
-            if (Ammount > 100)
+            if (Ammount > 30)
             {
-                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                 return;
             }
             int Count = 0;
@@ -2121,9 +2193,9 @@ public class Prune : ModuleBase
                 await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
                 return;
             }
-            if (Ammount > 100)
+            if (Ammount > 30)
             {
-                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                 return;
             }
             int Count = 0;
@@ -2162,9 +2234,9 @@ public class Prune : ModuleBase
                 await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
                 return;
             }
-            if (Ammount > 100)
+            if (Ammount > 30)
             {
-                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                 return;
             }
             int Count = 0;
@@ -2203,9 +2275,9 @@ public class Prune : ModuleBase
                 await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
                 return;
             }
-            if (Ammount > 100)
+            if (Ammount > 30)
             {
-                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                 return;
             }
             int Count = 0;
@@ -2244,9 +2316,9 @@ public class Prune : ModuleBase
                 await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
                 return;
             }
-            if (Ammount > 100)
+            if (Ammount > 30)
             {
-                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                 return;
             }
             int Count = 0;
@@ -2285,9 +2357,9 @@ public class Prune : ModuleBase
                 await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
                 return;
             }
-            if (Ammount > 100)
+            if (Ammount > 30)
             {
-                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 100`");
+                await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                 return;
             }
             int Count = 0;
