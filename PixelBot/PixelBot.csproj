@@ -31,7 +31,7 @@
     <WebPage>publish.html</WebPage>
     <OpenBrowserOnPublish>false</OpenBrowserOnPublish>
     <ApplicationRevision>0</ApplicationRevision>
-    <ApplicationVersion>6.3.0.0</ApplicationVersion>
+    <ApplicationVersion>6.3.1.0</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <CreateDesktopShortcut>true</CreateDesktopShortcut>
     <PublishWizardCompleted>true</PublishWizardCompleted>
@@ -146,9 +146,6 @@
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.10.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="NYoutubeDL, Version=0.4.4.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\NYoutubeDL.0.4.4\lib\net46\NYoutubeDL.dll</HintPath>
     </Reference>
     <Reference Include="Overwatch.Net, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Overwatch.Net.1.0.4\lib\net452\Overwatch.Net.dll</HintPath>
@@ -287,14 +284,10 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="ffmpeg.exe" />
-    <Content Include="libsodium.dll" />
-    <Content Include="opus.dll" />
     <Content Include="PixelBot.ico" />
     <Content Include="System.IO.Compression.dll" />
     <Content Include="System.Net.Http.dll" />
     <Content Include="System.Runtime.Serialization.Primitives.dll" />
-    <Content Include="youtube-dl.exe" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

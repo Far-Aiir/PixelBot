@@ -48,7 +48,7 @@ class Program
     public static ServiceCollection _map = new ServiceCollection();
     public static IServiceProvider _provider;
     public static PaginationService _pagination;
-    public static Dictionary<ulong, IAudioClient> dictionary = new Dictionary<ulong, IAudioClient>();
+    public static Dictionary<ulong, IGuildUser> ThisBot = new Dictionary<ulong, IGuildUser>();
     static void Main()
     {
         DisableConsoleQuickEdit.Go();
@@ -102,9 +102,8 @@ class Program
         _client.Ready += async () =>
         {
             Console.WriteLine($"PixelBot > Online in {_client.Guilds.Count} Guilds");
-            //await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
-            await _client.SetGameAsync("Under Construction Plz Wait");
-            await _client.SetStatusAsync(UserStatus.DoNotDisturb);
+            await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
+            await _client.SetStatusAsync(UserStatus.Online);
             if (DevMode == false)
             {
                 if (FirstStart == false)
@@ -120,6 +119,7 @@ class Program
         };
         _client.LeftGuild += async (g) =>
         {
+            ThisBot.Remove(g.Id);
             if (DevMode == false)
             {
                 await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
@@ -129,6 +129,8 @@ class Program
         };
         _client.JoinedGuild += async (g) =>
         {
+            IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
+            ThisBot.Add(g.Id, BotUser);
             if (DevMode == false)
             {
                 if (PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
@@ -159,6 +161,8 @@ class Program
         };
         _client.GuildAvailable += async (g) =>
         {
+            IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
+            ThisBot.Add(g.Id, BotUser);
             if (DevMode == false)
             {
                 if (PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
@@ -406,6 +410,33 @@ class Program
         });
     }
 
+    public static Color GetRoleColor(ICommandContext Command)
+    {
+        Color RoleColor = new Discord.Color(30,0,200);
+            IGuildUser BotUser = null;
+        if (Command.Guild != null)
+        {
+            ThisBot.TryGetValue(Command.Guild.Id, out BotUser);
+            if (BotUser.GetPermissions(Command.Channel as ITextChannel).EmbedLinks)
+            {
+                if (BotUser != null)
+                {
+                    if (BotUser.RoleIds.Count != 0)
+                    {
+                        foreach (var Role in BotUser.Guild.Roles.OrderBy(x => x.Position))
+                        {
+                            if (BotUser.RoleIds.Contains(Role.Id))
+                            {
+                                RoleColor = Role.Color;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return RoleColor;
+    }
+
     private async void TwitchTimer(object sender, ElapsedEventArgs e)
     {
         var TwitchClient = new TwitchAuthenticatedClient(TwitchToken, TwitchOauth);
@@ -510,33 +541,6 @@ class Program
 
 public class Main : ModuleBase
 {
-    [Command("xbox")]
-    public async Task Xbox()
-    {
-        HttpWebRequest GetUserId = (HttpWebRequest)WebRequest.Create("http://support.xbox.com/en-US/LiveStatus/GetHeaderStatusModule");
-        GetUserId.Method = WebRequestMethods.Http.Get;
-        HttpWebResponse response = (HttpWebResponse)GetUserId.GetResponse();
-        Stream receiveStream = response.GetResponseStream();
-        StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
-        var Req = readStream.ReadToEnd();
-        string Status = "Online";
-        if (Req.Contains("Up and Running"))
-        {
-
-        }
-        else
-        {
-            Console.WriteLine(Req);
-            Status = "Issues!";
-        }
-        var embed = new EmbedBuilder()
-        {
-            Title = "Xbox Live | " + Status,
-            Description = "```md" + Environment.NewLine + "[ p/xbox (GamerTag) ]( Get xbox live user info )```"
-        };
-        await Context.Channel.SendMessageAsync("", false, embed);
-    }
-    
     [Command("yt")]
     public async Task Yt()
     {
@@ -737,18 +741,6 @@ public class Main : ModuleBase
         {
 
         }
-    }
-
-    [Command("stop", RunMode = RunMode.Async)]
-    [RequireOwner]
-    public async Task Stop()
-    {
-        IAudioClient AC = null;
-        IVoiceChannel Channel = null;
-        Channel = (Context.User as IGuildUser).VoiceChannel;
-       Program.dictionary.TryGetValue(Context.Guild.Id, out AC);
-        Program.dictionary.Remove(Context.Guild.Id);
-        await AC.StopAsync();
     }
 
     [Command("math")][Summary("")][Remarks("")]
@@ -1215,78 +1207,97 @@ public class Game : ModuleBase
     [Summary("Xbox live user stats")]
     public async Task Xboxuser(string User)
     {
-        await Context.Channel.SendMessageAsync("Disabled due to not working");
-        return;
         var PWM = await Context.Channel.SendMessageAsync("`Please wait`");
-        HttpWebRequest GetUserId = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/xuid/" + User);
-        GetUserId.Method = WebRequestMethods.Http.Get;
-        GetUserId.Headers.Add("X-AUTH", Program.XboxKey);
-        GetUserId.Accept = "application/json";
-        HttpWebResponse response = (HttpWebResponse)GetUserId.GetResponse();
-        if (response.StatusCode.ToString() != "OK")
+        HttpWebRequest LiveStatus = (HttpWebRequest)WebRequest.Create("http://support.xbox.com/en-US/LiveStatus/GetHeaderStatusModule");
+        LiveStatus.Method = WebRequestMethods.Http.Get;
+        HttpWebResponse LiveRes = (HttpWebResponse)LiveStatus.GetResponse();
+        Stream LiveStream = LiveRes.GetResponseStream();
+        StreamReader LiveRead = new StreamReader(LiveStream, Encoding.UTF8);
+        var LiveR = LiveRead.ReadToEnd();
+        string Status = "Xbox Live Is Online";
+        if (LiveR.Contains("Up and Running"))
+        {
+
+        }
+        else
+        {
+            Status = "Xbox Live Is Having Issues!";
+        }
+        try
+        {
+            HttpWebRequest GetUserId = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/xuid/" + User);
+            GetUserId.Method = WebRequestMethods.Http.Get;
+            GetUserId.Headers.Add("X-AUTH", Program.XboxKey);
+            GetUserId.Accept = "application/json";
+            HttpWebResponse response = (HttpWebResponse)GetUserId.GetResponse();
+            Stream receiveStream = response.GetResponseStream();
+            StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
+            var Req = readStream.ReadToEnd();
+            var UserID = "";
+            foreach (var Number in Req.Where(char.IsNumber))
+            {
+                UserID = UserID + Number;
+            }
+            string UserOnline = "Offline";
+            HttpWebRequest OnlineHttp = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/" + UserID + "/presence");
+            OnlineHttp.Method = WebRequestMethods.Http.Get;
+            OnlineHttp.Headers.Add("X-AUTH", Program.XboxKey);
+            OnlineHttp.Accept = "application/json";
+            HttpWebResponse OnlineRes = (HttpWebResponse)OnlineHttp.GetResponse();
+            Stream OnlineStream = OnlineRes.GetResponseStream();
+            StreamReader OnlineRead = new StreamReader(OnlineStream, Encoding.UTF8);
+            var OnlineJson = OnlineRead.ReadToEnd();
+            if (OnlineJson.Contains("Online"))
+            {
+                UserOnline = "Online";
+            }
+            HttpWebRequest HttpUserGamercard = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/" + UserID + "/gamercard");
+            HttpUserGamercard.Method = WebRequestMethods.Http.Get;
+            HttpUserGamercard.Headers.Add("X-AUTH", Program.XboxKey);
+            HttpUserGamercard.Accept = "application/json";
+            HttpWebResponse GamercardRes = (HttpWebResponse)HttpUserGamercard.GetResponse();
+            Stream GamercardStream = GamercardRes.GetResponseStream();
+            StreamReader GamercardRead = new StreamReader(GamercardStream, Encoding.UTF8);
+            var GamercardJson = GamercardRead.ReadToEnd();
+            dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(GamercardJson);
+            HttpWebRequest HttpUserFrineds = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/" + UserID + "/friends");
+            HttpUserFrineds.Method = WebRequestMethods.Http.Get;
+            HttpUserFrineds.Headers.Add("X-AUTH", Program.XboxKey);
+            HttpUserFrineds.Accept = "application/json";
+            HttpWebResponse FriendsRes = (HttpWebResponse)HttpUserFrineds.GetResponse();
+            Stream FriendsStream = FriendsRes.GetResponseStream();
+            StreamReader FriendsRead = new StreamReader(FriendsStream, Encoding.UTF8);
+            var FriendsJson = FriendsRead.ReadToEnd();
+            dynamic Friends = JsonConvert.DeserializeObject(FriendsJson);
+            int UserFriends = 0;
+            foreach (var Item in Friends)
+            {
+                UserFriends++;
+            }
+            string Bio = "None";
+            if (stuff.bio != "")
+            {
+                Bio = stuff.bio;
+            }
+            var embed = new EmbedBuilder()
+            {
+                Title = $"{User} | {UserOnline}",
+                Description = "```md" + Environment.NewLine + $"<Tier {stuff.tier}> <Score {stuff.gamerscore}>" + Environment.NewLine + $"<Friends {UserFriends}> <Bio {Bio}>```",
+                ThumbnailUrl = stuff.avatarBodyImagePath,
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = Status
+                }
+            };
+            await PWM.DeleteAsync();
+            await Context.Channel.SendMessageAsync("", false, embed);
+        }
+        catch
         {
             await PWM.DeleteAsync();
-            await Context.Channel.SendMessageAsync("Could not find user");
+            await Context.Channel.SendMessageAsync($"`Could not find user | {Status}`");
             return;
         }
-        Stream receiveStream = response.GetResponseStream();
-        StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
-        var Req = readStream.ReadToEnd();
-        var UserID = "";
-        Console.WriteLine(Req);
-        foreach (var Number in Req.Where(char.IsNumber))
-        {
-            UserID = UserID + Number;
-        }
-        string UserOnline = "Offline";
-        HttpWebRequest OnlineHttp = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/" + UserID + "/presence");
-        OnlineHttp.Method = WebRequestMethods.Http.Get;
-        OnlineHttp.Headers.Add("X-AUTH", Program.XboxKey);
-        OnlineHttp.Accept = "application/json";
-        HttpWebResponse OnlineRes = (HttpWebResponse)OnlineHttp.GetResponse();
-        Stream OnlineStream = OnlineRes.GetResponseStream();
-        StreamReader OnlineRead = new StreamReader(OnlineStream, Encoding.UTF8);
-        var OnlineJson = OnlineRead.ReadToEnd();
-        if (OnlineJson.Contains("Online"))
-        {
-            UserOnline = "Online";
-        }
-        HttpWebRequest HttpUserGamercard = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/" + UserID + "/gamercard");
-        HttpUserGamercard.Method = WebRequestMethods.Http.Get;
-        HttpUserGamercard.Headers.Add("X-AUTH", Program.XboxKey);
-        HttpUserGamercard.Accept = "application/json";
-        HttpWebResponse GamercardRes = (HttpWebResponse)HttpUserGamercard.GetResponse();
-        Stream GamercardStream = GamercardRes.GetResponseStream();
-        StreamReader GamercardRead = new StreamReader(GamercardStream, Encoding.UTF8);
-        var GamercardJson = GamercardRead.ReadToEnd();
-        dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(GamercardJson);
-        HttpWebRequest HttpUserFrineds = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/" + UserID + "/friends");
-        HttpUserFrineds.Method = WebRequestMethods.Http.Get;
-        HttpUserFrineds.Headers.Add("X-AUTH", Program.XboxKey);
-        HttpUserFrineds.Accept = "application/json";
-        HttpWebResponse FriendsRes = (HttpWebResponse)HttpUserFrineds.GetResponse();
-        Stream FriendsStream = FriendsRes.GetResponseStream();
-        StreamReader FriendsRead = new StreamReader(FriendsStream, Encoding.UTF8);
-        var FriendsJson = FriendsRead.ReadToEnd();
-        dynamic Friends = JsonConvert.DeserializeObject(FriendsJson);
-        int UserFriends = 0;
-        foreach (var Item in Friends)
-        {
-            UserFriends++;
-        }
-        string Bio = "None";
-        if (stuff.bio != "")
-        {
-            Bio = stuff.bio;
-        }
-        var embed = new EmbedBuilder()
-        {
-            Title = $"{User} | {UserOnline}",
-            Description = "```md" + Environment.NewLine + $"<Tier {stuff.tier}> <Score {stuff.gamerscore}>" + Environment.NewLine + $"<Friends {UserFriends}> <Bio {Bio}>```",
-            ThumbnailUrl = stuff.avatarBodyImagePath
-        };
-        await PWM.DeleteAsync();
-        await Context.Channel.SendMessageAsync("", false, embed);
     }
 
     [Command("mc")]
@@ -1751,6 +1762,8 @@ public class Media : ModuleBase
 
     [Command("tw notify")]
     [Alias("tw n")]
+    [Remarks("tw n (Option) (Channel)")]
+    [Summary("Recieve notifications from this twitch channel")]
     public async Task Twn(string Option = null, string Channel = null)
     {
         if (Option == null)
@@ -1846,6 +1859,8 @@ public class Media : ModuleBase
 
     [Command("tw list")]
     [Alias("tw l")]
+    [Remarks("tw list (Option)")]
+    [Summary("List your twitch notification settings")]
     public async Task Twl(string Option = null)
     {
         if (Option == null)
@@ -1926,6 +1941,8 @@ public class Media : ModuleBase
 
     [Command("tw remove")]
     [Alias("tw r")]
+    [Remarks("tw r (Option) (Channel)")]
+    [Summary("Remove notifications from a twitch channel")]
     public async Task Twr(string Option = null, string Channel = null)
     {
         if (Option == null)
@@ -2361,7 +2378,8 @@ public class Help : ModuleBase
             }
             var allemebed = new EmbedBuilder()
             {
-                Title = "Commands List"
+                Title = "Commands List",
+                Color = Program.GetRoleColor(Context)
             };
             allemebed.AddField(x =>
             {
@@ -2388,7 +2406,7 @@ public class Help : ModuleBase
         {
             BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id) as IGuildUser;
         }
-        string HelpText = "```md" + Environment.NewLine + "[ p/misc ]( Guild/User Info | Dice Roll | Coin Flip )" + Environment.NewLine + "[ p/prune ]( Prune Messages | Embeds | Links | Text Match )" + Environment.NewLine + "[ p/game ]( Steam | Osu! | Minecraft )" + Environment.NewLine + "[ p/media ]( Twitch Commands )" + Environment.NewLine + "[ p/temp ]( Create A Temp Voice Channel )```";
+        string HelpText = "**Help Commands**```md" + Environment.NewLine + "[ p/misc ]( Guild/User Info | Dice Roll | Coin Flip )" + Environment.NewLine + "[ p/game ]( Steam | Osu! | Minecraft | Xbox )" + Environment.NewLine + "[ p/media ]( Twitch Commands )" + Environment.NewLine + "[ p/prune ]( Prune Messages | Embeds | Links )```For a list of all commands do p/help all";
         if (!BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
         {
             await Context.Channel.SendMessageAsync(HelpText);
@@ -2414,7 +2432,7 @@ public class Help : ModuleBase
                 {
                     Text = "To get a full list of commands do | p/help all | Or visit the website http://blaze.ml"
                 },
-                Color = new Color(0, 191, 255)
+                Color = Program.GetRoleColor(Context)
             };
             await Context.Channel.SendMessageAsync("", false, embed);
             return;
@@ -2422,13 +2440,13 @@ public class Help : ModuleBase
         var Guilds = await Context.Client.GetGuildsAsync();
         var pages = new List<string>
             {
-                "```md" + Environment.NewLine + "< Info     | Commands ► >" + Environment.NewLine + "Language C# | Library .net 1.0" + Environment.NewLine + $"Guilds {Guilds.Count}``` For a full list of commands do **p/help all** or visit the website" + Environment.NewLine + "[Website](https://blaze.ml) | [Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0) | [Github](https://github.com/ArchboxDev/PixelBot) | [My Guild](http://discord.gg/WJTYdNb)",
-                "```md" + Environment.NewLine + "< ◄ Info |     Misc     | Games ► >```md" + Environment.NewLine + MiscText + "```",
-                "```md" + Environment.NewLine + "< ◄ Misc |     Games     | Media ► >```md" + Environment.NewLine + GameText + "```",
-                "```md" + Environment.NewLine + "< ◄ Games |     Media     | Prune ► >```md" + Environment.NewLine + MediaText + "```",
-            "```md" + Environment.NewLine + "<  Games |     Prune >```md" + Environment.NewLine + PruneText + "```"
+                "```md" + Environment.NewLine + "< | Info     | Commands ► >" + Environment.NewLine + "<Language C#> <Library .net 1.0>" + Environment.NewLine + $"<Guilds {Guilds.Count}>``` For a full list of commands do **p/help all** or visit the website" + Environment.NewLine + "[Website](https://blaze.ml) | [Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0) | [Github](https://github.com/ArchboxDev/PixelBot) | [My Guild](http://discord.gg/WJTYdNb)",
+                "```md" + Environment.NewLine + "< ◄ Info |     Misc     | Games ► >" + Environment.NewLine + MiscText + "```",
+                "```md" + Environment.NewLine + "< ◄ Misc |     Games     | Media ► >" + Environment.NewLine + GameText + "```",
+                "```md" + Environment.NewLine + "< ◄ Games |     Media     | Prune ► >" + Environment.NewLine + MediaText + "```",
+            "```md" + Environment.NewLine + "< ◄ Games |     Prune | >" + Environment.NewLine + PruneText + "```"
         };
-        var message = new PaginatedMessage(pages, "Commands List", new Color(0, 191, 255), Context.User);
+        var message = new PaginatedMessage(pages, "Commands List", Program.GetRoleColor(Context), Context.User);
         await paginator.SendPaginatedMessageAsync(Context.Channel, message);
     }
 
