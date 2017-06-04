@@ -68,7 +68,10 @@ namespace PixelBot
             if (Option == "dm")
             {
                 IDMChannel DM = await Context.User.CreateDMChannelAsync();
-                await DM.SendMessageAsync(AllGuilds);
+                foreach (var g in GuildList)
+                {
+                    await DM.SendMessageAsync(g);
+                }
             }
             else
             {

@@ -22,10 +22,18 @@ using Discord.Addons.Preconditions;
 using Discord.Addons.Paginator;
 using OverwatchAPI;
 using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics;
 
+public class Player
+{
+    public ulong ID { get; set; }
+    public int Level { get; set; }
+    public int Xp { get; set; }
+    public string NewVal { get; set; }
+}
 class Program
 {
-    public static bool DevMode = false;
+    public static bool DevMode = true;
     public static string BotPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\";
     public static string TempVoiceDir = BotPath + "TempVoice\\";
     public static string DiscordToken;
@@ -41,21 +49,38 @@ class Program
     public static string YoutubeKey;
     public static string DbotsAPI;
     public static bool FirstStart = false;
-    public DiscordSocketClient _client;
+    public static DiscordSocketClient _client;
     public static CommandService _commands;
     public static ServiceCollection _map = new ServiceCollection();
     public static IServiceProvider _provider;
     public static PaginationService _pagination;
     public static Dictionary<ulong, IGuildUser> ThisBot = new Dictionary<ulong, IGuildUser>();
+    public static Dictionary<ulong, int> UptimeBotsList = new Dictionary<ulong, int>();
+    public static List<Player> _data = new List<Player>();
+    public static Timer TwitchTimer = new Timer();
+    public static Timer BotTimer = new Timer();
+    public static Timer UptimeTimer = new Timer();
     static void Main()
     {
         DisableConsoleQuickEdit.Go();
         Console.Title = "PixelBot";
         string TokenPath = BotPath + "Tokens.txt";
         Directory.CreateDirectory(TempVoiceDir);
+        Directory.CreateDirectory(BotPath + "Uptime\\");
+        foreach (var File in Directory.GetFiles(BotPath + "Uptime\\"))
+        {
+                using (StreamReader reader = new StreamReader(File))
+                {
+                UptimeBotsList.Add(Convert.ToUInt64(File.Replace(BotPath + "Uptime\\", "").Replace(".txt", "")), Convert.ToInt32(reader.ReadLine()));
+                }
+        }
         if (PixelBot.Properties.Settings.Default.Blacklist == null)
         {
             PixelBot.Properties.Settings.Default.Blacklist = new System.Collections.Specialized.StringCollection();
+        }
+        if (File.Exists(BotPath + "LIVE.txt"))
+        {
+            Program.DevMode = false;
         }
         using (Stream stream = File.Open(TokenPath, FileMode.Open))
         {
@@ -77,51 +102,63 @@ class Program
         }
         new Program().RunBot().GetAwaiter().GetResult();
     }
-
     public async Task RunBot()
     {
         _client = new DiscordSocketClient();
-        
         _pagination = new PaginationService(_client);
         var services = ConfigureServices();
         await InstallCommands(_provider);
+
         _client.Connected += () =>
         {
             Console.Title = "PixelBot - Online!";
-            Console.WriteLine($"PixelBot > Connected");
+            Log("PixelBot", "Connected");
             return Task.CompletedTask;
         };
+
         _client.Disconnected += (r) =>
         {
             Console.Title = "PixelBot - Offline!";
-            Console.WriteLine($"PixelBot > Disconnected");
+            Log("PixelBot", "Disconnected");
             return Task.CompletedTask;
         };
+
         _client.Ready += async () =>
         {
-            Console.WriteLine($"PixelBot > Online in {_client.Guilds.Count} Guilds");
+            Log("PixelBot", $"Online in {_client.Guilds.Count} Guilds");
             await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
             await _client.SetStatusAsync(UserStatus.Online);
+            
             if (DevMode == false)
             {
                 if (FirstStart == false)
                 {
-                    FirstStart = true;
-                    UpdateBotStats();
-                    Timer timer = new Timer();
-                    timer.Interval = 60000;
-                    timer.Elapsed += TwitchTimer;
-                    timer.Start();
+                    UpdateUsers();
+                    UpdateBotService(null, null);
+                    TwitchTimer.Interval = 60000;
+                    TwitchTimer.Elapsed += TwitchNotificationService;
+                    TwitchTimer.Start();
+                    BotTimer.Interval = 300000;
+                    BotTimer.Elapsed += TwitchNotificationService;
+                    BotTimer.Start();
+                    UptimeTimer.Interval = 600000;
+                    UptimeTimer.Elapsed += BotUptimeService;
+                    UptimeTimer.Start();
+                    
+                    Log("Debug", "Timer Service Online");
                 }
+                
             }
+            FirstStart = true;
         };
+
         _client.LeftGuild += async (g) =>
         {
             ThisBot.Remove(g.Id);
             if (DevMode == false)
             {
                 await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
-                UpdateBotStats();
+                
                 Console.WriteLine($"Left Guild > {g.Name} - {g.Id}");
             }
         };
@@ -134,11 +171,12 @@ class Program
                 if (PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
                 {
                     Console.WriteLine($"Removed {g.Name} - {g.Id} due to blacklist");
+                    await g.DefaultChannel.SendMessageAsync($"This guild has been blacklist by the owner ({g.Id}) contact `xXBuilderBXx#9113` for more info");
                     await g.LeaveAsync();
                     return;
                 }
                 await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ");
-                UpdateBotStats();
+                
                     MySQLConnection myConn;
                     MySQLDataReader MyReader = null;
                     myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
@@ -231,7 +269,12 @@ class Program
         }
         await Task.Delay(-1);
     }
-    public void UpdateBotStats()
+    public static void Log(string Main = "PixelBot", [Remainder]string Message = "")
+    {
+        Console.WriteLine($"[{Main}] {Message}");
+    }
+
+    public void UpdateBotService(object sender, ElapsedEventArgs e)
     {
         try
         {
@@ -256,6 +299,7 @@ class Program
             Console.WriteLine(ex);
         }
     }
+
     public IServiceProvider ConfigureServices()
     {
         var services = new ServiceCollection()
@@ -435,7 +479,7 @@ class Program
         return RoleColor;
     }
 
-    private async void TwitchTimer(object sender, ElapsedEventArgs e)
+    public void TwitchNotificationService(object sender, ElapsedEventArgs e)
     {
         var TwitchClient = new TwitchAuthenticatedClient(TwitchToken, TwitchOauth);
         MySQLConnection DB;
@@ -459,7 +503,7 @@ class Program
                         try
                         {
                             IGuild Guild = _client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
-                            ITextChannel Channel = await Guild.GetChannelAsync(Convert.ToUInt64(MyReader.GetString(3))) as ITextChannel;
+                            ITextChannel Channel = Guild.GetChannelAsync(Convert.ToUInt64(MyReader.GetString(3))).GetAwaiter().GetResult() as ITextChannel;
                             var TwitchChannel = TwitchClient.GetChannel(MyReader.GetString(4));
                             var embed = new EmbedBuilder()
                             {
@@ -472,7 +516,7 @@ class Program
                                 },
                                 ThumbnailUrl = TwitchChannel.Logo
                             };
-                            await Channel.SendMessageAsync("", false, embed);
+                            Channel.SendMessageAsync("", false, embed).GetAwaiter();
                             
                         }
                         catch
@@ -491,8 +535,8 @@ class Program
                         upcmd.ExecuteNonQuery();
                         try
                         {
-                            IGuild Guild = _client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
-                            IUser User = await Guild.GetUserAsync(Convert.ToUInt64(MyReader.GetString(1))) as IUser;
+                            IGuild Guild = Program._client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
+                            IUser User = Guild.GetUserAsync(Convert.ToUInt64(MyReader.GetString(1))) as IUser;
                             var TwitchChannel = TwitchClient.GetChannel(MyReader.GetString(4));
                             var embed = new EmbedBuilder()
                             {
@@ -505,8 +549,8 @@ class Program
                                 },
                                 ThumbnailUrl = TwitchChannel.Logo
                             };
-                            var DM = await User.CreateDMChannelAsync();
-                            await DM.SendMessageAsync("", false, embed);
+                            var DM = User.CreateDMChannelAsync().GetAwaiter().GetResult();
+                            DM.SendMessageAsync("", false, embed).GetAwaiter();
                             
                         }
                         catch
@@ -535,10 +579,63 @@ class Program
         }
         DB.Close();
     }
+    public static async void UpdateUsers()
+    {
+        try
+        {
+            var Guild = _client.GetGuild(110373943822540800);
+            await Guild.DownloadUsersAsync();
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+    }
+    public static async void BotUptimeService(object sender, ElapsedEventArgs e)
+    {
+        try
+        {
+            var Guild = Program._client.GetGuild(110373943822540800);
+            await Guild.DownloadUsersAsync();
+            var Bots = Guild.Users.Where(x => x.IsBot);
+            foreach(var Bot in Bots)
+            {
+                int UptimeCount = 100;
+                Program.UptimeBotsList.TryGetValue(Bot.Id, out UptimeCount);
+                if (Bot.Status == UserStatus.Offline)
+                {
+                    UptimeCount--;
+                }
+                else
+                {
+                    UptimeCount++;
+                }
+                System.IO.File.WriteAllText(Program.BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt", UptimeCount.ToString());
+                UptimeBotsList[Bot.Id] = UptimeCount;
+            }
+            Log("Uptime Service", "Task done");
+        }
+        catch(Exception ex)
+        {
+            Log("Error", "Error in bot uptime service");
+        }
+    }
 }
 
 public class Main : ModuleBase
 {
+    [Command("resetuptime")]
+    [RequireOwner]
+    public async Task Test()
+    {
+        var Guild = await Context.Client.GetGuildAsync(110373943822540800);
+        var Users = await Guild.GetUsersAsync();
+        foreach(var Bot in Users.Where(x => x.IsBot))
+        {
+            System.IO.File.WriteAllText(Program.BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt", "50");
+        }
+    }
+
     [Command("yt")]
     public async Task Yt()
     {
@@ -746,8 +843,8 @@ public class Main : ModuleBase
 public class Misc : ModuleBase
 {
     [Command("math")]
-    [Summary("math (1 + 1 * 9 / 5 - 3)")]
-    [Remarks("Do some maths calculations")]
+    [Remarks("math (1 + 1 * 9 / 5 - 3)")]
+    [Summary("Do some maths calculations")]
     [Alias("calc")]
     public async Task Math([Remainder] string Math)
     {
