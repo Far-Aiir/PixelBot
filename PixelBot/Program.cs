@@ -23,49 +23,60 @@ using Discord.Addons.Paginator;
 using OverwatchAPI;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
+using Newtonsoft.Json.Linq;
 
-public class Player
+public class Token
 {
-    public ulong ID { get; set; }
-    public int Level { get; set; }
-    public int Xp { get; set; }
-    public string NewVal { get; set; }
+    public string Discord { get; set; } = "";
+    public string MysqlHost { get; set; } = "";
+    public string MysqlUser { get; set; } = "";
+    public string MysqlPass { get; set; } = "";
+    public string Twitch { get; set; } = "";
+    public string TwitchAuth { get; set; } = "";
+    public string Steam { get; set; } = "";
+    public string Osu { get; set; } = "";
+    public string Xbox { get; set; } = "";
+    public string Vainglory { get; set; } = "";
+    public string Youtube { get; set; } = "";
+    public string Dbots { get; set; } = "";
+    public string DbotsV2 { get; set; } = "";
+    public string Riot { get; set; } = "";
+}
+public class Item
+{
+    public int millis;
+    public string stamp;
+    public DateTime datetime;
+    public string light;
+    public float temp;
+    public float vcc;
 }
 class Program
 {
     public static bool DevMode = true;
     public static string BotPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\";
-    public static string TempVoiceDir = BotPath + "TempVoice\\";
-    public static string DiscordToken;
-    public static string MysqlHost;
-    public static string MysqlUser;
-    public static string MysqlPass;
-    public static string TwitchToken;
-    public static string TwitchOauth;
-    public static string SteamKey;
-    public static string OsuKey;
-    public static string XboxKey;
-    public static string VaingloryKey;
-    public static string YoutubeKey;
-    public static string DbotsAPI;
     public static bool FirstStart = false;
     public static DiscordSocketClient _client;
-    public static CommandService _commands;
+    public static CommandService _commands = new CommandService();
     public static ServiceCollection _map = new ServiceCollection();
     public static IServiceProvider _provider;
     public static PaginationService _pagination;
     public static Dictionary<ulong, IGuildUser> ThisBot = new Dictionary<ulong, IGuildUser>();
     public static Dictionary<ulong, int> UptimeBotsList = new Dictionary<ulong, int>();
-    public static List<Player> _data = new List<Player>();
-    public static Timer TwitchTimer = new Timer();
-    public static Timer BotTimer = new Timer();
-    public static Timer UptimeTimer = new Timer();
+    public static Timer _Timer_Twitch = new Timer();
+    public static Timer _Timer_Stats = new Timer();
+    public static Timer _Timer_Uptime = new Timer();
+    public static Token TokenMap = new Token();
     static void Main()
     {
         DisableConsoleQuickEdit.Go();
+        using (StreamWriter file = File.CreateText(BotPath + "TokensTemplate" + ".json"))
+        {
+            JsonSerializer serializer = new JsonSerializer();
+            serializer.Serialize(file, TokenMap);
+        }
         Console.Title = "PixelBot";
         string TokenPath = BotPath + "Tokens.txt";
-        Directory.CreateDirectory(TempVoiceDir);
         Directory.CreateDirectory(BotPath + "Uptime\\");
         foreach (var File in Directory.GetFiles(BotPath + "Uptime\\"))
         {
@@ -82,23 +93,14 @@ class Program
         {
             Program.DevMode = false;
         }
-        using (Stream stream = File.Open(TokenPath, FileMode.Open))
+
+        //Token test = JsonConvert.DeserializeObject<Token>(File.ReadAllText(BotPath + "Tokens.json"));
+        
+        using (StreamReader file = File.OpenText(BotPath + "Tokens.json"))
         {
-            using (StreamReader reader = new StreamReader(stream))
-            {
-                DiscordToken = reader.ReadLine();
-                MysqlHost = reader.ReadLine();
-                MysqlUser = reader.ReadLine();
-                MysqlPass = reader.ReadLine();
-                TwitchToken = reader.ReadLine();
-                TwitchOauth = reader.ReadLine();
-                SteamKey = reader.ReadLine();
-                OsuKey = reader.ReadLine();
-                XboxKey = reader.ReadLine();
-                VaingloryKey = reader.ReadLine();
-                YoutubeKey = reader.ReadLine();
-                DbotsAPI = reader.ReadLine();
-            }
+            JsonSerializer serializer = new JsonSerializer();
+            Token Items = (Token)serializer.Deserialize(file, typeof(Token));
+            TokenMap = Items;
         }
         new Program().RunBot().GetAwaiter().GetResult();
     }
@@ -109,45 +111,52 @@ class Program
         var services = ConfigureServices();
         await InstallCommands(_provider);
 
-        _client.Connected += () =>
+        _client.Connected += async () =>
         {
             Console.Title = "PixelBot - Online!";
-            Log("PixelBot", "Connected");
+            Console.WriteLine("[PixelBot] Connected");
+            if (DevMode == false & FirstStart == false)
+            {
+                await _client.SetStatusAsync(UserStatus.Idle);
+                await _client.SetGameAsync("Loading");
+            }
+        };
+
+        _client.UserJoined += (User) =>
+        {
+            if (DevMode = false & User.Guild.Id == 81384788765712384 || User.Guild.Id == 264445053596991498 & User.IsBot & !File.Exists(Program.BotPath + "Uptime\\" + User.Id.ToString() + ".txt"))
+            {
+                  System.IO.File.WriteAllText(BotPath + "Uptime\\" + User.Id.ToString() + ".txt", "75");
+            }
             return Task.CompletedTask;
         };
 
         _client.Disconnected += (r) =>
         {
             Console.Title = "PixelBot - Offline!";
-            Log("PixelBot", "Disconnected");
+            Console.WriteLine("[PixelBot] Disconnected");
             return Task.CompletedTask;
         };
 
         _client.Ready += async () =>
         {
-            Log("PixelBot", $"Online in {_client.Guilds.Count} Guilds");
-            await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
+            Console.WriteLine($"[PixelBot] Online in {_client.Guilds.Count} Guilds");
             await _client.SetStatusAsync(UserStatus.Online);
-            
-            if (DevMode == false)
+            await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
+            if (DevMode == false & FirstStart == false)
             {
-                if (FirstStart == false)
-                {
                     UpdateUsers();
                     UpdateBotService(null, null);
-                    TwitchTimer.Interval = 60000;
-                    TwitchTimer.Elapsed += TwitchNotificationService;
-                    TwitchTimer.Start();
-                    BotTimer.Interval = 300000;
-                    BotTimer.Elapsed += TwitchNotificationService;
-                    BotTimer.Start();
-                    UptimeTimer.Interval = 600000;
-                    UptimeTimer.Elapsed += BotUptimeService;
-                    UptimeTimer.Start();
-                    
-                    Log("Debug", "Timer Service Online");
-                }
-                
+                    _Timer_Twitch.Interval = 60000;
+                    _Timer_Twitch.Elapsed += TwitchNotificationService;
+                    _Timer_Twitch.Start();
+                    _Timer_Stats.Interval = 300000;
+                    _Timer_Stats.Elapsed += UpdateBotService;
+                    _Timer_Stats.Start();
+                    _Timer_Uptime.Interval = 600000;
+                    _Timer_Uptime.Elapsed += BotUptimeService;
+                    _Timer_Uptime.Start();
+                    Console.WriteLine("[PixelBot] Timer Service Online");
             }
             FirstStart = true;
         };
@@ -162,10 +171,9 @@ class Program
                 Console.WriteLine($"Left Guild > {g.Name} - {g.Id}");
             }
         };
+
         _client.JoinedGuild += async (g) =>
         {
-            IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
-            ThisBot.Add(g.Id, BotUser);
             if (DevMode == false)
             {
                 if (PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
@@ -176,25 +184,12 @@ class Program
                     return;
                 }
                 await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ");
-                
-                    MySQLConnection myConn;
-                    MySQLDataReader MyReader = null;
-                    myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
-                    myConn.Open();
-                    string stm = $"SELECT guild FROM guilds WHERE guild='{g.Id}'";
-                    MySQLCommand cmd = new MySQLCommand(stm, myConn);
-                    MyReader = cmd.ExecuteReaderEx();
-                    if (!MyReader.HasRows)
-                    {
-                        Console.WriteLine($"New Guild > {g.Name} - {g.Id}");
-                        string Command = $"INSERT INTO guilds(guild) VALUES ('{g.Id}')";
-                        MySQLCommand cmd2 = new MySQLCommand(Command, myConn);
-                        cmd2.ExecuteNonQuery();
-                    }
-                    myConn.Close();
-                }
+            }
+            IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
+            ThisBot.Add(g.Id, BotUser);
             Console.WriteLine($"Joined Guild {g.Name} - {g.Id}");
         };
+
         _client.GuildAvailable += async (g) =>
         {
             IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
@@ -207,60 +202,12 @@ class Program
                     await g.LeaveAsync();
                     return;
                 }
-                MySQLConnection myConn;
-                MySQLDataReader MyReader = null;
-                myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
-                myConn.Open();
-                string stm = $"SELECT guild FROM guilds WHERE guild='{g.Id.ToString()}'";
-                MySQLCommand cmd = new MySQLCommand(stm, myConn);
-                MyReader = cmd.ExecuteReaderEx();
-                if (!MyReader.HasRows)
-                {
-                    Console.WriteLine($"New Guild > {g.Name} - {g.Id}");
-                    string Command = $"INSERT INTO guilds(guild) VALUES ('{g.Id}')";
-                    MySQLCommand cmd2 = new MySQLCommand(Command, myConn);
-                    cmd2.ExecuteNonQuery();
-                }
-                myConn.Close();
             }
         };
-        _client.UserVoiceStateUpdated += async (u, v, s) =>
-        {
-            if (DevMode == false)
-            {
-                return;
-            }
-            if (s.VoiceChannel == null)
-            {
-                foreach (var Chan in v.VoiceChannel.Guild.VoiceChannels)
-                {
-                    if (File.Exists($"{TempVoiceDir}{Chan.Id.ToString()}.txt"))
-                    {
-                        using (Stream stream = File.Open($"{TempVoiceDir}{Chan.Id.ToString()}.txt", FileMode.Open))
-                        {
-                            using (StreamReader reader = new StreamReader(stream))
-                            {
-                                if (u.Id.ToString() == reader.ReadLine())
-                                {
-                                    try
-                                    {
-                                        await Chan.DeleteAsync();
-                                        File.Delete($"{TempVoiceDir}{Chan.Id.ToString()}.txt");
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Console.WriteLine($"[TempVoice] > Could not delete {Chan.Name} - {ex}");
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
+        
         try
         {
-            await _client.LoginAsync(TokenType.Bot, DiscordToken);
+            await _client.LoginAsync(TokenType.Bot, TokenMap.Discord);
             await _client.StartAsync();
         }
         catch (Exception ex)
@@ -269,18 +216,14 @@ class Program
         }
         await Task.Delay(-1);
     }
-    public static void Log(string Main = "PixelBot", [Remainder]string Message = "")
-    {
-        Console.WriteLine($"[{Main}] {Message}");
-    }
 
-    public void UpdateBotService(object sender, ElapsedEventArgs e)
+    public static void UpdateBotService(object sender, ElapsedEventArgs e)
     {
         try
         {
             var request = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/277933222015401985/stats");
             request.ContentType = "application/json";
-            request.Headers.Add("Authorization", DbotsAPI);
+            request.Headers.Add("Authorization", Program.TokenMap.Dbots);
             request.Method = "POST";
             using (var streamWriter = new StreamWriter(request.GetRequestStream()))
             {
@@ -288,15 +231,29 @@ class Program
 
                 streamWriter.Write(json);
             }
-            var response = (HttpWebResponse)request.GetResponse();
-            using (var streamReader = new StreamReader(response.GetResponseStream()))
-            {
-                var result = streamReader.ReadToEnd();
-            }
+            request.GetResponse();
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex);
+            Console.WriteLine("Error could not update Dbots Stats");
+        }
+        try
+        {
+            var request = (HttpWebRequest)WebRequest.Create("https://discordbots.org/api/bots/277933222015401985/stats");
+            request.ContentType = "application/json";
+            request.Headers.Add("Authorization", Program.TokenMap.DbotsV2);
+            request.Method = "POST";
+            using (var streamWriter = new StreamWriter(request.GetRequestStream()))
+            {
+                string json = "{\"server_count\":\"" + _client.Guilds.Count.ToString() + "\"}";
+
+                streamWriter.Write(json);
+            }
+            request.GetResponse();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error could not update DbotsV2 Stats");
         }
     }
 
@@ -310,7 +267,6 @@ class Program
     }
     public async Task InstallCommands(IServiceProvider provider)
     {
-        _commands = new CommandService();
         await _commands.AddModulesAsync(Assembly.GetEntryAssembly());
         _provider = provider;
         _client.MessageReceived += HandleCommand;
@@ -392,10 +348,10 @@ class Program
     {
         MySQLConnection myConn;
         MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
+        myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
         var youtubeService = new YouTubeService(new BaseClientService.Initializer()
         {
-            ApiKey = YoutubeKey
+            ApiKey = Program.TokenMap.Youtube
         });
         myConn.Open();
         string stm = "SELECT source FROM notifysource";
@@ -481,10 +437,10 @@ class Program
 
     public void TwitchNotificationService(object sender, ElapsedEventArgs e)
     {
-        var TwitchClient = new TwitchAuthenticatedClient(TwitchToken, TwitchOauth);
+        var TwitchClient = new TwitchAuthenticatedClient(Program.TokenMap.Twitch, Program.TokenMap.TwitchAuth);
         MySQLConnection DB;
         MySQLDataReader MyReader = null;
-        DB = new MySQLConnection(new MySQLConnectionString(MysqlHost, MysqlUser, MysqlUser, MysqlPass).AsString);
+        DB = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
         DB.Open();
         string RS = $"SELECT type, userid, guild, channel, twitch, live FROM twitch";
         MySQLCommand cmd = new MySQLCommand(RS, DB);
@@ -579,61 +535,128 @@ class Program
         }
         DB.Close();
     }
+
     public static async void UpdateUsers()
     {
         try
         {
-            var Guild = _client.GetGuild(110373943822540800);
-            await Guild.DownloadUsersAsync();
+            var Dbots = _client.GetGuild(110373943822540800);
+            await Dbots.DownloadUsersAsync();
+            var DbotsV2 = _client.GetGuild(264445053596991498);
+            await DbotsV2.DownloadUsersAsync();
         }
         catch(Exception ex)
         {
             Console.WriteLine(ex);
         }
     }
+
     public static async void BotUptimeService(object sender, ElapsedEventArgs e)
     {
         try
         {
-            var Guild = Program._client.GetGuild(110373943822540800);
-            await Guild.DownloadUsersAsync();
-            var Bots = Guild.Users.Where(x => x.IsBot);
-            foreach(var Bot in Bots)
+            List<IGuildUser> BotsList = new List<IGuildUser>();
+            var Dbots = _client.GetGuild(110373943822540800);
+            var DbotsV2 = _client.GetGuild(264445053596991498);
+            await Dbots.DownloadUsersAsync();
+            await DbotsV2.DownloadUsersAsync();
+
+            BotsList.AddRange(Dbots.Users.Where(x => x.IsBot));
+            BotsList.AddRange(DbotsV2.Users.Where(x => x.IsBot));
+
+            foreach (var Bot in BotsList)
             {
+                if (!File.Exists(BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt"))
+                {
+                    File.WriteAllText(BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt", "75");
+                }
                 int UptimeCount = 100;
-                Program.UptimeBotsList.TryGetValue(Bot.Id, out UptimeCount);
+                if (!UptimeBotsList.Keys.Contains(Bot.Id))
+                {
+                    UptimeBotsList.Add(Bot.Id, 75);
+                }
+                UptimeBotsList.TryGetValue(Bot.Id, out UptimeCount);
                 if (Bot.Status == UserStatus.Offline)
                 {
-                    UptimeCount--;
+                    if (UptimeCount != 0)
+                    {
+                        UptimeCount--;
+                    }
                 }
                 else
                 {
-                    UptimeCount++;
+                    if (UptimeCount != 100)
+                    {
+                        UptimeCount++;
+                    }
                 }
-                System.IO.File.WriteAllText(Program.BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt", UptimeCount.ToString());
+                File.WriteAllText(BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt", UptimeCount.ToString());
                 UptimeBotsList[Bot.Id] = UptimeCount;
+                BotsList.RemoveAll(x => x.Id == Bot.Id);
             }
-            Log("Uptime Service", "Task done");
         }
-        catch(Exception ex)
+        catch
         {
-            Log("Error", "Error in bot uptime service");
+            Console.WriteLine("[Error] Error in bot uptime service");
         }
     }
 }
 
 public class Main : ModuleBase
 {
-    [Command("resetuptime")]
-    [RequireOwner]
-    public async Task Test()
+    [Command("uptime")]
+    public async Task Resetuptime(string User = "")
     {
-        var Guild = await Context.Client.GetGuildAsync(110373943822540800);
-        var Users = await Guild.GetUsersAsync();
-        foreach(var Bot in Users.Where(x => x.IsBot))
+        
+        IGuildUser GuildUser = null;
+        if (User == "")
         {
-            System.IO.File.WriteAllText(Program.BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt", "50");
+            await Context.Channel.SendMessageAsync("`You need to mention a bot or insert the ID`");
         }
+        else
+        {
+            if (User.StartsWith("<@"))
+            {
+                string RealUser = User;
+                RealUser = RealUser.Replace("<@", "").Replace(">", "");
+                if (RealUser.Contains("!"))
+                {
+                    RealUser = RealUser.Replace("!", "");
+                }
+                GuildUser = await Context.Guild.GetUserAsync(Convert.ToUInt64(RealUser));
+            }
+            else
+            {
+                GuildUser = await Context.Guild.GetUserAsync(Convert.ToUInt64(User));
+            }
+            if (!GuildUser.IsBot)
+            {
+                await Context.Channel.SendMessageAsync("`This is not a bot`");
+            }
+            else
+            {
+                if (Program.UptimeBotsList.Keys.Contains(GuildUser.Id))
+                {
+                    int Uptime = 100;
+                    Program.UptimeBotsList.TryGetValue(GuildUser.Id, out Uptime);
+                    await Context.Channel.SendMessageAsync($"`{GuildUser.Username} has an uptime of {Uptime}%`");
+                }
+                else
+                {
+                    await Context.Channel.SendMessageAsync("`This bot does not have any stats only bots in | Discord Bots | Discord Bot List | are supported for now`");
+                }
+            }
+        }
+    }
+
+    [Command("test")]
+    public async Task Test(string User = "Builderb")
+    {
+        
+        //SteamIdentity SteamUser = null;
+        //SteamWebAPI.SetGlobalKey(Program.SteamKey);
+        //SteamUser = SteamWebAPI.General().ISteamUser().ResolveVanityURL(User).GetResponse().Data.Identity;
+        //var RC = new RiotApi.Net.RestClient.RiotClient(Program.TokenMap.Riot);
     }
 
     [Command("yt")]
@@ -647,7 +670,7 @@ public class Main : ModuleBase
     {
         var youtubeService = new YouTubeService(new BaseClientService.Initializer()
         {
-            ApiKey = Program.YoutubeKey
+            ApiKey = Program.TokenMap.Youtube
         });
         var searchListRequest = youtubeService.Search.List("snippet");
         searchListRequest.MaxResults = 1;
@@ -674,7 +697,7 @@ public class Main : ModuleBase
 
         MySQLConnection myConn;
         MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+        myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
         myConn.Open();
         string stm = $"SELECT channel FROM ytnotify WHERE id='{Context.User.Id}' AND channel='{User}'";
         MySQLCommand cmd = new MySQLCommand(stm, myConn);
@@ -701,7 +724,7 @@ public class Main : ModuleBase
 
         MySQLConnection myConn;
         MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+        myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
         myConn.Open();
         string stm = $"SELECT channel FROM ytnotify WHERE id='{Context.User.Id}'";
         MySQLCommand cmd = new MySQLCommand(stm, myConn);
@@ -723,7 +746,7 @@ public class Main : ModuleBase
 
         MySQLConnection myConn;
         MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+        myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
         myConn.Open();
         string stm = $"SELECT user FROM ytnotify WHERE id='{Context.User.Id}' AND channel='{User}'";
         MySQLCommand cmd = new MySQLCommand(stm, myConn);
@@ -807,7 +830,7 @@ public class Main : ModuleBase
         return;
         MySQLConnection myConn;
         MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+        myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
         myConn.Open();
         string RS = $"SELECT name WHERE id='{User}'";
         MySQLCommand cmd = new MySQLCommand(RS, myConn);
@@ -1063,7 +1086,7 @@ public class Misc : ModuleBase
             List<string> Feature = new List<string>();
             MySQLConnection myConn;
             MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
             myConn.Open();
             string RS = $"SELECT text FROM features";
             MySQLCommand cmd = new MySQLCommand(RS, myConn);
@@ -1187,8 +1210,6 @@ public class Game : ModuleBase
         [Alias("vg u")]
         public async Task Vg(string Region = null, string VGUser = null)
         {
-
-
             if (Region == null || VGUser == null)
             {
                 await Context.Channel.SendMessageAsync("`No region or user > p/vg (Region) (User) | na | eu | sa | ea | sg`");
@@ -1198,7 +1219,7 @@ public class Game : ModuleBase
             {
                 HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerName]=" + VGUser);
                 httpWebRequest.Method = WebRequestMethods.Http.Get;
-                httpWebRequest.Headers.Add("Authorization", Program.VaingloryKey);
+                httpWebRequest.Headers.Add("Authorization", Program.TokenMap.Vainglory);
                 httpWebRequest.Headers.Add("X-TITLE-ID", "semc-vainglory");
                 httpWebRequest.Accept = "application/json";
                 try
@@ -1238,7 +1259,7 @@ public class Game : ModuleBase
             {
                 HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("https://api.dc01.gamelockerapp.com/shards/" + Region + $"/matches?filter[createdAt-start]={Context.Message.Timestamp.Year}-{Context.Message.Timestamp.Month.ToString().PadLeft(2, '0')}-{Context.Message.Timestamp.Day.ToString().PadLeft(2, '0')}T13:25:30Z&filter[playerNames]=" + VGUser);
                 httpWebRequest.Method = WebRequestMethods.Http.Get;
-                httpWebRequest.Headers.Add("Authorization", Program.VaingloryKey);
+                httpWebRequest.Headers.Add("Authorization", Program.TokenMap.Vainglory);
                 httpWebRequest.Headers.Add("X-TITLE-ID", "semc-vainglory");
                 httpWebRequest.Accept = "application/json";
                 try
@@ -1343,7 +1364,7 @@ public class Game : ModuleBase
         {
             HttpWebRequest GetUserId = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/xuid/" + User);
             GetUserId.Method = WebRequestMethods.Http.Get;
-            GetUserId.Headers.Add("X-AUTH", Program.XboxKey);
+            GetUserId.Headers.Add("X-AUTH", Program.TokenMap.Xbox);
             GetUserId.Accept = "application/json";
             HttpWebResponse response = (HttpWebResponse)GetUserId.GetResponse();
             Stream receiveStream = response.GetResponseStream();
@@ -1357,7 +1378,7 @@ public class Game : ModuleBase
             string UserOnline = "Offline";
             HttpWebRequest OnlineHttp = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/" + UserID + "/presence");
             OnlineHttp.Method = WebRequestMethods.Http.Get;
-            OnlineHttp.Headers.Add("X-AUTH", Program.XboxKey);
+            OnlineHttp.Headers.Add("X-AUTH", Program.TokenMap.Xbox);
             OnlineHttp.Accept = "application/json";
             HttpWebResponse OnlineRes = (HttpWebResponse)OnlineHttp.GetResponse();
             Stream OnlineStream = OnlineRes.GetResponseStream();
@@ -1369,7 +1390,7 @@ public class Game : ModuleBase
             }
             HttpWebRequest HttpUserGamercard = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/" + UserID + "/gamercard");
             HttpUserGamercard.Method = WebRequestMethods.Http.Get;
-            HttpUserGamercard.Headers.Add("X-AUTH", Program.XboxKey);
+            HttpUserGamercard.Headers.Add("X-AUTH", Program.TokenMap.Xbox);
             HttpUserGamercard.Accept = "application/json";
             HttpWebResponse GamercardRes = (HttpWebResponse)HttpUserGamercard.GetResponse();
             Stream GamercardStream = GamercardRes.GetResponseStream();
@@ -1378,7 +1399,7 @@ public class Game : ModuleBase
             dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(GamercardJson);
             HttpWebRequest HttpUserFrineds = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/" + UserID + "/friends");
             HttpUserFrineds.Method = WebRequestMethods.Http.Get;
-            HttpUserFrineds.Headers.Add("X-AUTH", Program.XboxKey);
+            HttpUserFrineds.Headers.Add("X-AUTH", Program.TokenMap.Xbox);
             HttpUserFrineds.Accept = "application/json";
             HttpWebResponse FriendsRes = (HttpWebResponse)HttpUserFrineds.GetResponse();
             Stream FriendsStream = FriendsRes.GetResponseStream();
@@ -1604,7 +1625,7 @@ public class Game : ModuleBase
             }
             string Claim = "";
             MySQLConnection DB;
-            DB = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+            DB = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
             DB.Open();
             string comclaim = $"SELECT user FROM profiles WHERE steam='{User}'";
             MySQLCommand cmdclaim = new MySQLCommand(comclaim, DB);
@@ -1619,7 +1640,7 @@ public class Game : ModuleBase
 
             }
             SteamIdentity SteamUser = null;
-            SteamWebAPI.SetGlobalKey(Program.SteamKey);
+            SteamWebAPI.SetGlobalKey(Program.TokenMap.Steam);
             SteamUser = SteamWebAPI.General().ISteamUser().ResolveVanityURL(User).GetResponse().Data.Identity;
             if (SteamUser == null)
             {
@@ -1688,6 +1709,7 @@ public class Game : ModuleBase
             await Context.Channel.SendMessageAsync("", false, embed);
         }
     }
+
     [Command("osu")]
     [Remarks("osu (User)")]
     [Summary("osu! game user info")]
@@ -1711,7 +1733,7 @@ public class Game : ModuleBase
         }
         try
         {
-            HttpWebRequest GetUserId = (HttpWebRequest)WebRequest.Create("https://osu.ppy.sh/api/get_user?k=" + Program.OsuKey + "&u=" + User);
+            HttpWebRequest GetUserId = (HttpWebRequest)WebRequest.Create("https://osu.ppy.sh/api/get_user?k=" + Program.TokenMap.Osu + "&u=" + User);
             GetUserId.Method = WebRequestMethods.Http.Get;
             GetUserId.Accept = "application/json";
             HttpWebResponse response = (HttpWebResponse)GetUserId.GetResponse();
@@ -1799,7 +1821,7 @@ public class Media : ModuleBase
             await Context.Channel.SendMessageAsync("`Enter a channel name to search | p/tw s (User)`");
             return;
         }
-        var client = new TwitchAuthenticatedClient(Program.TwitchToken, Program.TwitchOauth);
+        var client = new TwitchAuthenticatedClient(Program.TokenMap.Twitch, Program.TokenMap.TwitchAuth);
         var Usearch = client.SearchChannels(Search).List;
         var embed = new EmbedBuilder()
         {
@@ -1873,7 +1895,7 @@ public class Media : ModuleBase
             await Context.Channel.SendMessageAsync("`Enter a channel name | p/tw c MyChannel`");
             return;
         }
-        var client = new TwitchAuthenticatedClient(Program.TwitchToken, Program.TwitchOauth);
+        var client = new TwitchAuthenticatedClient(Program.TokenMap.Twitch, Program.TokenMap.TwitchAuth);
         var t = client.GetChannel(Channel);
         if (t.CreatedAt.Year == 0001)
         {
@@ -1935,7 +1957,7 @@ public class Media : ModuleBase
             await Context.Channel.SendMessageAsync("`Enter a channel name | p/tw notify me (Channel) - Sends a message in DMS | p/tw notify here (Channel) - Sends a message in this channel (Server Owner Only!)`");
             return;
         }
-        var client = new TwitchAuthenticatedClient(Program.TwitchToken, Program.TwitchOauth);
+        var client = new TwitchAuthenticatedClient(Program.TokenMap.Twitch, Program.TokenMap.TwitchAuth);
         var t = client.GetChannel(Channel);
         if (t.CreatedAt.Year == 0001)
         {
@@ -1946,7 +1968,7 @@ public class Media : ModuleBase
         {
             MySQLConnection myConn;
             MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
             myConn.Open();
             string RS = $"SELECT twitch FROM twitch WHERE type='user' AND userid='{Context.User.Id}' AND twitch='{Channel.ToLower()}'";
             MySQLCommand cmd = new MySQLCommand(RS, myConn);
@@ -1975,7 +1997,7 @@ public class Media : ModuleBase
             }
             MySQLConnection myConn;
             MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
             myConn.Open();
             string RS = $"SELECT userid FROM twitch WHERE type='channel' AND guild='{Context.Guild.Id}' AND channel='{Context.Channel.Id}' AND twitch='{Channel.ToLower()}'";
             MySQLCommand cmd = new MySQLCommand(RS, myConn);
@@ -2037,7 +2059,7 @@ public class Media : ModuleBase
             List<string> TWList = new List<string>();
             MySQLConnection myConn;
             MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
             myConn.Open();
             string RS = $"SELECT twitch FROM twitch WHERE type='user' AND userid='{Context.User.Id}'";
             MySQLCommand cmd = new MySQLCommand(RS, myConn);
@@ -2060,7 +2082,7 @@ public class Media : ModuleBase
             List<string> TWList = new List<string>();
             MySQLConnection myConn;
             MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
             myConn.Open();
             string RS = $"SELECT twitch, channel FROM twitch WHERE type='channel' AND guild='{Context.Guild.Id}'";
             MySQLCommand cmd = new MySQLCommand(RS, myConn);
@@ -2083,7 +2105,7 @@ public class Media : ModuleBase
             List<string> TWList = new List<string>();
             MySQLConnection myConn;
             MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
             myConn.Open();
             string RS = $"SELECT twitch FROM twitch WHERE type='channel' AND guild='{Context.Guild.Id}' AND channel='{Context.Channel.Id}'";
             MySQLCommand cmd = new MySQLCommand(RS, myConn);
@@ -2128,7 +2150,7 @@ public class Media : ModuleBase
         {
             MySQLConnection myConn;
             MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
             myConn.Open();
             string RS = $"SELECT twitch FROM twitch WHERE type='user' AND userid='{Context.User.Id}' AND twitch='{Channel.ToLower()}'";
             MySQLCommand cmd = new MySQLCommand(RS, myConn);
@@ -2155,7 +2177,7 @@ public class Media : ModuleBase
             }
             MySQLConnection myConn;
             MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
             myConn.Open();
             string RS = $"SELECT twitch FROM twitch WHERE type='channel' AND guild='{Context.Guild.Id}' AND channel='{Context.Channel.Id}' AND twitch='{Channel.ToLower()}'";
             MySQLCommand cmd = new MySQLCommand(RS, myConn);
@@ -2687,7 +2709,7 @@ public class Steam : InteractiveModuleBase
         }
         MySQLConnection myConn;
         MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(Program.MysqlHost, Program.MysqlUser, Program.MysqlUser, Program.MysqlPass).AsString);
+        myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
         myConn.Open();
         string RS2 = $"SELECT user FROM profiles WHERE steam='{User}'";
         MySQLCommand cmd3 = new MySQLCommand(RS2, myConn);
@@ -2706,7 +2728,7 @@ public class Steam : InteractiveModuleBase
                 return;
             }
         }
-        SteamWebAPI.SetGlobalKey(Program.SteamKey);
+        SteamWebAPI.SetGlobalKey(Program.TokenMap.Steam);
         SteamIdentity SteamUser = null;
         try
         {

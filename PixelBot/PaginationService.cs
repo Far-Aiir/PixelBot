@@ -14,33 +14,20 @@ namespace Discord.Addons.Paginator
         const string END = "⏭";
         const string STOP = "⏹";
         
-        internal readonly Func<LogMessage, Task> WriteLog;
 
         private readonly Dictionary<ulong, PaginatedMessage> _messages;
-        private readonly DiscordSocketClient _client;
 
-        public PaginationService(DiscordSocketClient client, Func<LogMessage, Task> logger = null)
+        public PaginationService(DiscordSocketClient Client)
         {
             _messages = new Dictionary<ulong, PaginatedMessage>();
-            _client = client;
-            _client.ReactionAdded += OnReactionAdded;
+            Client.ReactionAdded += OnReactionAdded;
         }
-
-        /// <summary>
-        /// Sends a paginated message (with reaction buttons)
-        /// </summary>
-        /// <param name="channel">The channel this message should be sent to</param>
-        /// <param name="paginated">A <see cref="PaginatedMessage">PaginatedMessage</see> containing the pages.</param>
-        /// <exception cref="Net.HttpException">Thrown if the bot user cannot send a message or add reactions.</exception>
-        /// <returns>The paginated message.</returns>
         public async Task<IUserMessage> SendPaginatedMessageAsync(IMessageChannel channel, PaginatedMessage paginated)
         {
             var message = await channel.SendMessageAsync("", embed: paginated.GetEmbed());
-
-            //await message.AddReactionAsync(new Emoji(FIRST));
+            
             await message.AddReactionAsync(new Emoji(BACK));
             await message.AddReactionAsync(new Emoji(NEXT));
-            //await message.AddReactionAsync(new Emoji(END));
             await message.AddReactionAsync(new Emoji(STOP));
             _messages.Add(message.Id, paginated);
 
@@ -60,7 +47,7 @@ namespace Discord.Addons.Paginator
             }
             if (_messages.TryGetValue(message.Id, out PaginatedMessage page))
             {
-                if (reaction.UserId == _client.CurrentUser.Id) return;
+                if (reaction.UserId == Program._client.CurrentUser.Id) return;
                 if (page.User != null && reaction.UserId != page.User.Id)
                 {
                     var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
@@ -69,11 +56,6 @@ namespace Discord.Addons.Paginator
                 await message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
                 switch (reaction.Emote.Name)
                 {
-                    case FIRST:
-                        if (page.CurrentPage == 1) break;
-                        page.CurrentPage = 1;
-                        await message.ModifyAsync(x => x.Embed = page.GetEmbed());
-                        break;
                     case BACK:
                         if (page.CurrentPage == 1) break;
                         page.CurrentPage--;
@@ -82,11 +64,6 @@ namespace Discord.Addons.Paginator
                     case NEXT:
                         if (page.CurrentPage == page.Count) break;
                         page.CurrentPage++;
-                        await message.ModifyAsync(x => x.Embed = page.GetEmbed());
-                        break;
-                    case END:
-                        if (page.CurrentPage == page.Count) break;
-                        page.CurrentPage = page.Count;
                         await message.ModifyAsync(x => x.Embed = page.GetEmbed());
                         break;
                     case STOP:

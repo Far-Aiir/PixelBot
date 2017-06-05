@@ -30,8 +30,8 @@
     <CreateWebPageOnPublish>true</CreateWebPageOnPublish>
     <WebPage>publish.html</WebPage>
     <OpenBrowserOnPublish>false</OpenBrowserOnPublish>
-    <ApplicationRevision>3</ApplicationRevision>
-    <ApplicationVersion>6.3.2.3</ApplicationVersion>
+    <ApplicationRevision>4</ApplicationRevision>
+    <ApplicationVersion>6.3.2.4</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <CreateDesktopShortcut>true</CreateDesktopShortcut>
     <PublishWizardCompleted>true</PublishWizardCompleted>
@@ -155,6 +155,9 @@
     </Reference>
     <Reference Include="RestSharp, Version=105.0.1.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\RestSharp.105.0.1\lib\net4\RestSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="RiotApi.Net.RestClient, Version=1.4.3.39211, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\RiotApi.NET.1.4.4\lib\net452\RiotApi.Net.RestClient.dll</HintPath>
     </Reference>
     <Reference Include="SteamStoreQuery, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\SteamStoreQuery.1.0.3\lib\net452\SteamStoreQuery.dll</HintPath>
