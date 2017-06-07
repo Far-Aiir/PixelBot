@@ -16,14 +16,12 @@ using Newtonsoft.Json;
 using SteamStoreQuery;
 using PortableSteam;
 using TwitchCSharp.Clients;
-using System.Timers;
 using Discord.Addons.InteractiveCommands;
 using Discord.Addons.Preconditions;
-using Discord.Addons.Paginator;
 using OverwatchAPI;
+using RiotApi.Net.RestClient;
+using RiotApi.Net.RestClient.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using System.Diagnostics;
-using Newtonsoft.Json.Linq;
 
 public class Token
 {
@@ -42,58 +40,46 @@ public class Token
     public string DbotsV2 { get; set; } = "";
     public string Riot { get; set; } = "";
 }
-public class Item
-{
-    public int millis;
-    public string stamp;
-    public DateTime datetime;
-    public string light;
-    public float temp;
-    public float vcc;
-}
 class Program
 {
     public static bool DevMode = true;
     public static string BotPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\";
     public static bool FirstStart = false;
     public static DiscordSocketClient _client;
-    public static CommandService _commands = new CommandService();
-    public static ServiceCollection _map = new ServiceCollection();
-    public static IServiceProvider _provider;
-    public static PaginationService _pagination;
-    public static Dictionary<ulong, IGuildUser> ThisBot = new Dictionary<ulong, IGuildUser>();
-    public static Dictionary<ulong, int> UptimeBotsList = new Dictionary<ulong, int>();
-    public static Timer _Timer_Twitch = new Timer();
-    public static Timer _Timer_Stats = new Timer();
-    public static Timer _Timer_Uptime = new Timer();
+    public static CommandService _commands;
+    public static ServiceCollection _map;
+    
     public static Token TokenMap = new Token();
     static void Main()
     {
         DisableConsoleQuickEdit.Go();
+        if (File.Exists(BotPath + "LIVE.txt"))
+        {
+            Console.Title = "PixelBot";
+            Program.DevMode = false;
+        }
+        else
+        {
+            Console.Title = "[DevMode] PixelBot";
+        }
         using (StreamWriter file = File.CreateText(BotPath + "TokensTemplate" + ".json"))
         {
             JsonSerializer serializer = new JsonSerializer();
             serializer.Serialize(file, TokenMap);
         }
-        Console.Title = "PixelBot";
         string TokenPath = BotPath + "Tokens.txt";
         Directory.CreateDirectory(BotPath + "Uptime\\");
         foreach (var File in Directory.GetFiles(BotPath + "Uptime\\"))
         {
                 using (StreamReader reader = new StreamReader(File))
                 {
-                UptimeBotsList.Add(Convert.ToUInt64(File.Replace(BotPath + "Uptime\\", "").Replace(".txt", "")), Convert.ToInt32(reader.ReadLine()));
+                Services.UptimeBotsList.Add(Convert.ToUInt64(File.Replace(BotPath + "Uptime\\", "").Replace(".txt", "")), Convert.ToInt32(reader.ReadLine()));
                 }
         }
         if (PixelBot.Properties.Settings.Default.Blacklist == null)
         {
             PixelBot.Properties.Settings.Default.Blacklist = new System.Collections.Specialized.StringCollection();
         }
-        if (File.Exists(BotPath + "LIVE.txt"))
-        {
-            Program.DevMode = false;
-        }
-
         //Token test = JsonConvert.DeserializeObject<Token>(File.ReadAllText(BotPath + "Tokens.json"));
         
         using (StreamReader file = File.OpenText(BotPath + "Tokens.json"))
@@ -102,29 +88,37 @@ class Program
             Token Items = (Token)serializer.Deserialize(file, typeof(Token));
             TokenMap = Items;
         }
+        //new Program().Task().ConfigureAwait(false);
         new Program().RunBot().GetAwaiter().GetResult();
     }
+
     public async Task RunBot()
     {
         _client = new DiscordSocketClient();
-        _pagination = new PaginationService(_client);
-        var services = ConfigureServices();
-        await InstallCommands(_provider);
+        _map = new ServiceCollection();
+        _commands = new CommandService();
+        
+        await _commands.AddModulesAsync(Assembly.GetEntryAssembly());
+        _client.MessageReceived += HandleCommand;
 
-        _client.Connected += async () =>
+        _client.Connected += () =>
         {
-            Console.Title = "PixelBot - Online!";
-            Console.WriteLine("[PixelBot] Connected");
-            if (DevMode == false & FirstStart == false)
+            if (DevMode == true)
             {
-                await _client.SetStatusAsync(UserStatus.Idle);
-                await _client.SetGameAsync("Loading");
+                Console.Title = "[DevMode] PixelBot - Online!";
+                Console.WriteLine("[PixelBot] Connected - DevMode is enabled!");
             }
+            else
+            {
+                Console.Title = "PixelBot - Online!";
+                Console.WriteLine("[PixelBot] Connected");
+            }
+            return Task.CompletedTask;
         };
 
         _client.UserJoined += (User) =>
         {
-            if (DevMode = false & User.Guild.Id == 81384788765712384 || User.Guild.Id == 264445053596991498 & User.IsBot & !File.Exists(Program.BotPath + "Uptime\\" + User.Id.ToString() + ".txt"))
+            if (DevMode == false & User.Guild.Id == 81384788765712384 || User.Guild.Id == 264445053596991498 & User.IsBot & !File.Exists(Program.BotPath + "Uptime\\" + User.Id.ToString() + ".txt"))
             {
                   System.IO.File.WriteAllText(BotPath + "Uptime\\" + User.Id.ToString() + ".txt", "75");
             }
@@ -133,7 +127,14 @@ class Program
 
         _client.Disconnected += (r) =>
         {
-            Console.Title = "PixelBot - Offline!";
+            if (DevMode == true)
+            {
+                Console.Title = "[DevMode] PixelBot - Offline!";
+            }
+            else
+            {
+                Console.Title = "PixelBot - Offline!";
+            }
             Console.WriteLine("[PixelBot] Disconnected");
             return Task.CompletedTask;
         };
@@ -141,67 +142,70 @@ class Program
         _client.Ready += async () =>
         {
             Console.WriteLine($"[PixelBot] Online in {_client.Guilds.Count} Guilds");
-            await _client.SetStatusAsync(UserStatus.Online);
-            await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
-            if (DevMode == false & FirstStart == false)
+            if (DevMode == false)
             {
-                    UpdateUsers();
-                    UpdateBotService(null, null);
-                    _Timer_Twitch.Interval = 60000;
-                    _Timer_Twitch.Elapsed += TwitchNotificationService;
-                    _Timer_Twitch.Start();
-                    _Timer_Stats.Interval = 300000;
-                    _Timer_Stats.Elapsed += UpdateBotService;
-                    _Timer_Stats.Start();
-                    _Timer_Uptime.Interval = 600000;
-                    _Timer_Uptime.Elapsed += BotUptimeService;
-                    _Timer_Uptime.Start();
+                await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
+                if (FirstStart == false)
+                {
+                    Utils.UpdateUptimeGuilds();
+                    Services.BotGuildCount(null, null);
+                    Services._Timer_Twitch.Interval = 60000;
+                    Services._Timer_Twitch.Elapsed += Services.TwitchNotification;
+                    Services._Timer_Twitch.Start();
+                    Services._Timer_Stats.Interval = 600000;
+                    Services._Timer_Stats.Elapsed += Services.BotGuildCount;
+                    Services._Timer_Stats.Start();
+                    Services._Timer_Uptime.Interval = 600000;
+                    Services._Timer_Uptime.Elapsed += Services.Uptime;
+                    Services._Timer_Uptime.Start();
                     Console.WriteLine("[PixelBot] Timer Service Online");
+                }
             }
             FirstStart = true;
         };
 
         _client.LeftGuild += async (g) =>
         {
-            ThisBot.Remove(g.Id);
+            Utils.GuildBotCache.Remove(g.Id);
+            Console.WriteLine($"[Left] Guild > {g.Name} - {g.Id}");
             if (DevMode == false)
             {
                 await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
-                
-                Console.WriteLine($"Left Guild > {g.Name} - {g.Id}");
             }
         };
 
         _client.JoinedGuild += async (g) =>
         {
-            if (DevMode == false)
+            if (DevMode == false & PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
             {
-                if (PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
-                {
-                    Console.WriteLine($"Removed {g.Name} - {g.Id} due to blacklist");
-                    await g.DefaultChannel.SendMessageAsync($"This guild has been blacklist by the owner ({g.Id}) contact `xXBuilderBXx#9113` for more info");
-                    await g.LeaveAsync();
-                    return;
-                }
-                await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ");
+                Console.WriteLine($"[Blacklist] Removed {g.Name} - {g.Id}");
+                await g.DefaultChannel.SendMessageAsync($"This guild has been blacklist by the owner ({g.Id}) contact `xXBuilderBXx#9113` for more info");
+                await g.LeaveAsync();
             }
-            IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
-            ThisBot.Add(g.Id, BotUser);
-            Console.WriteLine($"Joined Guild {g.Name} - {g.Id}");
+            else
+            {
+                IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
+                Utils.GuildBotCache.Add(g.Id, BotUser);
+                Console.WriteLine($"[Joined] Guild {g.Name} - {g.Id}");
+                if (DevMode == true)
+                {
+                    await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ");
+                }
+            }
         };
 
         _client.GuildAvailable += async (g) =>
         {
-            IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
-            ThisBot.Add(g.Id, BotUser);
-            if (DevMode == false)
+            if (DevMode == false & PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
             {
-                if (PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
-                {
-                    Console.WriteLine($"Removed {g.Name} - {g.Id} due to blacklist");
-                    await g.LeaveAsync();
-                    return;
-                }
+                Console.WriteLine($"[Blacklist] Removed {g.Name} - {g.Id}");
+                await g.DefaultChannel.SendMessageAsync($"This guild has been blacklist by the owner ({g.Id}) contact `xXBuilderBXx#9113` for more info");
+                await g.LeaveAsync();
+            }
+            else
+            {
+                IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
+                Utils.GuildBotCache.Add(g.Id, BotUser);
             }
         };
         
@@ -215,61 +219,6 @@ class Program
             Console.WriteLine(ex);
         }
         await Task.Delay(-1);
-    }
-
-    public static void UpdateBotService(object sender, ElapsedEventArgs e)
-    {
-        try
-        {
-            var request = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/277933222015401985/stats");
-            request.ContentType = "application/json";
-            request.Headers.Add("Authorization", Program.TokenMap.Dbots);
-            request.Method = "POST";
-            using (var streamWriter = new StreamWriter(request.GetRequestStream()))
-            {
-                string json = "{\"server_count\":\"" + _client.Guilds.Count.ToString() + "\"}";
-
-                streamWriter.Write(json);
-            }
-            request.GetResponse();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error could not update Dbots Stats");
-        }
-        try
-        {
-            var request = (HttpWebRequest)WebRequest.Create("https://discordbots.org/api/bots/277933222015401985/stats");
-            request.ContentType = "application/json";
-            request.Headers.Add("Authorization", Program.TokenMap.DbotsV2);
-            request.Method = "POST";
-            using (var streamWriter = new StreamWriter(request.GetRequestStream()))
-            {
-                string json = "{\"server_count\":\"" + _client.Guilds.Count.ToString() + "\"}";
-
-                streamWriter.Write(json);
-            }
-            request.GetResponse();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error could not update DbotsV2 Stats");
-        }
-    }
-
-    public IServiceProvider ConfigureServices()
-    {
-        var services = new ServiceCollection()
-        .AddSingleton(_client)
-            .AddSingleton(_pagination);
-        return services.BuildServiceProvider();
-
-    }
-    public async Task InstallCommands(IServiceProvider provider)
-    {
-        await _commands.AddModulesAsync(Assembly.GetEntryAssembly());
-        _provider = provider;
-        _client.MessageReceived += HandleCommand;
     }
     public async Task HandleCommand(SocketMessage messageParam)
     {
@@ -286,7 +235,7 @@ class Program
             if (!(message.HasStringPrefix("tp/", ref argPos))) return;
             
             var context = new CommandContext(_client, message);
-            var result = await _commands.ExecuteAsync(context, argPos, _provider);
+            var result = await _commands.ExecuteAsync(context, argPos);
             if (result.IsSuccess)
             {
                 if (message.Channel is IPrivateChannel)
@@ -299,23 +248,12 @@ class Program
                     Console.WriteLine($"[Test Command] > ({GuildUser.Guild.Name}) {message.Author.Username} executed {message.Content}");
                 }
             }
-            else
-            {
-                Console.WriteLine(result.ErrorReason);
-                if (message.Content.Contains("vg "))
-                {
-                    if (result.ErrorReason == "This input does not match any overload.")
-                    {
-                        //await context.Channel.SendMessageAsync("You can only use this command 2 times every half a minute");
-                    }
-                }
-            }
         }
         else
         {
             if (!(message.HasStringPrefix("p/", ref argPos) || message.HasMentionPrefix(_client.CurrentUser, ref argPos))) return;
             var context = new CommandContext(_client, message);
-            var result = await _commands.ExecuteAsync(context, argPos, _provider);
+            var result = await _commands.ExecuteAsync(context, argPos);
             if (result.IsSuccess)
             {
                 if (PixelBot.Properties.Settings.Default.CommandOutput == true)
@@ -331,273 +269,6 @@ class Program
                     }
                 }
             }
-            else
-            {
-                if (message.Content.Contains("vg "))
-                {
-                    if (result.ErrorReason == "This input does not match any overload.")
-                    {
-                        //await context.Channel.SendMessageAsync("You can only use this command 2 times every half a minute");
-                    }
-                }
-            }
-        }
-    }
-
-    public void YTNOTIFY()
-    {
-        MySQLConnection myConn;
-        MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-        var youtubeService = new YouTubeService(new BaseClientService.Initializer()
-        {
-            ApiKey = Program.TokenMap.Youtube
-        });
-        myConn.Open();
-        string stm = "SELECT source FROM notifysource";
-        MySQLCommand cmd = new MySQLCommand(stm, myConn);
-        List<string> SourceList = new List<string>();
-        MyReader = cmd.ExecuteReaderEx();
-        while (MyReader.Read())
-        {
-            SourceList.Add(MyReader.GetString(0));
-        }
-        var searchListRequest = youtubeService.Search.List("snippet");
-        searchListRequest.MaxResults = 5;
-        SourceList.ForEach(async delegate (string name)
-        {
-
-            searchListRequest.ChannelId = name;
-            var searchListResponse = await searchListRequest.ExecuteAsync();
-            var Live = false;
-            foreach (var searchResult in searchListResponse.Items)
-            {
-                if (searchResult.Snippet.LiveBroadcastContent == "live")
-                {
-                    Live = true;
-                }
-                else
-                {
-                    Live = false;
-
-                }
-            }
-            if (Live == true)
-            {
-                myConn.Open();
-                string SS = $"SELECT stat FROM notifysource WHERE src='{name}'";
-                MySQLCommand cmd2 = new MySQLCommand(SS, myConn);
-                MyReader = cmd2.ExecuteReaderEx();
-                while (MyReader.Read())
-                {
-                    Console.WriteLine(MyReader.GetString(0));
-                    if (MyReader.GetString(0) == "false")
-                    {
-
-                        Console.WriteLine(name);
-                    }
-                }
-                myConn.Close();
-
-            }
-            else
-            {
-                Console.WriteLine(name);
-                Console.WriteLine("Not Online");
-            }
-        });
-    }
-
-    public static Color GetRoleColor(ICommandContext Command)
-    {
-        Color RoleColor = new Discord.Color(30,0,200);
-            IGuildUser BotUser = null;
-        if (Command.Guild != null)
-        {
-            ThisBot.TryGetValue(Command.Guild.Id, out BotUser);
-            if (BotUser.GetPermissions(Command.Channel as ITextChannel).EmbedLinks)
-            {
-                if (BotUser != null)
-                {
-                    if (BotUser.RoleIds.Count != 0)
-                    {
-                        foreach (var Role in BotUser.Guild.Roles.OrderBy(x => x.Position))
-                        {
-                            if (BotUser.RoleIds.Contains(Role.Id))
-                            {
-                                RoleColor = Role.Color;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return RoleColor;
-    }
-
-    public void TwitchNotificationService(object sender, ElapsedEventArgs e)
-    {
-        var TwitchClient = new TwitchAuthenticatedClient(Program.TokenMap.Twitch, Program.TokenMap.TwitchAuth);
-        MySQLConnection DB;
-        MySQLDataReader MyReader = null;
-        DB = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-        DB.Open();
-        string RS = $"SELECT type, userid, guild, channel, twitch, live FROM twitch";
-        MySQLCommand cmd = new MySQLCommand(RS, DB);
-        MyReader = cmd.ExecuteReaderEx();
-        while (MyReader.Read())
-        {
-            if (TwitchClient.IsLive(MyReader.GetString(4)) == true)
-            {
-                if (MyReader.GetString(0) == "channel")
-                {
-                    if (MyReader.GetString(5) == "no")
-                    {
-                        string update = $"UPDATE twitch SET live='yes' WHERE type='channel' AND guild='{MyReader.GetString(2)}' AND channel='{MyReader.GetString(3)}' AND twitch='{MyReader.GetString(4)}'";
-                        MySQLCommand upcmd = new MySQLCommand(update, DB);
-                        upcmd.ExecuteNonQuery();
-                        try
-                        {
-                            IGuild Guild = _client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
-                            ITextChannel Channel = Guild.GetChannelAsync(Convert.ToUInt64(MyReader.GetString(3))).GetAwaiter().GetResult() as ITextChannel;
-                            var TwitchChannel = TwitchClient.GetChannel(MyReader.GetString(4));
-                            var embed = new EmbedBuilder()
-                            {
-                                Title = $"TWITCH - {TwitchChannel.DisplayName} is live playing {TwitchChannel.Game}",
-                                Url = "https://www.twitch.tv/" + TwitchChannel.Name,
-                                Description = TwitchChannel.Status,
-                                Footer = new EmbedFooterBuilder()
-                                {
-                                    Text = $"To remove this notification do p/tw remove here {TwitchChannel.Name}"
-                                },
-                                ThumbnailUrl = TwitchChannel.Logo
-                            };
-                            Channel.SendMessageAsync("", false, embed).GetAwaiter();
-                            
-                        }
-                        catch
-                        {
-                            Console.WriteLine($"Twitch Error Channel > G: {MyReader.GetString(2)} U: {MyReader.GetString(1)} T: {MyReader.GetString(4)}");
-                        }
-
-                    }
-                }
-                if (MyReader.GetString(0) == "user")
-                {
-                    if (MyReader.GetString(5) == "no")
-                    {
-                        string update = $"UPDATE twitch SET live='yes' WHERE type='user' AND userid='{MyReader.GetString(1)}' AND twitch='{MyReader.GetString(4)}'";
-                        MySQLCommand upcmd = new MySQLCommand(update, DB);
-                        upcmd.ExecuteNonQuery();
-                        try
-                        {
-                            IGuild Guild = Program._client.GetGuild(Convert.ToUInt64(MyReader.GetString(2)));
-                            IUser User = Guild.GetUserAsync(Convert.ToUInt64(MyReader.GetString(1))) as IUser;
-                            var TwitchChannel = TwitchClient.GetChannel(MyReader.GetString(4));
-                            var embed = new EmbedBuilder()
-                            {
-                                Title = $"TWITCH - {TwitchChannel.DisplayName} is live playing {TwitchChannel.Game}",
-                                Url = "https://www.twitch.tv/" + TwitchChannel.Name,
-                                Description = TwitchChannel.Status,
-                                Footer = new EmbedFooterBuilder()
-                                {
-                                    Text = $"To remove this notification do p/tw remove me {TwitchChannel.Name} IN A GUILD!"
-                                },
-                                ThumbnailUrl = TwitchChannel.Logo
-                            };
-                            var DM = User.CreateDMChannelAsync().GetAwaiter().GetResult();
-                            DM.SendMessageAsync("", false, embed).GetAwaiter();
-                            
-                        }
-                        catch
-                        {
-                            Console.WriteLine($"Twitch Error User > G: {MyReader.GetString(2)} U: {MyReader.GetString(1)} T: {MyReader.GetString(4)}");
-                        }
-                    }
-                }
-
-            }
-            else
-            {
-                if (MyReader.GetString(0) == "channel")
-                {
-                    string update = $"UPDATE twitch SET live='no' WHERE type='channel' AND guild='{MyReader.GetString(2)}' AND channel='{MyReader.GetString(3)}' AND twitch='{MyReader.GetString(4)}'";
-                    MySQLCommand upcmd = new MySQLCommand(update, DB);
-                    upcmd.ExecuteNonQuery();
-                }
-                if (MyReader.GetString(0) == "user")
-                {
-                    string update = $"UPDATE twitch SET live='no' WHERE type='user' AND  userid='{MyReader.GetString(1)}' AND twitch='{MyReader.GetString(4)}'";
-                    MySQLCommand upcmd = new MySQLCommand(update, DB);
-                    upcmd.ExecuteNonQuery();
-                }
-            }
-        }
-        DB.Close();
-    }
-
-    public static async void UpdateUsers()
-    {
-        try
-        {
-            var Dbots = _client.GetGuild(110373943822540800);
-            await Dbots.DownloadUsersAsync();
-            var DbotsV2 = _client.GetGuild(264445053596991498);
-            await DbotsV2.DownloadUsersAsync();
-        }
-        catch(Exception ex)
-        {
-            Console.WriteLine(ex);
-        }
-    }
-
-    public static async void BotUptimeService(object sender, ElapsedEventArgs e)
-    {
-        try
-        {
-            List<IGuildUser> BotsList = new List<IGuildUser>();
-            var Dbots = _client.GetGuild(110373943822540800);
-            var DbotsV2 = _client.GetGuild(264445053596991498);
-            await Dbots.DownloadUsersAsync();
-            await DbotsV2.DownloadUsersAsync();
-
-            BotsList.AddRange(Dbots.Users.Where(x => x.IsBot));
-            BotsList.AddRange(DbotsV2.Users.Where(x => x.IsBot));
-
-            foreach (var Bot in BotsList)
-            {
-                if (!File.Exists(BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt"))
-                {
-                    File.WriteAllText(BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt", "75");
-                }
-                int UptimeCount = 100;
-                if (!UptimeBotsList.Keys.Contains(Bot.Id))
-                {
-                    UptimeBotsList.Add(Bot.Id, 75);
-                }
-                UptimeBotsList.TryGetValue(Bot.Id, out UptimeCount);
-                if (Bot.Status == UserStatus.Offline)
-                {
-                    if (UptimeCount != 0)
-                    {
-                        UptimeCount--;
-                    }
-                }
-                else
-                {
-                    if (UptimeCount != 100)
-                    {
-                        UptimeCount++;
-                    }
-                }
-                File.WriteAllText(BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt", UptimeCount.ToString());
-                UptimeBotsList[Bot.Id] = UptimeCount;
-                BotsList.RemoveAll(x => x.Id == Bot.Id);
-            }
-        }
-        catch
-        {
-            Console.WriteLine("[Error] Error in bot uptime service");
         }
     }
 }
@@ -611,7 +282,7 @@ public class Main : ModuleBase
         IGuildUser GuildUser = null;
         if (User == "")
         {
-            await Context.Channel.SendMessageAsync("`You need to mention a bot or insert the ID`");
+            await Context.Channel.SendMessageAsync("`You need to mention a bot or insert the ID | p/uptime @Bot`");
         }
         else
         {
@@ -635,10 +306,10 @@ public class Main : ModuleBase
             }
             else
             {
-                if (Program.UptimeBotsList.Keys.Contains(GuildUser.Id))
+                if (Services.UptimeBotsList.Keys.Contains(GuildUser.Id))
                 {
-                    int Uptime = 100;
-                    Program.UptimeBotsList.TryGetValue(GuildUser.Id, out Uptime);
+                    int Uptime = 75;
+                    Services.UptimeBotsList.TryGetValue(GuildUser.Id, out Uptime);
                     await Context.Channel.SendMessageAsync($"`{GuildUser.Username} has an uptime of {Uptime}%`");
                 }
                 else
@@ -650,15 +321,119 @@ public class Main : ModuleBase
     }
 
     [Command("test")]
-    public async Task Test(string User = "Builderb")
+    public async Task Test(string Region = "",[Remainder] string User = "")
     {
-        
-        //SteamIdentity SteamUser = null;
-        //SteamWebAPI.SetGlobalKey(Program.SteamKey);
-        //SteamUser = SteamWebAPI.General().ISteamUser().ResolveVanityURL(User).GetResponse().Data.Identity;
-        //var RC = new RiotApi.Net.RestClient.RiotClient(Program.TokenMap.Riot);
+        if (Region == "" | User == "")
+        {
+            var embed = new EmbedBuilder()
+            {
+                Author = new EmbedAuthorBuilder()
+                {
+                    IconUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRidv7J3fXl5wUJIOTb-8-Pd3JM5IYD52JVBsCSk0lMFnz4tsPXpPvoLA",
+                    Name = "League Of Legends",
+                    Url = "http://leagueoflegends.com"
+                },
+                
+                Color = Utils.GetRoleColor(Context),
+                Description = "To get player stats do **p/lol (Region) (Summoner Name)** | Use the correct region!",
+            };
+            
+            embed.AddField(x =>
+            {
+                x.Name = "Regions"; x.Value = "```md" + Environment.NewLine + "<NA North America>" + Environment.NewLine + "<EUW EU West>" + Environment.NewLine + $"<EUNE EU Nordic/East>" + Environment.NewLine + "<LAN Latin Americ North>" + Environment.NewLine + "<LAS Latin America South>" + Environment.NewLine + "<BR Brazil>" + Environment.NewLine + "<JP Japan>" + Environment.NewLine + "<RU Russia>" + Environment.NewLine + "<TR Turkey>" + Environment.NewLine + "<OC Oceania>" + Environment.NewLine + "<KR Korea>```"; x.IsInline = true;
+            });
+            embed.AddField(x =>
+            {
+                x.Name = "Stats"; x.Value = "```md" + Environment.NewLine + "<Test Test>```"; x.IsInline = true;
+            });
+            await Context.Channel.SendMessageAsync("", false, embed);
+        }
+        else
+        {
+            RiotApiConfig.Regions UserRegion = RiotApiConfig.Regions.Global;
+            switch(Region.ToUpper())
+            {
+                case "NA":
+                    UserRegion = RiotApiConfig.Regions.NA;
+                    break;
+                case "EUW":
+                    UserRegion = RiotApiConfig.Regions.EUW;
+                    break;
+                case "EUN":
+                case "EUNE":
+                    UserRegion = RiotApiConfig.Regions.EUNE;
+                    break;
+                case "LAN":
+                    UserRegion = RiotApiConfig.Regions.LAN;
+                    break;
+                case "LAS":
+                    UserRegion = RiotApiConfig.Regions.LAS;
+                    break;
+                case "BR":
+                case "BRAZIL":
+                    UserRegion = RiotApiConfig.Regions.BR;
+                    break;
+                case "JP":
+                case "JAPAN":
+                    UserRegion = RiotApiConfig.Regions.TR;
+                    break;
+                case "RU":
+                case "RUSSIA":
+                    UserRegion = RiotApiConfig.Regions.RU;
+                    break;
+                case "TR":
+                case "TURKEY":
+                    UserRegion = RiotApiConfig.Regions.TR;
+                    break;
+                case "OC":
+                case "OCE":
+                case "OCEANIA":
+                    UserRegion = RiotApiConfig.Regions.OCE;
+                    break;
+                case "KR":
+                case "KOREA":
+                    UserRegion = RiotApiConfig.Regions.KR;
+                    break;
+                default:
+                    await Context.Channel.SendMessageAsync("`Unknown region please use | p/lol`");
+                    break;
+            }
+            try
+            {
+                IRiotClient RiotClient = new RiotClient(Program.TokenMap.Riot);
+                var Summoner = RiotClient.Summoner.GetSummonersByName(UserRegion, User);
+                var ID = Summoner.Values.First().Id;
+                var LatestGame = RiotClient.Game.GetRecentGamesBySummonerId(UserRegion, ID);
+                bool HasGame = false;
+                if (LatestGame != null)
+                {
+                    HasGame = true;
+                    var First = LatestGame.Games.First();
+                    //First.CreateDate
+                }
+                var embed = new EmbedBuilder()
+                {
+                    Title = $"[{Region}] {User}",
+                    Description = "```md" + Environment.NewLine + $"```",
+                    Footer = new EmbedFooterBuilder()
+                    {
+                        Text = $"Last Played {Utils.LongToDateTime(Summoner.First().Value.RevisionDate)}"
+                    }
+                };
+                embed.AddInlineField("Info", "```md" + Environment.NewLine + $"<Level {Summoner.Values.First().SummonerLevel}>" + Environment.NewLine + $"<ID {ID}>```");
+                await Context.Channel.SendMessageAsync("", false, embed);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+        }
     }
 
+    [Command("testt")]
+    public async Task Testt()
+    {
+    }
     [Command("yt")]
     public async Task Yt()
     {
@@ -1017,7 +792,7 @@ public class Misc : ModuleBase
                 Name = $"{Context.Guild.Name}"
             },
             ThumbnailUrl = Context.Guild.IconUrl,
-            Color = Program.GetRoleColor(Context),
+            Color = Utils.GetRoleColor(Context),
             Description = $"Owner: {Owner.Mention}```md" + Environment.NewLine + $"[Online](Offline)" + Environment.NewLine + $"<Users> [{MembersOnline}]({Members}) <Bots> [{BotsOnline}]({Bots})" + Environment.NewLine + $"Channels <Text {TextChan}> <Voice {VoiceChan}>" + Environment.NewLine + $"<Roles {Context.Guild.Roles.Count}> <Region {Context.Guild.VoiceRegionId}>" + Environment.NewLine + "List of roles | p/guild roles```",
             Footer = new EmbedFooterBuilder()
             {
@@ -1068,7 +843,7 @@ public class Misc : ModuleBase
                 Url = GuildUser.GetAvatarUrl()
             },
             ThumbnailUrl = GuildUser.GetAvatarUrl(),
-            Color = Program.GetRoleColor(Context),
+            Color = Utils.GetRoleColor(Context),
             Description = $"<@{GuildUser.Id}>" + Environment.NewLine + "```md" + Environment.NewLine + $"<Discrim {GuildUser.Discriminator}> <ID {GuildUser.Id}>" + Environment.NewLine + $"<Joined_Guild {GuildUser.JoinedAt.Value.Date.ToShortDateString()}>" + Environment.NewLine + $"<Created_Account {GuildUser.CreatedAt.Date.ToShortDateString()}>```",
             Footer = new EmbedFooterBuilder()
             { Text = "To lookup a discrim use | p/discrim 0000" }
@@ -1083,43 +858,26 @@ public class Misc : ModuleBase
     {
         try
         {
-            List<string> Feature = new List<string>();
-            MySQLConnection myConn;
-            MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-            myConn.Open();
-            string RS = $"SELECT text FROM features";
-            MySQLCommand cmd = new MySQLCommand(RS, myConn);
-            MyReader = cmd.ExecuteReaderEx();
-            myConn.Close();
-            while (MyReader.Read())
-            {
-                Feature.Add("- " + MyReader.GetString(0));
-            }
-            string line = string.Join(Environment.NewLine, Feature.ToArray());
-            int GuildCount = 0;
-            foreach (var Guild in await Context.Client.GetGuildsAsync())
-            {
-                GuildCount = GuildCount + 1;
-            }
             var embed = new EmbedBuilder()
             {
-                Title = "Website",
                 Footer = new EmbedFooterBuilder()
                 {
-                    Text = $"Bot Invite p/invite | Want a custom command or feature? then please contact me"
+                    Text = $"For a list of all commands do | p/help all"
                 },
-                Url = "https://blaze.ml",
-                Description = "Created by xXBuilderBXx#9113 | Visit the website for a list of commands and info",
-                Color = Program.GetRoleColor(Context)
+                Color = Utils.GetRoleColor(Context)
             };
+            int Guilds = Program._client.Guilds.Count();
             embed.AddField(x =>
             {
-                x.Name = "Info"; x.Value = "Language C#" + Environment.NewLine + "Library .net 1.0" + Environment.NewLine + $"Guilds {GuildCount}" + Environment.NewLine + "[My Guild](http://discord.gg/WJTYdNb)" + Environment.NewLine + "[Website](https://blaze.ml)" + Environment.NewLine + "[Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0)" + Environment.NewLine + "[Github](https://github.com/ArchboxDev/PixelBot)"; x.IsInline = true;
+                x.Name = ":information_source: Info"; x.Value = "```md" + Environment.NewLine + "<Language C#>" + Environment.NewLine + "<Lib .net 1.0>" + Environment.NewLine + $"<Guilds {Guilds}>" + Environment.NewLine + $"<Uptime_Bots {Services.UptimeBotsList.Count()}>```" + Environment.NewLine + "**Created by**" + Environment.NewLine + "xXBuilderBXx#9113" + Environment.NewLine + "<@190590364871032834>"; x.IsInline = true;
             });
             embed.AddField(x =>
             {
-                x.Name = "Coming Soon"; x.Value = "```fix" + Environment.NewLine + $"{line}```"; x.IsInline = true;
+                x.Name = ":video_game: Features"; x.Value = "```diff" + Environment.NewLine + "+ Twitch" + Environment.NewLine + "- Youtube" + Environment.NewLine + "+ Minecraft" + Environment.NewLine + "- Vainglory" + Environment.NewLine + "+ Overwatch" + Environment.NewLine + "+ Xbox" + Environment.NewLine + "+ Steam" + Environment.NewLine + "+ Osu```"; x.IsInline = true;
+            });
+            embed.AddField(x =>
+            {
+                x.Name = ":globe_with_meridians: Links"; x.Value = $"" + Environment.NewLine + "[Website](https://blaze.ml)" + Environment.NewLine + "[Invite Bot](https://goo.gl/GsnmZP)" + Environment.NewLine + "[My Anime List](https://goo.gl/PtGU7C)" + Environment.NewLine + "[Monstercat](https://goo.gl/FgW5sT)" + Environment.NewLine + "[PixelBot Github](https://goo.gl/ORjWNh)" + Environment.NewLine + "[Selfbot Windows](https://goo.gl/c9T9oG)" + Environment.NewLine + "[Selfbot Linux](https://goo.gl/6sotGS)"; x.IsInline = true;
             });
             await Context.Channel.SendMessageAsync("", false, embed);
         }
@@ -1136,7 +894,7 @@ public class Misc : ModuleBase
     public async Task Roll()
     {
         var random = new Random((int)DateTime.Now.Ticks); var randomValue = random.Next(1, 7);
-        await Context.Channel.SendMessageAsync($"{Context.User.Username} Rolled a {randomValue}");
+        await Context.Channel.SendMessageAsync($":game_die: {Context.User.Username} Rolled a {randomValue}");
     }
 
     [Command("invite")]
@@ -1157,7 +915,7 @@ public class Misc : ModuleBase
                 {
                     Title = "",
                     Description = "[Invite this bot to your guild](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0)",
-                    Color = Program.GetRoleColor(Context)
+                    Color = Utils.GetRoleColor(Context)
                 };
                 await Context.Channel.SendMessageAsync("", false, embed);
             }
@@ -1827,7 +1585,7 @@ public class Media : ModuleBase
         {
             Title = "Twitch Channels",
             Description = $"{Usearch[0].Name} | {Usearch[1].Name} | {Usearch[2].Name}",
-            Color = Program.GetRoleColor(Context)
+            Color = Utils.GetRoleColor(Context)
         };
         if (Context.Channel is IPrivateChannel)
         {
@@ -1865,7 +1623,7 @@ public class Media : ModuleBase
             {
                 Text = "Options > ME (User DM) | HERE (Guild Channel)"
             },
-            Color = Program.GetRoleColor(Context)
+            Color = Utils.GetRoleColor(Context)
         };
         if (Context.Channel is IPrivateChannel)
         {
@@ -2531,7 +2289,7 @@ public class Prune : ModuleBase
 
 public class Help : ModuleBase
 {
-    private readonly PaginationService paginator = Program._pagination;
+
     [Command("help")]
     [Alias("commands")]
     public async Task Pag(string Option = "")
@@ -2560,7 +2318,7 @@ public class Help : ModuleBase
         string GameText = string.Join(Environment.NewLine, GameList);
         string MediaText = string.Join(Environment.NewLine, MediaList);
         string PruneText = string.Join(Environment.NewLine, PruneList);
-        IGuildUser BotUser = null;
+
         if (Context.Channel is IPrivateChannel || Option == "all")
         {
             if (Option == "all")
@@ -2570,7 +2328,7 @@ public class Help : ModuleBase
             var allemebed = new EmbedBuilder()
             {
                 Title = "Commands List",
-                Color = Program.GetRoleColor(Context)
+                Color = Utils.GetRoleColor(Context)
             };
             allemebed.AddField(x =>
             {
@@ -2595,50 +2353,44 @@ public class Help : ModuleBase
         }
         else
         {
-            BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id) as IGuildUser;
-        }
-        string HelpText = "**Help Commands**```md" + Environment.NewLine + "[ p/misc ]( Guild/User Info | Dice Roll | Coin Flip )" + Environment.NewLine + "[ p/game ]( Steam | Osu! | Minecraft | Xbox )" + Environment.NewLine + "[ p/media ]( Twitch Commands )" + Environment.NewLine + "[ p/prune ]( Prune Messages | Embeds | Links )```For a list of all commands do p/help all";
-        if (!BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
-        {
-            await Context.Channel.SendMessageAsync(HelpText);
-            return;
-        }
-        if (!BotUser.GetPermissions(Context.Channel as ITextChannel).AddReactions || !BotUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-        {
-            string PermReact = "Add Reactions: :x:";
+            IGuildUser BotUser = null;
+            Utils.GuildBotCache.TryGetValue(Context.Guild.Id, out BotUser);
+            string HelpText = "```md" + Environment.NewLine + "[ p/misc ]( Info/Dice Roll )" + Environment.NewLine + "[ p/game ]( Steam/Minecraft )" + Environment.NewLine + "[ p/media ]( Twitch )" + Environment.NewLine + "[ p/prune ]( Prune Messages )```";
+            if (!BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
+            {
+                await Context.Channel.SendMessageAsync(HelpText);
+                return;
+            }
+            string PermReact = "Add Reactions :x:";
             string PermManage = "Manage Messages :x:";
-            if (BotUser.GetPermissions(Context.Channel as ITextChannel).AddReactions)
-            {
-                PermReact = "Add Reactions :white_check_mark: ";
-            }
-            if (BotUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-            {
-                PermManage = "Manage Messages :white_check_mark: ";
-            }
             var embed = new EmbedBuilder()
             {
-                Title = "Help Commands",
-                Description = HelpText + "For an interactive help menu add these permissions" + Environment.NewLine + $"{PermReact} | {PermManage}",
-                Footer = new EmbedFooterBuilder()
-                {
-                    Text = "To get a full list of commands do | p/help all | Or visit the website http://blaze.ml"
-                },
-                Color = Program.GetRoleColor(Context)
             };
-            await Context.Channel.SendMessageAsync("", false, embed);
-            return;
-        }
-        var Guilds = await Context.Client.GetGuildsAsync();
-        var pages = new List<string>
+            embed.AddInlineField("Commands list", HelpText + Environment.NewLine + "For a list of all the bot commands do **p/help all** | " + Environment.NewLine + "or visit the website **p/website**");
+            embed.AddInlineField("Interactive Help", "For an interactive help menu" + Environment.NewLine + "Add these permissions" + Environment.NewLine + Environment.NewLine + PermReact + Environment.NewLine + Environment.NewLine + "(Optional)" + Environment.NewLine + PermManage);
+            if (!BotUser.GetPermissions(Context.Channel as ITextChannel).AddReactions || !BotUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+            {
+                
+                if (BotUser.GetPermissions(Context.Channel as ITextChannel).AddReactions)
+                {
+                    PermReact = "Add Reactions :white_check_mark: ";
+                }
+                if (BotUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    PermManage = "Manage Messages :white_check_mark: ";
+                }
+            }
+            var Guilds = await Context.Client.GetGuildsAsync();
+            var pages = new List<string>
             {
                 "```md" + Environment.NewLine + "< | Info     | Commands ► >" + Environment.NewLine + "<Language C#> <Library .net 1.0>" + Environment.NewLine + $"<Guilds {Guilds.Count}>``` For a full list of commands do **p/help all** or visit the website" + Environment.NewLine + "[Website](https://blaze.ml) | [Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0) | [Github](https://github.com/ArchboxDev/PixelBot) | [My Guild](http://discord.gg/WJTYdNb)",
                 "```md" + Environment.NewLine + "< ◄ Info |     Misc     | Games ► >" + Environment.NewLine + MiscText + "```",
                 "```md" + Environment.NewLine + "< ◄ Misc |     Games     | Media ► >" + Environment.NewLine + GameText + "```",
                 "```md" + Environment.NewLine + "< ◄ Games |     Media     | Prune ► >" + Environment.NewLine + MediaText + "```",
             "```md" + Environment.NewLine + "< ◄ Games |     Prune | >" + Environment.NewLine + PruneText + "```"
-        };
-        var message = new PaginatedMessage(pages, "Commands List", Program.GetRoleColor(Context), Context.User);
-        await paginator.SendPaginatedMessageAsync(Context.Channel, message);
+            };
+            await Utils.SendPaginator(pages, "Commands List", Context, embed);
+        }
     }
 
     [Command("misc")]
@@ -2693,7 +2445,17 @@ public class Help : ModuleBase
     [Command("prefix")]
     public async Task Prefix()
     {
-        await Context.Channel.SendMessageAsync("Prefix is `p/` e.g `p/help`");
+        await Context.Channel.SendMessageAsync("Prefix is `p/` e.g **p/help**");
+    }
+    [Command("website")]
+    public async Task Website()
+    {
+        var embed = new EmbedBuilder()
+        {
+            Description = ":globe_with_meridians: [Website](https://blaze.ml)" + Environment.NewLine + "For more info/links do **p/bot**",
+            Color = Utils.GetRoleColor(Context)
+        };
+        await Context.Channel.SendMessageAsync("", false, embed);
     }
 }
 

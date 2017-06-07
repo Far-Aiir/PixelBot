@@ -1,31 +1,32 @@
-﻿using Discord.WebSocket;
+﻿using Discord;
+using Discord.WebSocket;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Discord.Addons.Paginator
+namespace PagMin
 {
-    public class PaginationService
+    public class Service
     {
         const string FIRST = "⏮";
         const string BACK = "◀";
         const string NEXT = "▶";
         const string END = "⏭";
         const string STOP = "⏹";
-        
 
-        private readonly Dictionary<ulong, PaginatedMessage> _messages;
 
-        public PaginationService(DiscordSocketClient Client)
+        private readonly Dictionary<ulong, Message> _messages;
+
+        public Service(DiscordSocketClient Client)
         {
-            _messages = new Dictionary<ulong, PaginatedMessage>();
+            _messages = new Dictionary<ulong, Message>();
             Client.ReactionAdded += OnReactionAdded;
         }
-        public async Task<IUserMessage> SendPaginatedMessageAsync(IMessageChannel channel, PaginatedMessage paginated)
+
+        public async Task<IUserMessage> SendPagMinMessageAsync(IMessageChannel channel, Message paginated)
         {
             var message = await channel.SendMessageAsync("", embed: paginated.GetEmbed());
-            
             await message.AddReactionAsync(new Emoji(BACK));
             await message.AddReactionAsync(new Emoji(NEXT));
             await message.AddReactionAsync(new Emoji(STOP));
@@ -45,15 +46,15 @@ namespace Discord.Addons.Paginator
             {
                 return;
             }
-            if (_messages.TryGetValue(message.Id, out PaginatedMessage page))
+            if (_messages.TryGetValue(message.Id, out Message page))
             {
                 if (reaction.UserId == Program._client.CurrentUser.Id) return;
                 if (page.User != null && reaction.UserId != page.User.Id)
                 {
-                    var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
+                   // var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
                     return;
                 }
-                await message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
+                //await message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
                 switch (reaction.Emote.Name)
                 {
                     case BACK:
@@ -77,9 +78,9 @@ namespace Discord.Addons.Paginator
         }
     }
 
-    public class PaginatedMessage
+    public class Message
     {
-        public PaginatedMessage(IReadOnlyCollection<string> pages, string title = "", Color? embedColor = null, IUser user = null)
+        public Message(IReadOnlyCollection<string> pages, string title = "", Color? embedColor = null, IUser user = null)
         {
             Pages = pages;
             Title = title;
@@ -96,7 +97,7 @@ namespace Discord.Addons.Paginator
                 .WithDescription(Pages.ElementAtOrDefault(CurrentPage - 1) ?? "")
                 .WithFooter(footer =>
                 {
-                    footer.Text = $"Page {CurrentPage}/{Count}";
+                    footer.Text = $"Page {CurrentPage}/{Count} - Cannot delete reactions | No perm manage messages";
                 })
                 .Build();
         }
@@ -109,4 +110,3 @@ namespace Discord.Addons.Paginator
         internal int Count => Pages.Count;
     }
 }
-
