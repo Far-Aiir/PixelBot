@@ -7,7 +7,6 @@ using Discord;
 using Discord.WebSocket;
 using Discord.Commands;
 using System.Reflection;
-using MySQLDriverCS;
 using System.IO;
 using System.Net;
 using Google.Apis.YouTube.v3;
@@ -70,6 +69,7 @@ class Program
         }
         string TokenPath = BotPath + "Tokens.txt";
         Directory.CreateDirectory(BotPath + "Uptime\\");
+        Directory.CreateDirectory(BotPath + "Twitch\\");
         foreach (var File in Directory.GetFiles(BotPath + "Uptime\\"))
         {
                 using (StreamReader reader = new StreamReader(File))
@@ -77,11 +77,19 @@ class Program
                 Services.UptimeBotsList.Add(Convert.ToUInt64(File.Replace(BotPath + "Uptime\\", "").Replace(".txt", "")), Convert.ToInt32(reader.ReadLine()));
                 }
         }
+        foreach (var File in Directory.GetFiles(BotPath + "Twitch\\"))
+        {
+            using (StreamReader reader = new StreamReader(File))
+            {
+                JsonSerializer serializer = new JsonSerializer();
+                Services.TwitchNotifyClass Item = (Services.TwitchNotifyClass)serializer.Deserialize(reader, typeof(Services.TwitchNotifyClass));
+                Services.TwitchNotifications.Add(Item);
+            }
+        }
         if (PixelBot.Properties.Settings.Default.Blacklist == null)
         {
             PixelBot.Properties.Settings.Default.Blacklist = new System.Collections.Specialized.StringCollection();
         }
-        //Token test = JsonConvert.DeserializeObject<Token>(File.ReadAllText(BotPath + "Tokens.json"));
         
         using (StreamReader file = File.OpenText(BotPath + "Tokens.json"))
         {
@@ -98,9 +106,8 @@ class Program
         _client = new DiscordSocketClient();
         _map = new ServiceCollection();
         _commands = new CommandService();
+        await InstallCommands();
         
-        await _commands.AddModulesAsync(Assembly.GetEntryAssembly());
-        _client.MessageReceived += HandleCommand;
 
         _client.Connected += () =>
         {
@@ -221,6 +228,11 @@ class Program
         }
         await Task.Delay(-1);
     }
+    public async Task InstallCommands()
+    {
+        await _commands.AddModulesAsync(Assembly.GetEntryAssembly());
+        _client.MessageReceived += HandleCommand;
+    }
     public async Task HandleCommand(SocketMessage messageParam)
     {
         var message = messageParam as SocketUserMessage;
@@ -287,20 +299,7 @@ public class Main : ModuleBase
         }
         else
         {
-            if (User.StartsWith("<@"))
-            {
-                string RealUser = User;
-                RealUser = RealUser.Replace("<@", "").Replace(">", "");
-                if (RealUser.Contains("!"))
-                {
-                    RealUser = RealUser.Replace("!", "");
-                }
-                GuildUser = await Context.Guild.GetUserAsync(Convert.ToUInt64(RealUser));
-            }
-            else
-            {
-                GuildUser = await Context.Guild.GetUserAsync(Convert.ToUInt64(User));
-            }
+            GuildUser = await Utils.GetFullUserAsync(Context.Guild, User);
             if (!GuildUser.IsBot)
             {
                 await Context.Channel.SendMessageAsync("`This is not a bot`");
@@ -324,7 +323,9 @@ public class Main : ModuleBase
     [Command("test")]
     public async Task Test(string Region = "",[Remainder] string User = "")
     {
-        if (Region == "" | User == "")
+        RiotApiConfig.Regions UserRegion = RiotApiConfig.Regions.Global;
+        UserRegion = LOL.Data.GetRegion(Region);
+        if (Region == "" | User == "" || UserRegion == RiotApiConfig.Regions.Global)
         {
             var embed = new EmbedBuilder()
             {
@@ -351,54 +352,7 @@ public class Main : ModuleBase
         }
         else
         {
-            RiotApiConfig.Regions UserRegion = RiotApiConfig.Regions.Global;
-            switch(Region.ToUpper())
-            {
-                case "NA":
-                    UserRegion = RiotApiConfig.Regions.NA;
-                    break;
-                case "EUW":
-                    UserRegion = RiotApiConfig.Regions.EUW;
-                    break;
-                case "EUN":
-                case "EUNE":
-                    UserRegion = RiotApiConfig.Regions.EUNE;
-                    break;
-                case "LAN":
-                    UserRegion = RiotApiConfig.Regions.LAN;
-                    break;
-                case "LAS":
-                    UserRegion = RiotApiConfig.Regions.LAS;
-                    break;
-                case "BR":
-                case "BRAZIL":
-                    UserRegion = RiotApiConfig.Regions.BR;
-                    break;
-                case "JP":
-                case "JAPAN":
-                    UserRegion = RiotApiConfig.Regions.TR;
-                    break;
-                case "RU":
-                case "RUSSIA":
-                    UserRegion = RiotApiConfig.Regions.RU;
-                    break;
-                case "TR":
-                case "TURKEY":
-                    UserRegion = RiotApiConfig.Regions.TR;
-                    break;
-                case "OC":
-                case "OCE":
-                case "OCEANIA":
-                    UserRegion = RiotApiConfig.Regions.OCE;
-                    break;
-                case "KR":
-                case "KOREA":
-                    UserRegion = RiotApiConfig.Regions.KR;
-                    break;
-                default:
-                    await Context.Channel.SendMessageAsync("`Unknown region please use | p/lol`");
-                    break;
-            }
+            
             try
             {
                 IRiotClient RiotClient = new RiotClient(Program.TokenMap.Riot);
@@ -418,7 +372,7 @@ public class Main : ModuleBase
                     Description = "```md" + Environment.NewLine + $"```",
                     Footer = new EmbedFooterBuilder()
                     {
-                        Text = $"Last Played {Utils.LongToDateTime(Summoner.First().Value.RevisionDate)}"
+                        Text = $"Last Played {Utils.EpochToDateTime(Summoner.First().Value.RevisionDate)}"
                     }
                 };
                 embed.AddInlineField("Info", "```md" + Environment.NewLine + $"<Level {Summoner.Values.First().SummonerLevel}>" + Environment.NewLine + $"<ID {ID}>```");
@@ -432,36 +386,9 @@ public class Main : ModuleBase
     }
 
     [Command("testt")]
-    public async Task Testt(string Region, [Remainder] string User)
+    public async Task Testt(string Region = "", [Remainder] string User = "")
     {
-        string WOTURL = "https://api.worldoftanks.eu/wot/account/list/?application_id=";
-        HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerName]=" + User);
-        httpWebRequest.Method = WebRequestMethods.Http.Get;
-        httpWebRequest.Headers.Add("Authorization", Program.TokenMap.Vainglory);
-        httpWebRequest.Headers.Add("X-TITLE-ID", "semc-vainglory");
-        httpWebRequest.Accept = "application/json";
-        try
-        {
-            HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
-            Stream receiveStream = response.GetResponseStream();
-            StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
-            var Req = readStream.ReadToEnd();
-            dynamic JA = Newtonsoft.Json.Linq.JObject.Parse(Req);
-            dynamic JO = Newtonsoft.Json.Linq.JArray.Parse(JA.data);
-            dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(JO);
-            Console.WriteLine(stuff);
-            //dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(JO.ToString());
-            //var embed = new EmbedBuilder()
-            //{
-            //Title = $"Vainglory | {VGUser}",
-            //Description = "```md" + Environment.NewLine + $"<Level {stuff.attributes.stats.level}> <XP {stuff.attributes.stats.xp}> <LifetimeGold {stuff.attributes.stats.lifetimeGold}>" + Environment.NewLine + $"<Wins {stuff.attributes.stats.wins}> <Played {stuff.attributes.stats.played}> <PlayedRank {stuff.attributes.stats.played_ranked}>```"
-            //};
-            //await Context.Channel.SendMessageAsync("", false, embed);
-        }
-        catch
-        {
-            await Context.Channel.SendMessageAsync("`Request error or unknown user`");
-        }
+        
     }
 
 
@@ -500,26 +427,7 @@ public class Main : ModuleBase
     public async Task Ytadd([Remainder] string User = "null")
     {
         await Context.Channel.SendMessageAsync("```fix" + Environment.NewLine + "Feature under construction```");
-
-        MySQLConnection myConn;
-        MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-        myConn.Open();
-        string stm = $"SELECT channel FROM ytnotify WHERE id='{Context.User.Id}' AND channel='{User}'";
-        MySQLCommand cmd = new MySQLCommand(stm, myConn);
-        MyReader = cmd.ExecuteReaderEx();
-        if (MyReader.HasRows)
-        {
-            await Context.Channel.SendMessageAsync("```fix" + Environment.NewLine + "This user already exists in your settings | If you would like to remove it do" + Environment.NewLine + $"/yt remove {User}");
-        }
-        else
-        {
-            string Command = $"INSERT INTO ytnotify (channel, id) VALUES (''.'')";
-            MySQLCommand cmd2 = new MySQLCommand(Command, myConn);
-            cmd2.ExecuteNonQuery();
-        }
-        MyReader.Close();
-        myConn.Close();
+        
     }
 
     [Command("yt notify list")]
@@ -528,48 +436,32 @@ public class Main : ModuleBase
         List<string> YTList = new List<string>();
         await Context.Channel.SendMessageAsync("```fix" + Environment.NewLine + "Feature under construction```");
 
-        MySQLConnection myConn;
-        MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-        myConn.Open();
-        string stm = $"SELECT channel FROM ytnotify WHERE id='{Context.User.Id}'";
-        MySQLCommand cmd = new MySQLCommand(stm, myConn);
-        MyReader = cmd.ExecuteReaderEx();
-        while (MyReader.Read())
-        {
-            YTList.Add(MyReader.GetString(0));
-        }
-        MyReader.Close();
-        myConn.Close();
-        string line = string.Join(Environment.NewLine, YTList.ToArray());
-        await Context.Channel.SendMessageAsync(line);
+        //MySQLConnection myConn;
+        //MySQLDataReader MyReader = null;
+        //myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
+        //myConn.Open();
+        //string stm = $"SELECT channel FROM ytnotify WHERE id='{Context.User.Id}'";
+        //MySQLCommand cmd = new MySQLCommand(stm, myConn);
+        //MyReader = cmd.ExecuteReaderEx();
+        //while (MyReader.Read())
+        //{
+            //YTList.Add(MyReader.GetString(0));
+        //}
+        //MyReader.Close();
+        //myConn.Close();
+        //string line = string.Join(Environment.NewLine, YTList.ToArray());
+        //await Context.Channel.SendMessageAsync(line);
     }
 
     [Command("yt notify remove")]
     public async Task Ytdel([Remainder] string User = "null")
     {
         await Context.Channel.SendMessageAsync("```fix" + Environment.NewLine + "Feature under construction```");
-
-        MySQLConnection myConn;
-        MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-        myConn.Open();
-        string stm = $"SELECT user FROM ytnotify WHERE id='{Context.User.Id}' AND channel='{User}'";
-        MySQLCommand cmd = new MySQLCommand(stm, myConn);
-        MyReader = cmd.ExecuteReaderEx();
-        if (MyReader.HasRows)
-        {
-
-        }
-        else
-        {
-            await Context.Channel.SendMessageAsync("```fix" + Environment.NewLine + "This user does not exists | If you would like to add it do" + Environment.NewLine + $"/yt add {User}");
-
-        }
-        myConn.Close();
+        
     }
 
     [Command("profile")]
+    [RequireOwner]
     public async Task Profile([Remainder] string User = null)
     {
         IGuildUser GuildUser = null;
@@ -634,36 +526,16 @@ public class Main : ModuleBase
         }
         Console.WriteLine(GuildUser.Username);
         return;
-        MySQLConnection myConn;
-        MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-        myConn.Open();
-        string RS = $"SELECT name WHERE id='{User}'";
-        MySQLCommand cmd = new MySQLCommand(RS, myConn);
-        MyReader = cmd.ExecuteReaderEx();
-        myConn.Close();
         List<string> UList = new List<string>();
-        if (!MyReader.HasRows)
+        string RS = "";
+        if (RS == "")
         {
             char[] arr = User.ToCharArray();
             arr = Array.FindAll<char>(arr, (c => (char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))));
             string str = new string(arr);
-            Console.WriteLine(str);
-            myConn.Open();
             string SS = $"INSERT INTO profiles(name, discrim, id) VALUES('{str}', '{User}', '{User}')";
-            MySQLCommand cmd2 = new MySQLCommand(SS, myConn);
-            cmd2.ExecuteNonQuery();
-            myConn.Close();
             await Context.Channel.SendMessageAsync("Your profile has been created");
             return;
-        }
-        while (MyReader.Read())
-        {
-            UList.Add(MyReader.GetString(0));
-        }
-        if (UList.Count != 1)
-        {
-
         }
     }
 
@@ -991,6 +863,7 @@ public class Misc : ModuleBase
         response.Close();
         await Context.Channel.SendMessageAsync("", false, embed);
     }
+
     [Command("dog")]
     [Remarks("dog")]
     [Summary("Random dog pic/gif")]
@@ -1304,6 +1177,57 @@ public class Game : ModuleBase
         }
     }
 
+    [Command("wot")]
+    [Remarks("wot")]
+    [Summary("World Of Tanks")]
+    public async Task Wot(string Region = "", [Remainder] string User = "")
+    {
+        if (Region == "" || User == "" || WOT.Data.Regions(Region) == "null")
+        {
+            var embed = new EmbedBuilder()
+            {
+                Description = "**p/wot (Region) (User)**",
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = "World Of Tanks"
+                },
+                Color = Utils.GetRoleColor(Context)
+            };
+            embed.AddInlineField("Regions", "```md" + Environment.NewLine + "<RU Russia>" + Environment.NewLine + "<EU Europe>" + Environment.NewLine + "<NA America>" + Environment.NewLine + "<AS Asia>```");
+            embed.AddInlineField("Stats", "Player data available" + Environment.NewLine + "New features coming soon");
+            await Context.Channel.SendMessageAsync("", false, embed);
+        }
+        else
+        {
+            try
+            {
+                string RealRegion = WOT.Data.Regions(Region);
+                string UserID = WOT.API.GetUserID(RealRegion, User);
+                var Player = WOT.API.GetUserData(RealRegion, UserID);
+                var embed = new EmbedBuilder()
+                {
+                    Author = new EmbedAuthorBuilder()
+                    {
+                        Name = $"[{Region}] {User} | Raiting {Player.Raiting}",
+                        IconUrl = "http://orig10.deviantart.net/4482/f/2015/301/2/c/world_of_tanks_icon___tiger1_by_adyshor37-d9eng1i.png"
+                    },
+                    Footer = new EmbedFooterBuilder()
+                    {
+                        Text = $"Created {Player.CreatedAt.ToShortDateString()} | Last Battle {Player.LastBattle.ToShortDateString()}"
+                    },
+                    Color = Utils.GetRoleColor(Context),
+                    Description = "```md" + Environment.NewLine + $"<Battles {Player.Battles}> <Win {Player.Win}> <Loss {Player.Loss}> <Draw {Player.Draws}>" + Environment.NewLine + $"<Shots {Player.Shots}> <Hits {Player.Hits}> <Miss {Convert.ToUInt32(Player.Shots) - Convert.ToUInt32(Player.Hits)}>```More stats coming soon this is a test"
+                };
+                await Context.Channel.SendMessageAsync("", false, embed);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                await Context.Channel.SendMessageAsync("`Cannot not find user`");
+            }
+        }
+    }
+
     [Command("mc")]
     [Remarks("mc")]
     [Summary("Minecraft game info and commands")]
@@ -1491,21 +1415,8 @@ public class Game : ModuleBase
                 return;
             }
             string Claim = "";
-            MySQLConnection DB;
-            DB = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-            DB.Open();
-            string comclaim = $"SELECT user FROM profiles WHERE steam='{User}'";
-            MySQLCommand cmdclaim = new MySQLCommand(comclaim, DB);
-            MySQLDataReader readclaim = cmdclaim.ExecuteReaderEx();
-            DB.Close();
-            if (readclaim.HasRows)
-            {
-                while (readclaim.Read())
-                {
-                    Claim = readclaim.GetString(0);
-                }
-
-            }
+            
+            
             SteamIdentity SteamUser = null;
             SteamWebAPI.SetGlobalKey(Program.TokenMap.Steam);
             SteamUser = SteamWebAPI.General().ISteamUser().ResolveVanityURL(User).GetResponse().Data.Identity;
@@ -1800,7 +1711,7 @@ public class Media : ModuleBase
     [Command("tw notify")]
     [Alias("tw n")]
     [Remarks("tw n (Option) (Channel)")]
-    [Summary("Recieve notifications from this twitch channel")]
+    [Summary("Recieve notifications from a twitch channel")]
     public async Task TwitchNotify(string Option = null, string Channel = null)
     {
         if (Context.Channel is IPrivateChannel)
@@ -1831,76 +1742,39 @@ public class Media : ModuleBase
             await Context.Channel.SendMessageAsync("`Cannot find this channel`");
             return;
         }
-        if (Option == "me")
+        if (Option == "me" || Option == "here" || Option == "channel")
         {
-            MySQLConnection myConn;
-            MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-            myConn.Open();
-            string RS = $"SELECT twitch FROM twitch WHERE type='user' AND userid='{Context.User.Id}' AND twitch='{Channel.ToLower()}'";
-            MySQLCommand cmd = new MySQLCommand(RS, myConn);
-            MyReader = cmd.ExecuteReaderEx();
-            myConn.Close();
-            if (MyReader.HasRows)
+            Services.TwitchNotifyClass NewNotif = new Services.TwitchNotifyClass()
             {
-                await Context.Channel.SendMessageAsync($"`You are already getting notification from {Channel}`");
+                Type = "user",
+                Guild = Context.Guild.Id,
+                Channel = Context.Channel.Id,
+                User = Context.User.Id,
+                Twitch = Channel.ToLower(),
+                Live = false
+            };
+            if (Option == "here" || Option == "channel")
+            {
+                if (Context.User.Id != Context.Guild.OwnerId)
+                {
+                    await Context.Channel.SendMessageAsync("`You are not the guild owner`");
+                    return;
+                }
+                NewNotif.Type = "channel";
+            }
+            JsonSerializer serializer = new JsonSerializer();
+            using (StreamWriter file = File.CreateText(Program.BotPath + $"Twitch\\{NewNotif.Type.ToLower()}-{Context.Guild.Id.ToString()}-{Context.Guild.Id}-{Context.User.Id}-{Channel.ToLower()}.json"))
+            {
+                serializer.Serialize(file, NewNotif);
+            }
+            Services.TwitchNotifications.Add(NewNotif);
+            if (NewNotif.Type == "channel")
+            {
+                await Context.Channel.SendMessageAsync($"`You added notifications for {Channel} to this channel`");
             }
             else
             {
-                myConn.Open();
-                string stm = $"INSERT INTO twitch(type, userid, guild, channel, twitch, live) VALUES('user', '{Context.User.Id}', '{Context.Guild.Id}', '{Context.Channel.Id}', '{Channel.ToLower()}', 'no')";
-                MySQLCommand cmd2 = new MySQLCommand(stm, myConn);
-                cmd2.ExecuteNonQuery();
-                myConn.Close();
-                await Context.Channel.SendMessageAsync($"`User notification added for {Channel} you will get a notification in DMS when he/she goes live`");
-            }
-        }
-        if (Option == "here")
-        {
-            if (Context.User.Id != Context.Guild.OwnerId)
-            {
-                await Context.Channel.SendMessageAsync("`You are not the guild owner`");
-                return;
-            }
-            MySQLConnection myConn;
-            MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-            myConn.Open();
-            string RS = $"SELECT userid FROM twitch WHERE type='channel' AND guild='{Context.Guild.Id}' AND channel='{Context.Channel.Id}' AND twitch='{Channel.ToLower()}'";
-            MySQLCommand cmd = new MySQLCommand(RS, myConn);
-            MyReader = cmd.ExecuteReaderEx();
-            myConn.Close();
-            if (MyReader.HasRows)
-            {
-                IUser GuildUser = null;
-                while (MyReader.Read())
-                {
-                    try
-                    {
-                        GuildUser = await Context.Guild.GetUserAsync(Convert.ToUInt64(MyReader.GetString(0)));
-                    }
-                    catch
-                    {
-
-                    }
-                }
-                if (GuildUser == null)
-                {
-                    await Context.Channel.SendMessageAsync($"`This guild channel is already getting notification from {Channel} | Unknown User`");
-                }
-                else
-                {
-                    await Context.Channel.SendMessageAsync($"`This guild channel is already getting notification from {Channel} | Created by {GuildUser.Username}`");
-                }
-            }
-            else
-            {
-                myConn.Open();
-                string stm = $"INSERT INTO twitch(type, userid, guild, channel, twitch, live) VALUES('channel', '{Context.User.Id}', '{Context.Guild.Id}', '{Context.Channel.Id}', '{Channel.ToLower()}', 'no')";
-                MySQLCommand cmd2 = new MySQLCommand(stm, myConn);
-                cmd2.ExecuteNonQuery();
-                myConn.Close();
-                await Context.Channel.SendMessageAsync($"`Guild channel notification added for {Channel} you will get a notification here when he/she goes live`");
+                await Context.Channel.SendMessageAsync($"`You added notifications for {Channel} to yourself`");
             }
         }
     }
@@ -1924,71 +1798,47 @@ public class Media : ModuleBase
         if (Option == "me")
         {
             List<string> TWList = new List<string>();
-            MySQLConnection myConn;
-            MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-            myConn.Open();
-            string RS = $"SELECT twitch FROM twitch WHERE type='user' AND userid='{Context.User.Id}'";
-            MySQLCommand cmd = new MySQLCommand(RS, myConn);
-            MyReader = cmd.ExecuteReaderEx();
-            myConn.Close();
-            if (!MyReader.HasRows)
+            foreach (var Item in Services.TwitchNotifications.Where(x => x.User == Context.User.Id & x.Type == "user"))
             {
-                await Context.Channel.SendMessageAsync($"`You do not have an twitch notifications`");
-                return;
+                TWList.Add($"{Item.Twitch}");
             }
-            while (MyReader.Read())
+            var embed = new EmbedBuilder()
             {
-                TWList.Add(MyReader.GetString(0));
-            }
-            var line = string.Join(", ", TWList.ToArray());
-            await Context.Channel.SendMessageAsync("You are getting notification from" + Environment.NewLine + line);
+                Title = "Twitch Notifications For You",
+                Description = string.Join(", ", TWList),
+                Color = Utils.GetRoleColor(Context)
+            };
+            await Context.Channel.SendMessageAsync("", false, embed);
         }
         if (Option == "guild")
         {
             List<string> TWList = new List<string>();
-            MySQLConnection myConn;
-            MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-            myConn.Open();
-            string RS = $"SELECT twitch, channel FROM twitch WHERE type='channel' AND guild='{Context.Guild.Id}'";
-            MySQLCommand cmd = new MySQLCommand(RS, myConn);
-            MyReader = cmd.ExecuteReaderEx();
-            myConn.Close();
-            if (!MyReader.HasRows)
+            foreach (var Item in Services.TwitchNotifications.Where(x => x.Guild == Context.Guild.Id & x.Type == "channel"))
             {
-                await Context.Channel.SendMessageAsync($"`This guild does not have any twitch notifications`");
-                return;
+                TWList.Add($"{Item.Twitch}");
             }
-            while (MyReader.Read())
+            var embed = new EmbedBuilder()
             {
-                TWList.Add($"{MyReader.GetString(0)}");
-            }
-            var line = string.Join(", ", TWList.ToArray());
-            await Context.Channel.SendMessageAsync("This guild is getting notification for" + Environment.NewLine + line);
+                Title = "Twitch Notifications For This Guild",
+                Description = string.Join(", ", TWList),
+                Color = Utils.GetRoleColor(Context)
+            };
+            await Context.Channel.SendMessageAsync("", false, embed);
         }
         if (Option == "here")
         {
             List<string> TWList = new List<string>();
-            MySQLConnection myConn;
-            MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-            myConn.Open();
-            string RS = $"SELECT twitch FROM twitch WHERE type='channel' AND guild='{Context.Guild.Id}' AND channel='{Context.Channel.Id}'";
-            MySQLCommand cmd = new MySQLCommand(RS, myConn);
-            MyReader = cmd.ExecuteReaderEx();
-            myConn.Close();
-            if (!MyReader.HasRows)
+            foreach (var Item in Services.TwitchNotifications.Where(x => x.Channel == Context.Channel.Id & x.Type == "channel"))
             {
-                await Context.Channel.SendMessageAsync($"`This channel does not have any twitch notifications`");
-                return;
+                TWList.Add($"{Item.Twitch}");
             }
-            while (MyReader.Read())
+            var embed = new EmbedBuilder()
             {
-                TWList.Add(MyReader.GetString(0));
-            }
-            var line = string.Join(", ", TWList.ToArray());
-            await Context.Channel.SendMessageAsync("This channel is getting notification from" + Environment.NewLine + line);
+                Title = $"Twitch Notifications For #{Context.Channel.Name}",
+                Description = string.Join(", ", TWList),
+                Color = Utils.GetRoleColor(Context)
+            };
+            await Context.Channel.SendMessageAsync("", false, embed);
         }
     }
 
@@ -2015,52 +1865,42 @@ public class Media : ModuleBase
         }
         if (Option == "me")
         {
-            MySQLConnection myConn;
-            MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-            myConn.Open();
-            string RS = $"SELECT twitch FROM twitch WHERE type='user' AND userid='{Context.User.Id}' AND twitch='{Channel.ToLower()}'";
-            MySQLCommand cmd = new MySQLCommand(RS, myConn);
-            MyReader = cmd.ExecuteReaderEx();
-            myConn.Close();
-            if (!MyReader.HasRows)
+            if (Services.TwitchNotifications.Exists(x => x.Type == "user" & x.Twitch == Channel))
             {
-                await Context.Channel.SendMessageAsync($"`You are not getting notifications from this twitch channel`");
-                return;
+                try
+                {
+                    Services.TwitchNotifications.RemoveAll(x => x.Type == "user" & x.Twitch == Channel);
+                }
+                catch
+                {
+
+                }
+                File.Delete($"Twitch\\user-{Context.Guild.Id.ToString()}-{Context.Guild.Id}-{Context.User.Id}-{Channel.ToLower()}.json");
+                await Context.Channel.SendMessageAsync($"`You removed notifications for {Channel} from yourself`");
             }
-            myConn.Open();
-            string stm = $"DELETE FROM twitch WHERE type='user' AND userid='{Context.User.Id}' AND twitch='{Channel.ToLower()}'";
-            MySQLCommand cmd2 = new MySQLCommand(stm, myConn);
-            cmd2.ExecuteNonQuery();
-            myConn.Close();
-            await Context.Channel.SendMessageAsync($"You have removed {Channel} from your notifications");
+            else
+            {
+                await Context.Channel.SendMessageAsync("`This twitch channel does not exist in your notifications`");
+            }
         }
-        if (Option == "here")
+        if (Option == "here" || Option == "Channel")
         {
             if (Context.User.Id != Context.Guild.OwnerId)
             {
                 await Context.Channel.SendMessageAsync("`You are not the guild owner`");
                 return;
             }
-            MySQLConnection myConn;
-            MySQLDataReader MyReader = null;
-            myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-            myConn.Open();
-            string RS = $"SELECT twitch FROM twitch WHERE type='channel' AND guild='{Context.Guild.Id}' AND channel='{Context.Channel.Id}' AND twitch='{Channel.ToLower()}'";
-            MySQLCommand cmd = new MySQLCommand(RS, myConn);
-            MyReader = cmd.ExecuteReaderEx();
-            myConn.Close();
-            if (!MyReader.HasRows)
+            if (Services.TwitchNotifications.Exists(x => x.Type == "channel" & x.Twitch == Channel & x.Guild == Context.Guild.Id & x.Channel == Context.Channel.Id))
             {
-                await Context.Channel.SendMessageAsync($"`This channel does not have a notification set for {Channel}`");
-                return;
+                    Services.TwitchNotifications.RemoveAll(x => x.Type == "channel" & x.Twitch == Channel & x.Guild == Context.Guild.Id & x.Channel == Context.Channel.Id);
+                
+                File.Delete($"Twitch\\channel-{Context.Guild.Id.ToString()}-{Context.Guild.Id}-{Context.User.Id}-{Channel.ToLower()}.json");
+                await Context.Channel.SendMessageAsync($"`You removed notifications for {Channel} from this channel`");
             }
-            myConn.Open();
-            string stm = $"DELETE FROM twitch WHERE type='channel' AND guild='{Context.Guild.Id}' AND channel='{Context.Channel.Id}' AND twitch='{Channel.ToLower()}'";
-            MySQLCommand cmd2 = new MySQLCommand(stm, myConn);
-            cmd2.ExecuteNonQuery();
-            myConn.Close();
-            await Context.Channel.SendMessageAsync($"You have remove {Channel} notifications from this channel");
+            else
+            {
+                await Context.Channel.SendMessageAsync("`This twitch channel does not exist for the channel notifications`");
+            }
         }
     }
 }
@@ -2578,27 +2418,27 @@ public class Steam : InteractiveModuleBase
             await Context.Channel.SendMessageAsync("`No user set | p/steam claim (User)");
             return;
         }
-        MySQLConnection myConn;
-        MySQLDataReader MyReader = null;
-        myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-        myConn.Open();
-        string RS2 = $"SELECT user FROM profiles WHERE steam='{User}'";
-        MySQLCommand cmd3 = new MySQLCommand(RS2, myConn);
-        MyReader = cmd3.ExecuteReaderEx();
-        myConn.Close();
-        if (MyReader.HasRows)
-        {
-            while (MyReader.Read())
-            {
-                var claimed = new EmbedBuilder()
-                {
-                    Title = "Account Already Claimed By",
-                    Description = $"<@{MyReader.GetString(0)}>"
-                };
-                await Context.Channel.SendMessageAsync("", false, claimed);
-                return;
-            }
-        }
+        //MySQLConnection myConn;
+        //MySQLDataReader MyReader = null;
+        //myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
+        //myConn.Open();
+        //string RS2 = $"SELECT user FROM profiles WHERE steam='{User}'";
+        //MySQLCommand cmd3 = new MySQLCommand(RS2, myConn);
+        //MyReader = cmd3.ExecuteReaderEx();
+        //myConn.Close();
+        //if (MyReader.HasRows)
+        //{
+            //while (MyReader.Read())
+            //{
+                //var claimed = new EmbedBuilder()
+                //{
+                    //Title = "Account Already Claimed By",
+                    //Description = $"<@{MyReader.GetString(0)}>"
+                //};
+                //await Context.Channel.SendMessageAsync("", false, claimed);
+                //return;
+            //}
+        //}
         SteamWebAPI.SetGlobalKey(Program.TokenMap.Steam);
         SteamIdentity SteamUser = null;
         try
@@ -2623,12 +2463,12 @@ public class Steam : InteractiveModuleBase
         await claimtext.DeleteAsync();
         if (response.Content.ToLower() == "yes")
         {
-            myConn.Open();
-            string update = $"UPDATE profiles SET steam='{User}' WHERE user='{Context.User.Id}'";
-            MySQLCommand upcmd = new MySQLCommand(update, myConn);
-            upcmd.ExecuteNonQuery();
-            myConn.Close();
-            await Context.Channel.SendMessageAsync("`Account claimed`");
+            //myConn.Open();
+            //string update = $"UPDATE profiles SET steam='{User}' WHERE user='{Context.User.Id}'";
+            //MySQLCommand upcmd = new MySQLCommand(update, myConn);
+            //upcmd.ExecuteNonQuery();
+            //myConn.Close();
+            //await Context.Channel.SendMessageAsync("`Account claimed`");
         }
         else
         {

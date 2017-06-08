@@ -12,11 +12,20 @@ using TwitchCSharp.Clients;
 
 public class Services
 {
+    public class TwitchNotifyClass
+    {
+        public string Type { get; set; }
+        public ulong User { get; set; }
+        public ulong Guild { get; set; }
+        public ulong Channel { get; set; }
+        public string Twitch { get; set; }
+        public bool Live { get; set; }
+    }
     public static Timer _Timer_Twitch = new Timer();
     public static Timer _Timer_Stats = new Timer();
     public static Timer _Timer_Uptime = new Timer();
     public static Dictionary<ulong, int> UptimeBotsList = new Dictionary<ulong, int>();
-
+    public static List<TwitchNotifyClass> TwitchNotifications = new List<TwitchNotifyClass>();
     public static void BotGuildCount(object sender, ElapsedEventArgs e)
     {
         try
