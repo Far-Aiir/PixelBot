@@ -39,6 +39,7 @@ public class Token
     public string Dbots { get; set; } = "";
     public string DbotsV2 { get; set; } = "";
     public string Riot { get; set; } = "";
+    public string Wargaming { get; set; } = "";
 }
 class Program
 {
@@ -431,9 +432,39 @@ public class Main : ModuleBase
     }
 
     [Command("testt")]
-    public async Task Testt()
+    public async Task Testt(string Region, [Remainder] string User)
     {
+        string WOTURL = "https://api.worldoftanks.eu/wot/account/list/?application_id=";
+        HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerName]=" + User);
+        httpWebRequest.Method = WebRequestMethods.Http.Get;
+        httpWebRequest.Headers.Add("Authorization", Program.TokenMap.Vainglory);
+        httpWebRequest.Headers.Add("X-TITLE-ID", "semc-vainglory");
+        httpWebRequest.Accept = "application/json";
+        try
+        {
+            HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
+            Stream receiveStream = response.GetResponseStream();
+            StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
+            var Req = readStream.ReadToEnd();
+            dynamic JA = Newtonsoft.Json.Linq.JObject.Parse(Req);
+            dynamic JO = Newtonsoft.Json.Linq.JArray.Parse(JA.data);
+            dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(JO);
+            Console.WriteLine(stuff);
+            //dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(JO.ToString());
+            //var embed = new EmbedBuilder()
+            //{
+            //Title = $"Vainglory | {VGUser}",
+            //Description = "```md" + Environment.NewLine + $"<Level {stuff.attributes.stats.level}> <XP {stuff.attributes.stats.xp}> <LifetimeGold {stuff.attributes.stats.lifetimeGold}>" + Environment.NewLine + $"<Wins {stuff.attributes.stats.wins}> <Played {stuff.attributes.stats.played}> <PlayedRank {stuff.attributes.stats.played_ranked}>```"
+            //};
+            //await Context.Channel.SendMessageAsync("", false, embed);
+        }
+        catch
+        {
+            await Context.Channel.SendMessageAsync("`Request error or unknown user`");
+        }
     }
+
+
     [Command("yt")]
     public async Task Yt()
     {
@@ -937,6 +968,84 @@ public class Misc : ModuleBase
         { await Context.Channel.SendMessageAsync($"{Context.User.Username} Flipped Heads"); }
         else
         { await Context.Channel.SendMessageAsync($"{Context.User.Username} Flipped Tails"); }
+    }
+
+    [Command("cat")]
+    [Remarks("cat")]
+    [Summary("Random cat pic/gif")]
+    public async Task Cat()
+    {
+        WebRequest request = WebRequest.Create("http://random.cat/meow");
+        WebResponse response = request.GetResponse();
+        Stream dataStream = response.GetResponseStream();
+        StreamReader reader = new StreamReader(dataStream, System.Text.Encoding.UTF8);
+        dynamic Item = Newtonsoft.Json.Linq.JObject.Parse(reader.ReadToEnd());
+        var embed = new EmbedBuilder()
+        {
+            Title = "Random Cat :cat:",
+            Url = Item.file,
+            ImageUrl = Item.file,
+            Color = Utils.GetRoleColor(Context)
+        };
+        reader.Close();
+        response.Close();
+        await Context.Channel.SendMessageAsync("", false, embed);
+    }
+    [Command("dog")]
+    [Remarks("dog")]
+    [Summary("Random dog pic/gif")]
+    public async Task Dog()
+    {
+        string Item = "Item";
+        switch (Item)
+        {
+            case "Item":
+                WebRequest request = WebRequest.Create("http://random.dog/woof");
+                WebResponse response = request.GetResponse();
+                Stream dataStream = response.GetResponseStream();
+                StreamReader reader = new StreamReader(dataStream, System.Text.Encoding.UTF8);
+                 Item = reader.ReadToEnd();
+                reader.Close();
+                response.Close();
+                if (Item.Contains(".mp4"))
+                {
+                    goto case "Item";
+                }
+                
+                break;
+        }
+        var embed = new EmbedBuilder()
+        {
+            Title = "Random Dog :dog:",
+            Url = "http://random.dog/" + Item,
+            ImageUrl = "http://random.dog/" + Item,
+            Color = Utils.GetRoleColor(Context)
+        };
+        
+        await Context.Channel.SendMessageAsync("", false, embed);
+    }
+
+    [Command("bird")]
+    [Remarks("bird")]
+    [Summary("Random bird pic/gif")]
+    public async Task Bird()
+    {
+                WebRequest request = WebRequest.Create("https://random.birb.pw/tweet");
+                WebResponse response = request.GetResponse();
+                Stream dataStream = response.GetResponseStream();
+                StreamReader reader = new StreamReader(dataStream, System.Text.Encoding.UTF8);
+                string Item = reader.ReadToEnd();
+                reader.Close();
+                response.Close();
+        var embed = new EmbedBuilder()
+        {
+            Title = "Random Bird :bird:",
+            Url = "https://random.birb.pw/" + Item,
+            ImageUrl = "https://random.birb.pw/img/" + Item,
+            Color = Utils.GetRoleColor(Context)
+        };
+
+        await Context.Channel.SendMessageAsync("", false, embed);
     }
 }
 public class Game : ModuleBase

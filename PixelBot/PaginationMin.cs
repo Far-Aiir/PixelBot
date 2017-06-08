@@ -22,6 +22,7 @@ namespace PagMin
         {
             _messages = new Dictionary<ulong, Message>();
             Client.ReactionAdded += OnReactionAdded;
+            Client.ReactionRemoved += OnReactionRemoved;
         }
 
         public async Task<IUserMessage> SendPagMinMessageAsync(IMessageChannel channel, Message paginated)
@@ -52,6 +53,47 @@ namespace PagMin
                 if (page.User != null && reaction.UserId != page.User.Id)
                 {
                    // var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
+                    return;
+                }
+                //await message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
+                switch (reaction.Emote.Name)
+                {
+                    case BACK:
+                        if (page.CurrentPage == 1) break;
+                        page.CurrentPage--;
+                        await message.ModifyAsync(x => x.Embed = page.GetEmbed());
+                        break;
+                    case NEXT:
+                        if (page.CurrentPage == page.Count) break;
+                        page.CurrentPage++;
+                        await message.ModifyAsync(x => x.Embed = page.GetEmbed());
+                        break;
+                    case STOP:
+                        await message.DeleteAsync();
+                        _messages.Remove(message.Id);
+                        return;
+                    default:
+                        break;
+                }
+            }
+        }
+        internal async Task OnReactionRemoved(Cacheable<IUserMessage, ulong> messageParam, ISocketMessageChannel channel, SocketReaction reaction)
+        {
+            var message = await messageParam.GetOrDownloadAsync();
+            if (message == null)
+            {
+                return;
+            }
+            if (!reaction.User.IsSpecified)
+            {
+                return;
+            }
+            if (_messages.TryGetValue(message.Id, out Message page))
+            {
+                if (reaction.UserId == Program._client.CurrentUser.Id) return;
+                if (page.User != null && reaction.UserId != page.User.Id)
+                {
+                    // var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
                     return;
                 }
                 //await message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
