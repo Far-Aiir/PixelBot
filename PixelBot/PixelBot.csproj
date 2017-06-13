@@ -30,8 +30,8 @@
     <CreateWebPageOnPublish>true</CreateWebPageOnPublish>
     <WebPage>publish.html</WebPage>
     <OpenBrowserOnPublish>false</OpenBrowserOnPublish>
-    <ApplicationRevision>6</ApplicationRevision>
-    <ApplicationVersion>6.3.2.6</ApplicationVersion>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>6.3.3.0</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <CreateDesktopShortcut>true</CreateDesktopShortcut>
     <PublishWizardCompleted>true</PublishWizardCompleted>
@@ -47,7 +47,7 @@
     </DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>true</Prefer32Bit>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -131,6 +131,12 @@
     <Reference Include="Google.Apis.YouTube.v3, Version=1.27.0.760, Culture=neutral, PublicKeyToken=4b01fa6e34db77ab, processorArchitecture=MSIL">
       <HintPath>..\packages\Google.Apis.YouTube.v3.1.27.0.760\lib\net45\Google.Apis.YouTube.v3.dll</HintPath>
     </Reference>
+    <Reference Include="HtmlAgilityPack, Version=1.5.0.0, Culture=neutral, PublicKeyToken=bd319b19eaf3b43a, processorArchitecture=MSIL">
+      <HintPath>..\packages\HtmlAgilityPack.1.5.0-beta6\lib\Net45\HtmlAgilityPack.dll</HintPath>
+    </Reference>
+    <Reference Include="Magick.NET-Q16-AnyCPU, Version=7.0.0.0, Culture=neutral, PublicKeyToken=2004825badfa91ec, processorArchitecture=MSIL">
+      <HintPath>..\packages\Magick.NET-Q16-AnyCPU.7.0.5.900\lib\net40-client\Magick.NET-Q16-AnyCPU.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Extensions.DependencyInjection, Version=1.1.1.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Extensions.DependencyInjection.1.1.1\lib\netstandard1.1\Microsoft.Extensions.DependencyInjection.dll</HintPath>
     </Reference>
@@ -139,10 +145,6 @@
     </Reference>
     <Reference Include="Microsoft.Win32.Primitives, Version=4.0.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Win32.Primitives.4.3.0\lib\net46\Microsoft.Win32.Primitives.dll</HintPath>
-    </Reference>
-    <Reference Include="MySQLDriverCS, Version=3.0.1735.36021, Culture=neutral, PublicKeyToken=172f94dfb0faf263, processorArchitecture=x86">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\MySQLDriverCS\dll\MySQLDriverCS.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.10.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
@@ -180,6 +182,7 @@
     <Reference Include="System.Diagnostics.Process, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Diagnostics.Process.4.3.0\lib\net461\System.Diagnostics.Process.dll</HintPath>
     </Reference>
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Globalization.Calendars, Version=4.0.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Globalization.Calendars.4.3.0\lib\net46\System.Globalization.Calendars.dll</HintPath>
     </Reference>
@@ -256,11 +259,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="PaginationMin.cs" />
-    <Compile Include="SecondBot.cs" />
+    <Compile Include="zSecondBot.cs" />
     <Compile Include="ConsoleFix.cs" />
     <Compile Include="MineStat.cs" />
-    <Compile Include="PaginationFull.cs" />
+    <Compile Include="Pagination.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
@@ -270,6 +272,7 @@
     </Compile>
     <Compile Include="Owner.cs" />
     <Compile Include="Services.cs" />
+    <Compile Include="Apis.cs" />
     <Compile Include="Utils.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -22,34 +22,16 @@ using RiotApi.Net.RestClient;
 using RiotApi.Net.RestClient.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-public class Token
-{
-    public string Discord { get; set; } = "";
-    public string MysqlHost { get; set; } = "";
-    public string MysqlUser { get; set; } = "";
-    public string MysqlPass { get; set; } = "";
-    public string Twitch { get; set; } = "";
-    public string TwitchAuth { get; set; } = "";
-    public string Steam { get; set; } = "";
-    public string Osu { get; set; } = "";
-    public string Xbox { get; set; } = "";
-    public string Vainglory { get; set; } = "";
-    public string Youtube { get; set; } = "";
-    public string Dbots { get; set; } = "";
-    public string DbotsV2 { get; set; } = "";
-    public string Riot { get; set; } = "";
-    public string Wargaming { get; set; } = "";
-}
 class Program
 {
     public static bool DevMode = true;
     public static string BotPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\";
     public static bool FirstStart = false;
     public static DiscordSocketClient _client;
-    public static CommandService _commands;
-    public static ServiceCollection _map;
-    
-    public static Token TokenMap = new Token();
+    public static CommandService _commands = new CommandService();
+    public static PaginationService.Min.Service _PagMin;
+    public static PaginationService.Full.Service _PagFull;
+    public static TokenClass _Token = new TokenClass();
     static void Main()
     {
         DisableConsoleQuickEdit.Go();
@@ -65,7 +47,8 @@ class Program
         using (StreamWriter file = File.CreateText(BotPath + "TokensTemplate" + ".json"))
         {
             JsonSerializer serializer = new JsonSerializer();
-            serializer.Serialize(file, TokenMap);
+            serializer.Serialize(file, _Token);
+
         }
         string TokenPath = BotPath + "Tokens.txt";
         Directory.CreateDirectory(BotPath + "Uptime\\");
@@ -94,18 +77,18 @@ class Program
         using (StreamReader file = File.OpenText(BotPath + "Tokens.json"))
         {
             JsonSerializer serializer = new JsonSerializer();
-            Token Items = (Token)serializer.Deserialize(file, typeof(Token));
-            TokenMap = Items;
+            TokenClass Items = (TokenClass)serializer.Deserialize(file, typeof(TokenClass));
+            _Token = Items;
         }
-        //new Program().Task().ConfigureAwait(false);
+        //new Program().Task2().ConfigureAwait(false);
         new Program().RunBot().GetAwaiter().GetResult();
     }
-
     public async Task RunBot()
     {
-        _client = new DiscordSocketClient();
-        _map = new ServiceCollection();
-        _commands = new CommandService();
+        _client = new DiscordSocketClient(new DiscordSocketConfig
+        {
+            AlwaysDownloadUsers = true
+        });
         await InstallCommands();
         
 
@@ -150,16 +133,17 @@ class Program
         _client.Ready += async () =>
         {
             Console.WriteLine($"[PixelBot] Online in {_client.Guilds.Count} Guilds");
+            Services._Timer_Twitch.Interval = 60000;
+            Services._Timer_Twitch.Elapsed += Services.TwitchNotification;
+            Services._Timer_Twitch.Start();
             if (DevMode == false)
             {
                 await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
                 if (FirstStart == false)
                 {
-                    Utils.UpdateUptimeGuilds();
+                    _Utils.UpdateUptimeGuilds();
                     Services.BotGuildCount(null, null);
-                    Services._Timer_Twitch.Interval = 60000;
-                    Services._Timer_Twitch.Elapsed += Services.TwitchNotification;
-                    Services._Timer_Twitch.Start();
+                    
                     Services._Timer_Stats.Interval = 600000;
                     Services._Timer_Stats.Elapsed += Services.BotGuildCount;
                     Services._Timer_Stats.Start();
@@ -174,8 +158,8 @@ class Program
 
         _client.LeftGuild += async (g) =>
         {
-            Utils.GuildBotCache.Remove(g.Id);
-            Console.WriteLine($"[Left] Guild > {g.Name} - {g.Id}");
+            _Utils.GuildBotCache.Remove(g.Id);
+            Console.WriteLine($"[Left] > {g.Name} - {g.Id}");
             if (DevMode == false)
             {
                 await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
@@ -190,16 +174,10 @@ class Program
                 await g.DefaultChannel.SendMessageAsync($"This guild has been blacklist by the owner ({g.Id}) contact `xXBuilderBXx#9113` for more info");
                 await g.LeaveAsync();
             }
-            else
-            {
-                IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
-                Utils.GuildBotCache.Add(g.Id, BotUser);
-                Console.WriteLine($"[Joined] Guild {g.Name} - {g.Id}");
-                if (DevMode == true)
-                {
-                    await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ");
-                }
-            }
+            IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
+            _Utils.GuildBotCache.Add(g.Id, BotUser);
+            Console.WriteLine($"[Joined] {g.Name} - {g.Id}");
+                await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ");
         };
 
         _client.GuildAvailable += async (g) =>
@@ -213,13 +191,24 @@ class Program
             else
             {
                 IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
-                Utils.GuildBotCache.Add(g.Id, BotUser);
+                _Utils.GuildBotCache.Add(g.Id, BotUser);
             }
         };
-        
+        _client.MessageReceived += (g) =>
+        {
+            if (g.Channel is IGuildChannel)
+            {
+                var GU = g.Channel as ITextChannel;
+                if (GU.GuildId == 323533467608416256)
+                {
+                    Console.WriteLine($"{g.Author.Username} | {g.Content}");
+                }
+            }
+            return Task.CompletedTask;
+        };
         try
         {
-            await _client.LoginAsync(TokenType.Bot, TokenMap.Discord);
+            await _client.LoginAsync(TokenType.Bot, _Token.Discord);
             await _client.StartAsync();
         }
         catch (Exception ex)
@@ -228,9 +217,13 @@ class Program
         }
         await Task.Delay(-1);
     }
-    public async Task InstallCommands()
+    
+
+    private async Task InstallCommands()
     {
         await _commands.AddModulesAsync(Assembly.GetEntryAssembly());
+        _PagFull = new PaginationService.Full.Service(_client);
+        _PagMin = new PaginationService.Min.Service(_client);
         _client.MessageReceived += HandleCommand;
     }
     public async Task HandleCommand(SocketMessage messageParam)
@@ -246,7 +239,6 @@ class Program
         if (DevMode == true)
         {
             if (!(message.HasStringPrefix("tp/", ref argPos))) return;
-            
             var context = new CommandContext(_client, message);
             var result = await _commands.ExecuteAsync(context, argPos);
             if (result.IsSuccess)
@@ -288,6 +280,7 @@ class Program
 
 public class Main : ModuleBase
 {
+
     [Command("uptime")]
     public async Task Resetuptime(string User = "")
     {
@@ -299,7 +292,7 @@ public class Main : ModuleBase
         }
         else
         {
-            GuildUser = await Utils.GetFullUserAsync(Context.Guild, User);
+            GuildUser = await _Utils.GetFullUserAsync(Context.Guild, User);
             if (!GuildUser.IsBot)
             {
                 await Context.Channel.SendMessageAsync("`This is not a bot`");
@@ -321,10 +314,11 @@ public class Main : ModuleBase
     }
 
     [Command("test")]
+    [RequireOwner]
     public async Task Test(string Region = "",[Remainder] string User = "")
     {
         RiotApiConfig.Regions UserRegion = RiotApiConfig.Regions.Global;
-        UserRegion = LOL.Data.GetRegion(Region);
+        UserRegion = _Apis.LOL.Data.GetRegion(Region);
         if (Region == "" | User == "" || UserRegion == RiotApiConfig.Regions.Global)
         {
             var embed = new EmbedBuilder()
@@ -336,7 +330,7 @@ public class Main : ModuleBase
                     Url = "http://leagueoflegends.com"
                 },
                 
-                Color = Utils.GetRoleColor(Context),
+                Color = _Utils.GetRoleColor(Context),
                 Description = "To get player stats do **p/lol (Region) (Summoner Name)** | Use the correct region!",
             };
             
@@ -355,7 +349,7 @@ public class Main : ModuleBase
             
             try
             {
-                IRiotClient RiotClient = new RiotClient(Program.TokenMap.Riot);
+                IRiotClient RiotClient = new RiotClient(Program._Token.Riot);
                 var Summoner = RiotClient.Summoner.GetSummonersByName(UserRegion, User);
                 var ID = Summoner.Values.First().Id;
                 var LatestGame = RiotClient.Game.GetRecentGamesBySummonerId(UserRegion, ID);
@@ -372,7 +366,7 @@ public class Main : ModuleBase
                     Description = "```md" + Environment.NewLine + $"```",
                     Footer = new EmbedFooterBuilder()
                     {
-                        Text = $"Last Played {Utils.EpochToDateTime(Summoner.First().Value.RevisionDate)}"
+                        Text = $"Last Played {_Utils.EpochToDateTime(Summoner.First().Value.RevisionDate)}"
                     }
                 };
                 embed.AddInlineField("Info", "```md" + Environment.NewLine + $"<Level {Summoner.Values.First().SummonerLevel}>" + Environment.NewLine + $"<ID {ID}>```");
@@ -386,11 +380,50 @@ public class Main : ModuleBase
     }
 
     [Command("testt")]
-    public async Task Testt(string Region = "", [Remainder] string User = "")
+    [RequireOwner]
+    public async Task Testt(string all)
     {
-        
+        switch (all)
+        {
+            case "all":
+                    var messages = Context.Channel.GetMessagesAsync(100);
+                var mes = await messages.Flatten();
+                if (mes.Count() != 0)
+                {
+                    goto case "test";
+                }
+                break;
+            case "test":
+                var messages2 = Context.Channel.GetMessagesAsync(100);
+                var mes2 = await messages2.Flatten();
+                foreach(var i in mes2)
+                {
+                    await i.DeleteAsync();
+                }
+                goto case "all";
+                break;
+        }
+        await Context.Channel.SendMessageAsync("Messages prunes");
+    
     }
 
+    [Command("poke")]
+    [Remarks("poke")]
+    [Summary("Pokemon info and commands")]
+    public async Task Pokemon(string Name)
+    {
+        int Data = _Apis.Poke.GetPokemonID(Name);
+        if (Data == 0)
+        {
+            await Context.Channel.SendMessageAsync($"`Cannot find pokemone {Name}`");
+            return;
+        }
+        var embed = new EmbedBuilder()
+        {
+            Color = _Utils.GetRoleColor(Context),
+            ImageUrl = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/sprites/pokemon/" + Data + ".png"
+        };
+    }
 
     [Command("yt")]
     public async Task Yt()
@@ -403,7 +436,7 @@ public class Main : ModuleBase
     {
         var youtubeService = new YouTubeService(new BaseClientService.Initializer()
         {
-            ApiKey = Program.TokenMap.Youtube
+            ApiKey = Program._Token.Youtube
         });
         var searchListRequest = youtubeService.Search.List("snippet");
         searchListRequest.MaxResults = 1;
@@ -695,7 +728,7 @@ public class Misc : ModuleBase
                 Name = $"{Context.Guild.Name}"
             },
             ThumbnailUrl = Context.Guild.IconUrl,
-            Color = Utils.GetRoleColor(Context),
+            Color = _Utils.GetRoleColor(Context),
             Description = $"Owner: {Owner.Mention}```md" + Environment.NewLine + $"[Online](Offline)" + Environment.NewLine + $"<Users> [{MembersOnline}]({Members}) <Bots> [{BotsOnline}]({Bots})" + Environment.NewLine + $"Channels <Text {TextChan}> <Voice {VoiceChan}>" + Environment.NewLine + $"<Roles {Context.Guild.Roles.Count}> <Region {Context.Guild.VoiceRegionId}>" + Environment.NewLine + "List of roles | p/guild roles```",
             Footer = new EmbedFooterBuilder()
             {
@@ -746,7 +779,7 @@ public class Misc : ModuleBase
                 Url = GuildUser.GetAvatarUrl()
             },
             ThumbnailUrl = GuildUser.GetAvatarUrl(),
-            Color = Utils.GetRoleColor(Context),
+            Color = _Utils.GetRoleColor(Context),
             Description = $"<@{GuildUser.Id}>" + Environment.NewLine + "```md" + Environment.NewLine + $"<Discrim {GuildUser.Discriminator}> <ID {GuildUser.Id}>" + Environment.NewLine + $"<Joined_Guild {GuildUser.JoinedAt.Value.Date.ToShortDateString()}>" + Environment.NewLine + $"<Created_Account {GuildUser.CreatedAt.Date.ToShortDateString()}>```",
             Footer = new EmbedFooterBuilder()
             { Text = "To lookup a discrim use | p/discrim 0000" }
@@ -767,7 +800,7 @@ public class Misc : ModuleBase
                 {
                     Text = $"For a list of all commands do | p/help all"
                 },
-                Color = Utils.GetRoleColor(Context)
+                Color = _Utils.GetRoleColor(Context)
             };
             int Guilds = Program._client.Guilds.Count();
             embed.AddField(x =>
@@ -818,7 +851,7 @@ public class Misc : ModuleBase
                 {
                     Title = "",
                     Description = "[Invite this bot to your guild](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0)",
-                    Color = Utils.GetRoleColor(Context)
+                    Color = _Utils.GetRoleColor(Context)
                 };
                 await Context.Channel.SendMessageAsync("", false, embed);
             }
@@ -847,7 +880,9 @@ public class Misc : ModuleBase
     [Summary("Random cat pic/gif")]
     public async Task Cat()
     {
+        Console.WriteLine(DateTime.Now.Second);
         WebRequest request = WebRequest.Create("http://random.cat/meow");
+        request.Proxy = null;
         WebResponse response = request.GetResponse();
         Stream dataStream = response.GetResponseStream();
         StreamReader reader = new StreamReader(dataStream, System.Text.Encoding.UTF8);
@@ -857,11 +892,12 @@ public class Misc : ModuleBase
             Title = "Random Cat :cat:",
             Url = Item.file,
             ImageUrl = Item.file,
-            Color = Utils.GetRoleColor(Context)
+            Color = _Utils.GetRoleColor(Context)
         };
         reader.Close();
         response.Close();
         await Context.Channel.SendMessageAsync("", false, embed);
+        Console.WriteLine(DateTime.Now.Second);
     }
 
     [Command("dog")]
@@ -892,37 +928,16 @@ public class Misc : ModuleBase
             Title = "Random Dog :dog:",
             Url = "http://random.dog/" + Item,
             ImageUrl = "http://random.dog/" + Item,
-            Color = Utils.GetRoleColor(Context)
+            Color = _Utils.GetRoleColor(Context)
         };
         
         await Context.Channel.SendMessageAsync("", false, embed);
     }
-
-    [Command("bird")]
-    [Remarks("bird")]
-    [Summary("Random bird pic/gif")]
-    public async Task Bird()
-    {
-                WebRequest request = WebRequest.Create("https://random.birb.pw/tweet");
-                WebResponse response = request.GetResponse();
-                Stream dataStream = response.GetResponseStream();
-                StreamReader reader = new StreamReader(dataStream, System.Text.Encoding.UTF8);
-                string Item = reader.ReadToEnd();
-                reader.Close();
-                response.Close();
-        var embed = new EmbedBuilder()
-        {
-            Title = "Random Bird :bird:",
-            Url = "https://random.birb.pw/" + Item,
-            ImageUrl = "https://random.birb.pw/img/" + Item,
-            Color = Utils.GetRoleColor(Context)
-        };
-
-        await Context.Channel.SendMessageAsync("", false, embed);
-    }
+    
 }
 public class Game : ModuleBase
 {
+    
     [Command("vainglory")]
     [Alias("vg")]
     [Remarks("vg")]
@@ -946,9 +961,9 @@ public class Game : ModuleBase
     [Alias("vg")]
     public class Vainglory : ModuleBase
     {
-        [Command("vg user"), Ratelimit(2, 0.30, Measure.Minutes)]
-        [Alias("vg u")]
-        public async Task Vg(string Region = null, string VGUser = null)
+        [Command("user")]
+        [Alias("u")]
+        public async Task VaingloryUser(string Region = "eu", string VGUser = "Builderb")
         {
             if (Region == null || VGUser == null)
             {
@@ -957,31 +972,21 @@ public class Game : ModuleBase
             }
             if (Region == "na" || Region == "eu" || Region == "sa" || Region == "ea" || Region == "sg")
             {
-                HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerName]=" + VGUser);
-                httpWebRequest.Method = WebRequestMethods.Http.Get;
-                httpWebRequest.Headers.Add("Authorization", Program.TokenMap.Vainglory);
-                httpWebRequest.Headers.Add("X-TITLE-ID", "semc-vainglory");
-                httpWebRequest.Accept = "application/json";
                 try
                 {
-                    HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
-                    Stream receiveStream = response.GetResponseStream();
-                    StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
-                    var Req = readStream.ReadToEnd();
-                    dynamic JA = Newtonsoft.Json.Linq.JObject.Parse(Req);
-                    dynamic JO = Newtonsoft.Json.Linq.JArray.Parse(JA.data);
-                    dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(JO);
-                    Console.WriteLine(stuff);
-                    //dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(JO.ToString());
-                    //var embed = new EmbedBuilder()
-                    //{
-                    //Title = $"Vainglory | {VGUser}",
-                    //Description = "```md" + Environment.NewLine + $"<Level {stuff.attributes.stats.level}> <XP {stuff.attributes.stats.xp}> <LifetimeGold {stuff.attributes.stats.lifetimeGold}>" + Environment.NewLine + $"<Wins {stuff.attributes.stats.wins}> <Played {stuff.attributes.stats.played}> <PlayedRank {stuff.attributes.stats.played_ranked}>```"
-                    //};
-                    //await Context.Channel.SendMessageAsync("", false, embed);
+                    dynamic JA = _Apis._Class_Vainglory.API.GetPlayer(Region, VGUser);
+                    dynamic JB = _Apis._Class_Vainglory.API.GetPlayerMatch(Region, VGUser);
+                    Console.WriteLine(JB);
+                    var embed = new EmbedBuilder()
+                    {
+                    Title = $"Vainglory | {VGUser}",
+                    Description = "```md" + Environment.NewLine + $"<Level {JA.data[0].attributes.stats.level}> <XP {JA.data[0].attributes.stats.xp}> <LifetimeGold {JA.data[0].attributes.stats.lifetimeGold}>" + Environment.NewLine + $"<Wins {JA.data[0].attributes.stats.wins}> <Played {JA.data[0].attributes.stats.played}> <PlayedRank {JA.data[0].attributes.stats.played_ranked}>" + Environment.NewLine + $"<KarmaLevel {JA.data[0].attributes.stats.karmaLevel}> <skillTier {JA.data[0].attributes.stats.skillTier}>```"
+                    };
+                    await Context.Channel.SendMessageAsync("", false, embed);
                 }
-                catch
+                catch(Exception ex)
                 {
+                    Console.WriteLine(ex);
                     await Context.Channel.SendMessageAsync("`Request error or unknown user`");
                 }
             }
@@ -991,48 +996,11 @@ public class Game : ModuleBase
             }
         }
 
-        [Command("vg match"), Ratelimit(2, 1, Measure.Minutes)]
-        [Alias("vg m")]
-        public async Task Vg2(string Region, [Remainder] string VGUser)
+        [Command("match"), Ratelimit(2, 1, Measure.Minutes)]
+        [Alias("m")]
+        public async Task VaingloryMatch(string Region, [Remainder] string VGUser)
         {
-            if (Region == "na" || Region == "eu" || Region == "sa" || Region == "ea" || Region == "sg")
-            {
-                HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("https://api.dc01.gamelockerapp.com/shards/" + Region + $"/matches?filter[createdAt-start]={Context.Message.Timestamp.Year}-{Context.Message.Timestamp.Month.ToString().PadLeft(2, '0')}-{Context.Message.Timestamp.Day.ToString().PadLeft(2, '0')}T13:25:30Z&filter[playerNames]=" + VGUser);
-                httpWebRequest.Method = WebRequestMethods.Http.Get;
-                httpWebRequest.Headers.Add("Authorization", Program.TokenMap.Vainglory);
-                httpWebRequest.Headers.Add("X-TITLE-ID", "semc-vainglory");
-                httpWebRequest.Accept = "application/json";
-                try
-                {
-                    HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
-                    Stream receiveStream = response.GetResponseStream();
-                    StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
-                    var Req = readStream.ReadToEnd();
-                    Console.WriteLine(Req);
-                    return;
-                    dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(Req);
-
-                    var embed = new EmbedBuilder()
-                    {
-                        Title = $"Vainglory | {VGUser}",
-                        Description = "```md" + Environment.NewLine + $"<Level {stuff.data.attributes.stats.level}> <XP {stuff.data.attributes.stats.xp}> <LifetimeGold {stuff.data.attributes.stats.lifetimeGold}>" + Environment.NewLine + $"<Wins {stuff.data.attributes.stats.wins}> <Played {stuff.data.attributes.stats.played}> <PlayedRank {stuff.data.attributes.stats.played_ranked}>```",
-                        Footer = new EmbedFooterBuilder()
-                        {
-                            Text = $"Created {stuff.data.attributes.createdAt}"
-                        }
-                    };
-                    await Context.Channel.SendMessageAsync("", false, embed);
-                }
-                catch
-                {
-                    await Context.Channel.SendMessageAsync("`Request error or unknown user`");
-                }
-
-            }
-            else
-            {
-                await Context.Channel.SendMessageAsync("`Unknown region p/vg user (Region) (User) | na | eu | sa | ea | sg`");
-            }
+            
         }
     }
 
@@ -1104,7 +1072,7 @@ public class Game : ModuleBase
         {
             HttpWebRequest GetUserId = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/xuid/" + User);
             GetUserId.Method = WebRequestMethods.Http.Get;
-            GetUserId.Headers.Add("X-AUTH", Program.TokenMap.Xbox);
+            GetUserId.Headers.Add("X-AUTH", Program._Token.Xbox);
             GetUserId.Accept = "application/json";
             HttpWebResponse response = (HttpWebResponse)GetUserId.GetResponse();
             Stream receiveStream = response.GetResponseStream();
@@ -1118,7 +1086,7 @@ public class Game : ModuleBase
             string UserOnline = "Offline";
             HttpWebRequest OnlineHttp = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/" + UserID + "/presence");
             OnlineHttp.Method = WebRequestMethods.Http.Get;
-            OnlineHttp.Headers.Add("X-AUTH", Program.TokenMap.Xbox);
+            OnlineHttp.Headers.Add("X-AUTH", Program._Token.Xbox);
             OnlineHttp.Accept = "application/json";
             HttpWebResponse OnlineRes = (HttpWebResponse)OnlineHttp.GetResponse();
             Stream OnlineStream = OnlineRes.GetResponseStream();
@@ -1130,7 +1098,7 @@ public class Game : ModuleBase
             }
             HttpWebRequest HttpUserGamercard = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/" + UserID + "/gamercard");
             HttpUserGamercard.Method = WebRequestMethods.Http.Get;
-            HttpUserGamercard.Headers.Add("X-AUTH", Program.TokenMap.Xbox);
+            HttpUserGamercard.Headers.Add("X-AUTH", Program._Token.Xbox);
             HttpUserGamercard.Accept = "application/json";
             HttpWebResponse GamercardRes = (HttpWebResponse)HttpUserGamercard.GetResponse();
             Stream GamercardStream = GamercardRes.GetResponseStream();
@@ -1139,7 +1107,7 @@ public class Game : ModuleBase
             dynamic stuff = Newtonsoft.Json.Linq.JObject.Parse(GamercardJson);
             HttpWebRequest HttpUserFrineds = (HttpWebRequest)WebRequest.Create("https://xboxapi.com/v2/" + UserID + "/friends");
             HttpUserFrineds.Method = WebRequestMethods.Http.Get;
-            HttpUserFrineds.Headers.Add("X-AUTH", Program.TokenMap.Xbox);
+            HttpUserFrineds.Headers.Add("X-AUTH", Program._Token.Xbox);
             HttpUserFrineds.Accept = "application/json";
             HttpWebResponse FriendsRes = (HttpWebResponse)HttpUserFrineds.GetResponse();
             Stream FriendsStream = FriendsRes.GetResponseStream();
@@ -1182,7 +1150,7 @@ public class Game : ModuleBase
     [Summary("World Of Tanks")]
     public async Task Wot(string Region = "", [Remainder] string User = "")
     {
-        if (Region == "" || User == "" || WOT.Data.Regions(Region) == "null")
+        if (Region == "" || User == "" || _Apis.WOT.Data.GetRegionUrl(Region) == "null")
         {
             var embed = new EmbedBuilder()
             {
@@ -1191,7 +1159,7 @@ public class Game : ModuleBase
                 {
                     Name = "World Of Tanks"
                 },
-                Color = Utils.GetRoleColor(Context)
+                Color = _Utils.GetRoleColor(Context)
             };
             embed.AddInlineField("Regions", "```md" + Environment.NewLine + "<RU Russia>" + Environment.NewLine + "<EU Europe>" + Environment.NewLine + "<NA America>" + Environment.NewLine + "<AS Asia>```");
             embed.AddInlineField("Stats", "Player data available" + Environment.NewLine + "New features coming soon");
@@ -1201,9 +1169,9 @@ public class Game : ModuleBase
         {
             try
             {
-                string RealRegion = WOT.Data.Regions(Region);
-                string UserID = WOT.API.GetUserID(RealRegion, User);
-                var Player = WOT.API.GetUserData(RealRegion, UserID);
+                string RealRegion = _Apis.WOT.Data.GetRegionUrl(Region);
+                string UserID = _Apis.WOT.API.GetUserID(RealRegion, User);
+                var Player = _Apis.WOT.API.GetUserData(RealRegion, UserID);
                 var embed = new EmbedBuilder()
                 {
                     Author = new EmbedAuthorBuilder()
@@ -1215,7 +1183,7 @@ public class Game : ModuleBase
                     {
                         Text = $"Created {Player.CreatedAt.ToShortDateString()} | Last Battle {Player.LastBattle.ToShortDateString()}"
                     },
-                    Color = Utils.GetRoleColor(Context),
+                    Color = _Utils.GetRoleColor(Context),
                     Description = "```md" + Environment.NewLine + $"<Battles {Player.Battles}> <Win {Player.Win}> <Loss {Player.Loss}> <Draw {Player.Draws}>" + Environment.NewLine + $"<Shots {Player.Shots}> <Hits {Player.Hits}> <Miss {Convert.ToUInt32(Player.Shots) - Convert.ToUInt32(Player.Hits)}>```More stats coming soon this is a test"
                 };
                 await Context.Channel.SendMessageAsync("", false, embed);
@@ -1348,6 +1316,73 @@ public class Game : ModuleBase
         }
     }
 
+
+
+    [Command("pokerev")]
+    [Remarks("pokerev")]
+    [Summary("Pokemon revolution red stats")]
+    public async Task Pokerev()
+    {
+            List<EmbedBuilder> EmbedList = new List<EmbedBuilder>();
+            List<string> List1 = _Apis.Poke.PokemonRevolution.GetMainTable("https://pokemon-revolution-online.net/ladder.php", "auto-style2", 1);
+            var embed1 = new EmbedBuilder()
+            {
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = "RED | Pokémon Revolution Online",
+                    Url = "https://pokemon-revolution-online.net"
+                },
+                Description = ":crossed_swords: Ranked",
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = "| Non-Ranked =>"
+                }
+            };
+            embed1.AddInlineField("Rank | User", $"{List1[0]}. {List1[1]}" + Environment.NewLine + $"{List1[5]}. {List1[6]}" + Environment.NewLine + $"{List1[10]}. {List1[11]}" + Environment.NewLine + $"{List1[15]}. {List1[16]}" + Environment.NewLine + $"{List1[20]}. {List1[21]}" + Environment.NewLine + $"{List1[25]}. {List1[26]}" + Environment.NewLine + $"{List1[30]}. {List1[31]}" + Environment.NewLine + $"{List1[35]}. {List1[36]}" + Environment.NewLine + $"{List1[40]}. {List1[41]}" + Environment.NewLine + $"{List1[45]}. {List1[46]}");
+            embed1.AddInlineField("Win/Loss", $"{List1[3]}/{List1[4]}" + Environment.NewLine + $"{List1[8]}/{List1[9]}" + Environment.NewLine + $"{List1[13]}/{List1[14]}" + Environment.NewLine + $"{List1[18]}/{List1[19]}" + Environment.NewLine + $"{List1[23]}/{List1[24]}" + Environment.NewLine + $"{List1[28]}/{List1[29]}" + Environment.NewLine + $"{List1[33]}/{List1[34]}" + Environment.NewLine + $"{List1[38]}/{List1[39]}" + Environment.NewLine + $"{List1[43]}/{List1[44]}" + Environment.NewLine + $"{List1[48]}/{List1[49]}");
+            embed1.AddInlineField("Rating", $"{List1[2]}" + Environment.NewLine + $"{List1[7]}" + Environment.NewLine + $"{List1[12]}" + Environment.NewLine + $"{List1[17]}" + Environment.NewLine + $"{List1[22]}" + Environment.NewLine + $"{List1[27]}" + Environment.NewLine + $"{List1[32]}" + Environment.NewLine + $"{List1[37]}" + Environment.NewLine + $"{List1[42]}" + Environment.NewLine + $"{List1[47]}");
+            List1.Clear();
+            List1 = _Apis.Poke.PokemonRevolution.GetMainTable("https://pokemon-revolution-online.net/ladder.php", "auto-style2", 2);
+            var embed2 = new EmbedBuilder()
+            {
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = "RED | Pokémon Revolution Online",
+                    Url = "https://pokemon-revolution-online.net"
+                },
+                Description = ":shield: Non-Ranked",
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = "<= Non-Ranked | Playtime =>"
+                }
+            };
+            embed2.AddInlineField("Rank | User", $"{List1[0]}. {List1[1]}" + Environment.NewLine + $"{List1[5]}. {List1[6]}" + Environment.NewLine + $"{List1[10]}. {List1[11]}" + Environment.NewLine + $"{List1[15]}. {List1[16]}" + Environment.NewLine + $"{List1[20]}. {List1[21]}" + Environment.NewLine + $"{List1[25]}. {List1[26]}" + Environment.NewLine + $"{List1[30]}. {List1[31]}" + Environment.NewLine + $"{List1[35]}. {List1[36]}" + Environment.NewLine + $"{List1[40]}. {List1[41]}" + Environment.NewLine + $"{List1[45]}. {List1[46]}");
+            embed2.AddInlineField("Win/Loss", $"{List1[2]}/{List1[3]}" + Environment.NewLine + $"{List1[7]}/{List1[8]}" + Environment.NewLine + $"{List1[12]}/{List1[13]}" + Environment.NewLine + $"{List1[17]}/{List1[18]}" + Environment.NewLine + $"{List1[22]}/{List1[23]}" + Environment.NewLine + $"{List1[27]}/{List1[28]}" + Environment.NewLine + $"{List1[32]}/{List1[33]}" + Environment.NewLine + $"{List1[37]}/{List1[38]}" + Environment.NewLine + $"{List1[42]}/{List1[43]}" + Environment.NewLine + $"{List1[47]}/{List1[48]}");
+            List1.Clear();
+            List1 = _Apis.Poke.PokemonRevolution.GetPlaytimeTable("https://pokemon-revolution-online.net/ladder.php", "auto-style2", 3);
+            var embed3 = new EmbedBuilder()
+            {
+                Author = new EmbedAuthorBuilder()
+                {
+                    Name = "RED | Pokémon Revolution Online",
+                    Url = "https://pokemon-revolution-online.net"
+                },
+                Description = ":stopwatch: Playtime:",
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = "<= Non-Ranked |"
+                }
+            };
+            embed3.AddInlineField("Rank | User", $"{List1[0]}. {List1[1]}" + Environment.NewLine + $"{List1[3]}. {List1[4]}" + Environment.NewLine + $"{List1[6]}. {List1[7]}" + Environment.NewLine + $"{List1[9]}. {List1[10]}" + Environment.NewLine + $"{List1[12]}. {List1[13]}" + Environment.NewLine + $"{List1[15]}. {List1[16]}" + Environment.NewLine + $"{List1[18]}. {List1[19]}" + Environment.NewLine + $"{List1[21]}. {List1[22]}" + Environment.NewLine + $"{List1[24]}. {List1[25]}" + Environment.NewLine + $"{List1[27]}. {List1[28]}");
+            embed3.AddInlineField("Playtime", $"{List1[2]}" + Environment.NewLine + $"{List1[5]}" + Environment.NewLine + $"{List1[8]}" + Environment.NewLine + $"{List1[11]}" + Environment.NewLine + $"{List1[14]}" + Environment.NewLine + $"{List1[17]}" + Environment.NewLine + $"{List1[20]}" + Environment.NewLine + $"{List1[23]}" + Environment.NewLine + $"{List1[26]}" + Environment.NewLine + $"{List1[29]}");
+            EmbedList.Add(embed1);
+            EmbedList.Add(embed2);
+            EmbedList.Add(embed3);
+            PaginationService.Min.Message message = new PaginationService.Min.Message(EmbedList, "Test", _Utils.GetRoleColor(Context), Context.User);
+            await Program._PagMin.SendPagMessageAsync(Context.Channel, message);
+        
+    }
+
 [Command("steam")]
     [Remarks("steam")]
     [Summary("Steam info and commands")]
@@ -1418,7 +1453,7 @@ public class Game : ModuleBase
             
             
             SteamIdentity SteamUser = null;
-            SteamWebAPI.SetGlobalKey(Program.TokenMap.Steam);
+            SteamWebAPI.SetGlobalKey(Program._Token.Steam);
             SteamUser = SteamWebAPI.General().ISteamUser().ResolveVanityURL(User).GetResponse().Data.Identity;
             if (SteamUser == null)
             {
@@ -1511,7 +1546,7 @@ public class Game : ModuleBase
         }
         try
         {
-            HttpWebRequest GetUserId = (HttpWebRequest)WebRequest.Create("https://osu.ppy.sh/api/get_user?k=" + Program.TokenMap.Osu + "&u=" + User);
+            HttpWebRequest GetUserId = (HttpWebRequest)WebRequest.Create("https://osu.ppy.sh/api/get_user?k=" + Program._Token.Osu + "&u=" + User);
             GetUserId.Method = WebRequestMethods.Http.Get;
             GetUserId.Accept = "application/json";
             HttpWebResponse response = (HttpWebResponse)GetUserId.GetResponse();
@@ -1599,13 +1634,13 @@ public class Media : ModuleBase
             await Context.Channel.SendMessageAsync("`Enter a channel name to search | p/tw s (User)`");
             return;
         }
-        var client = new TwitchAuthenticatedClient(Program.TokenMap.Twitch, Program.TokenMap.TwitchAuth);
+        var client = new TwitchAuthenticatedClient(Program._Token.Twitch, Program._Token.TwitchAuth);
         var Usearch = client.SearchChannels(Search).List;
         var embed = new EmbedBuilder()
         {
             Title = "Twitch Channels",
             Description = $"{Usearch[0].Name} | {Usearch[1].Name} | {Usearch[2].Name}",
-            Color = Utils.GetRoleColor(Context)
+            Color = _Utils.GetRoleColor(Context)
         };
         if (Context.Channel is IPrivateChannel)
         {
@@ -1643,7 +1678,7 @@ public class Media : ModuleBase
             {
                 Text = "Options > ME (User DM) | HERE (Guild Channel)"
             },
-            Color = Utils.GetRoleColor(Context)
+            Color = _Utils.GetRoleColor(Context)
         };
         if (Context.Channel is IPrivateChannel)
         {
@@ -1673,7 +1708,7 @@ public class Media : ModuleBase
             await Context.Channel.SendMessageAsync("`Enter a channel name | p/tw c MyChannel`");
             return;
         }
-        var client = new TwitchAuthenticatedClient(Program.TokenMap.Twitch, Program.TokenMap.TwitchAuth);
+        var client = new TwitchAuthenticatedClient(Program._Token.Twitch, Program._Token.TwitchAuth);
         var t = client.GetChannel(Channel);
         if (t.CreatedAt.Year == 0001)
         {
@@ -1725,25 +1760,25 @@ public class Media : ModuleBase
             await Context.Channel.SendMessageAsync("`Bot required permission Embed Links`");
             return;
         }
-        if (Option == null)
+        if (Option == null || Channel == null)
         {
             await Context.Channel.SendMessageAsync("`Enter an option | p/tw notify me (Channel) - Sends a message in DMS | p/tw notify here (Channel) - Sends a message in this channel (Server Owner Only!)`");
             return;
         }
-        if (Channel == null)
-        {
-            await Context.Channel.SendMessageAsync("`Enter a channel name | p/tw notify me (Channel) - Sends a message in DMS | p/tw notify here (Channel) - Sends a message in this channel (Server Owner Only!)`");
-            return;
-        }
-        var client = new TwitchAuthenticatedClient(Program.TokenMap.Twitch, Program.TokenMap.TwitchAuth);
+        var client = new TwitchAuthenticatedClient(Program._Token.Twitch, Program._Token.TwitchAuth);
         var t = client.GetChannel(Channel);
         if (t.CreatedAt.Year == 0001)
         {
             await Context.Channel.SendMessageAsync("`Cannot find this channel`");
             return;
         }
-        if (Option == "me" || Option == "here" || Option == "channel")
+        if (Option == "me")
         {
+            if (Services.TwitchNotifications.Exists(x => x.Twitch == Channel.ToLower() & x.User == Context.User.Id & x.Type == "user"))
+            {
+                await Context.Channel.SendMessageAsync($"`You already have {Channel} listed`");
+                return;
+            }
             Services.TwitchNotifyClass NewNotif = new Services.TwitchNotifyClass()
             {
                 Type = "user",
@@ -1753,29 +1788,43 @@ public class Media : ModuleBase
                 Twitch = Channel.ToLower(),
                 Live = false
             };
-            if (Option == "here" || Option == "channel")
-            {
-                if (Context.User.Id != Context.Guild.OwnerId)
-                {
-                    await Context.Channel.SendMessageAsync("`You are not the guild owner`");
-                    return;
-                }
-                NewNotif.Type = "channel";
-            }
             JsonSerializer serializer = new JsonSerializer();
-            using (StreamWriter file = File.CreateText(Program.BotPath + $"Twitch\\{NewNotif.Type.ToLower()}-{Context.Guild.Id.ToString()}-{Context.Guild.Id}-{Context.User.Id}-{Channel.ToLower()}.json"))
+            using (StreamWriter file = File.CreateText(Program.BotPath + $"Twitch\\user-{Context.User.Id}-{Channel.ToLower()}.json"))
             {
                 serializer.Serialize(file, NewNotif);
             }
             Services.TwitchNotifications.Add(NewNotif);
-            if (NewNotif.Type == "channel")
-            {
-                await Context.Channel.SendMessageAsync($"`You added notifications for {Channel} to this channel`");
-            }
-            else
-            {
                 await Context.Channel.SendMessageAsync($"`You added notifications for {Channel} to yourself`");
+            
+        }
+        else if (Option == "here" || Option == "channel")
+        {
+            if (Context.User.Id != Context.Guild.OwnerId)
+            {
+                await Context.Channel.SendMessageAsync("`You are not the guild owner`");
+                return;
             }
+            if (Services.TwitchNotifications.Exists(x => x.Twitch == Channel.ToLower() & x.Guild == Context.Guild.Id & x.Type == "channel" & x.Channel == Context.Channel.Id))
+            {
+                await Context.Channel.SendMessageAsync($"`This channel already has {Channel} listed`");
+                return;
+            }
+            Services.TwitchNotifyClass NewNotif = new Services.TwitchNotifyClass()
+            {
+                Type = "channel",
+                Guild = Context.Guild.Id,
+                Channel = Context.Channel.Id,
+                User = Context.User.Id,
+                Twitch = Channel.ToLower(),
+                Live = false
+            };
+            JsonSerializer serializer = new JsonSerializer();
+            using (StreamWriter file = File.CreateText(Program.BotPath + $"Twitch\\channel-{Context.Guild.Id.ToString()}-{Context.Channel.Id}-{Channel.ToLower()}.json"))
+            {
+                serializer.Serialize(file, NewNotif);
+            }
+            Services.TwitchNotifications.Add(NewNotif);
+            await Context.Channel.SendMessageAsync($"`You added notifications for {Channel} to this channel`");
         }
     }
 
@@ -1797,46 +1846,26 @@ public class Media : ModuleBase
         }
         if (Option == "me")
         {
-            List<string> TWList = new List<string>();
-            foreach (var Item in Services.TwitchNotifications.Where(x => x.User == Context.User.Id & x.Type == "user"))
-            {
-                TWList.Add($"{Item.Twitch}");
-            }
+            List<string> TWList = Services.TwitchNotifications.Where(x => x.User == Context.User.Id & x.Type == "user").Select(x => x.Twitch).ToList();
             var embed = new EmbedBuilder()
-            {
-                Title = "Twitch Notifications For You",
-                Description = string.Join(", ", TWList),
-                Color = Utils.GetRoleColor(Context)
-            };
+            { Title = "Twitch Notifications For You", Description = string.Join(", ", TWList), Color = _Utils.GetRoleColor(Context) };
             await Context.Channel.SendMessageAsync("", false, embed);
         }
         if (Option == "guild")
         {
-            List<string> TWList = new List<string>();
-            foreach (var Item in Services.TwitchNotifications.Where(x => x.Guild == Context.Guild.Id & x.Type == "channel"))
-            {
-                TWList.Add($"{Item.Twitch}");
-            }
+            List<string> TWList = Services.TwitchNotifications.Where(x => x.Guild == Context.Guild.Id & x.Type == "channel").Select(x => x.Twitch).ToList();
             var embed = new EmbedBuilder()
-            {
-                Title = "Twitch Notifications For This Guild",
-                Description = string.Join(", ", TWList),
-                Color = Utils.GetRoleColor(Context)
-            };
+            { Title = "Twitch Notifications For This Guild", Description = string.Join(", ", TWList), Color = _Utils.GetRoleColor(Context) };
             await Context.Channel.SendMessageAsync("", false, embed);
         }
         if (Option == "here")
         {
-            List<string> TWList = new List<string>();
-            foreach (var Item in Services.TwitchNotifications.Where(x => x.Channel == Context.Channel.Id & x.Type == "channel"))
-            {
-                TWList.Add($"{Item.Twitch}");
-            }
+            List<string> TWList = Services.TwitchNotifications.Where(x => x.Channel == Context.Channel.Id & x.Type == "channel").Select(x => x.Twitch).ToList();
             var embed = new EmbedBuilder()
             {
                 Title = $"Twitch Notifications For #{Context.Channel.Name}",
                 Description = string.Join(", ", TWList),
-                Color = Utils.GetRoleColor(Context)
+                Color = _Utils.GetRoleColor(Context)
             };
             await Context.Channel.SendMessageAsync("", false, embed);
         }
@@ -1865,17 +1894,10 @@ public class Media : ModuleBase
         }
         if (Option == "me")
         {
-            if (Services.TwitchNotifications.Exists(x => x.Type == "user" & x.Twitch == Channel))
+            if (Services.TwitchNotifications.Exists(x => x.Type == "user" & x.Twitch == Channel.ToLower() & x.User == Context.User.Id))
             {
-                try
-                {
-                    Services.TwitchNotifications.RemoveAll(x => x.Type == "user" & x.Twitch == Channel);
-                }
-                catch
-                {
-
-                }
-                File.Delete($"Twitch\\user-{Context.Guild.Id.ToString()}-{Context.Guild.Id}-{Context.User.Id}-{Channel.ToLower()}.json");
+                    Services.TwitchNotifications.RemoveAll(x => x.Type == "user" & x.Twitch == Channel.ToLower() & x.User == Context.User.Id);
+                File.Delete($"Twitch\\user-{Context.User.Id}-{Channel.ToLower()}.json");
                 await Context.Channel.SendMessageAsync($"`You removed notifications for {Channel} from yourself`");
             }
             else
@@ -1890,11 +1912,11 @@ public class Media : ModuleBase
                 await Context.Channel.SendMessageAsync("`You are not the guild owner`");
                 return;
             }
-            if (Services.TwitchNotifications.Exists(x => x.Type == "channel" & x.Twitch == Channel & x.Guild == Context.Guild.Id & x.Channel == Context.Channel.Id))
+            if (Services.TwitchNotifications.Exists(x => x.Type == "channel" & x.Twitch == Channel.ToLower() & x.Guild == Context.Guild.Id & x.Channel == Context.Channel.Id))
             {
                     Services.TwitchNotifications.RemoveAll(x => x.Type == "channel" & x.Twitch == Channel & x.Guild == Context.Guild.Id & x.Channel == Context.Channel.Id);
                 
-                File.Delete($"Twitch\\channel-{Context.Guild.Id.ToString()}-{Context.Guild.Id}-{Context.User.Id}-{Channel.ToLower()}.json");
+                File.Delete($"Twitch\\channel-{Context.Guild.Id.ToString()}-{Context.Guild.Id}-{Channel.ToLower()}.json");
                 await Context.Channel.SendMessageAsync($"`You removed notifications for {Channel} from this channel`");
             }
             else
@@ -2277,7 +2299,7 @@ public class Help : ModuleBase
             var allemebed = new EmbedBuilder()
             {
                 Title = "Commands List",
-                Color = Utils.GetRoleColor(Context)
+                Color = _Utils.GetRoleColor(Context)
             };
             allemebed.AddField(x =>
             {
@@ -2303,7 +2325,7 @@ public class Help : ModuleBase
         else
         {
             IGuildUser BotUser = null;
-            Utils.GuildBotCache.TryGetValue(Context.Guild.Id, out BotUser);
+            _Utils.GuildBotCache.TryGetValue(Context.Guild.Id, out BotUser);
             string HelpText = "```md" + Environment.NewLine + "[ p/misc ]( Info/Dice Roll )" + Environment.NewLine + "[ p/game ]( Steam/Minecraft )" + Environment.NewLine + "[ p/media ]( Twitch )" + Environment.NewLine + "[ p/prune ]( Prune Messages )```";
             if (!BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
             {
@@ -2338,7 +2360,7 @@ public class Help : ModuleBase
                 "```md" + Environment.NewLine + "< ◄ Games |     Media     | Prune ► >" + Environment.NewLine + MediaText + "```",
             "```md" + Environment.NewLine + "< ◄ Games |     Prune | >" + Environment.NewLine + PruneText + "```"
             };
-            await Utils.SendPaginator(pages, "Commands List", Context, embed);
+            await _Utils.SendPaginator(pages, "Commands List", Context, embed);
         }
     }
 
@@ -2396,13 +2418,14 @@ public class Help : ModuleBase
     {
         await Context.Channel.SendMessageAsync("Prefix is `p/` e.g **p/help**");
     }
+
     [Command("website")]
     public async Task Website()
     {
         var embed = new EmbedBuilder()
         {
             Description = ":globe_with_meridians: [Website](https://blaze.ml)" + Environment.NewLine + "For more info/links do **p/bot**",
-            Color = Utils.GetRoleColor(Context)
+            Color = _Utils.GetRoleColor(Context)
         };
         await Context.Channel.SendMessageAsync("", false, embed);
     }
@@ -2418,28 +2441,7 @@ public class Steam : InteractiveModuleBase
             await Context.Channel.SendMessageAsync("`No user set | p/steam claim (User)");
             return;
         }
-        //MySQLConnection myConn;
-        //MySQLDataReader MyReader = null;
-        //myConn = new MySQLConnection(new MySQLConnectionString(Program.TokenMap.MysqlHost, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlUser, Program.TokenMap.MysqlPass).AsString);
-        //myConn.Open();
-        //string RS2 = $"SELECT user FROM profiles WHERE steam='{User}'";
-        //MySQLCommand cmd3 = new MySQLCommand(RS2, myConn);
-        //MyReader = cmd3.ExecuteReaderEx();
-        //myConn.Close();
-        //if (MyReader.HasRows)
-        //{
-            //while (MyReader.Read())
-            //{
-                //var claimed = new EmbedBuilder()
-                //{
-                    //Title = "Account Already Claimed By",
-                    //Description = $"<@{MyReader.GetString(0)}>"
-                //};
-                //await Context.Channel.SendMessageAsync("", false, claimed);
-                //return;
-            //}
-        //}
-        SteamWebAPI.SetGlobalKey(Program.TokenMap.Steam);
+        SteamWebAPI.SetGlobalKey(Program._Token.Steam);
         SteamIdentity SteamUser = null;
         try
         {
@@ -2463,12 +2465,6 @@ public class Steam : InteractiveModuleBase
         await claimtext.DeleteAsync();
         if (response.Content.ToLower() == "yes")
         {
-            //myConn.Open();
-            //string update = $"UPDATE profiles SET steam='{User}' WHERE user='{Context.User.Id}'";
-            //MySQLCommand upcmd = new MySQLCommand(update, myConn);
-            //upcmd.ExecuteNonQuery();
-            //myConn.Close();
-            //await Context.Channel.SendMessageAsync("`Account claimed`");
         }
         else
         {

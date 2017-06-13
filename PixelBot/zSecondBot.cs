@@ -8,7 +8,7 @@ public class SecondBot
     public async Task RunBot()
     {
         _client = new DiscordSocketClient();
-        await _client.LoginAsync(TokenType.Bot, Program.TokenMap.Discord);
+        await _client.LoginAsync(TokenType.Bot, Program._Token.Discord);
         await _client.StartAsync();
         await Task.Delay(-1);
     }
