@@ -8,6 +8,7 @@ using System.Text;
 using RiotApi.Net.RestClient.Configuration;
 using System.Data;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
 public class _Apis
 {
@@ -285,6 +286,74 @@ List<string> List = new List<string>();
                     }
                 
             return ID;
+        }
+    }
+    public class Bots
+    {
+        public static List<BotClass> BotsList = new List<BotClass>();
+        public class BotClass
+        {
+            public ulong ID;
+            public string Name;
+            public string Api;
+            public string Invite;
+            public string Description;
+            public string Libary;
+            public List<ulong> OwnersID = new List<ulong>();
+            public string Prefix;
+            public string Website;
+            public int LastDay;
+            public string ServerCount;
+            public List<string> Tags = new List<string>();
+        }
+        public static BotClass GetBot(string ID, string API = "https://bots.discord.pw")
+        {
+            BotClass ThisBot = new BotClass();
+            int LastDay = 0;
+            if (BotsList.Exists(x => x.ID.ToString() == ID))
+            {
+                LastDay = BotsList.Find(x => x.ID.ToString() == ID).LastDay;
+            }
+            if (LastDay == 0 || LastDay == DateTime.Now.Day)
+            {
+                HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/" + ID);
+                httpWebRequest.Method = WebRequestMethods.Http.Get;
+                httpWebRequest.Accept = "application/json";
+                httpWebRequest.Headers.Add("Authorization", Program._Token.Dbots);
+                HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
+                if (response.StatusCode != HttpStatusCode.NotFound)
+                {
+                    Stream receiveStream = response.GetResponseStream();
+                    StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
+                    var Req = readStream.ReadToEnd();
+                    dynamic Data = JObject.Parse(Req);
+                    ThisBot.ID = Convert.ToUInt64(ID);
+                    ThisBot.Invite = Data.invite_url;
+                    ThisBot.Description = Data.description;
+                    ThisBot.Libary = Data.library;
+                    ThisBot.Name = Data.name;
+                    foreach (var i in Data.owner_ids)
+                    {
+                        ThisBot.OwnersID.Add(Convert.ToUInt64(i));
+                    }
+                    ThisBot.Prefix = Data.prefix;
+                    ThisBot.Website = Data.website;
+                    ThisBot.Api = API;
+                }
+            }
+            else
+            {
+                ThisBot = BotsList.Find(x => x.ID.ToString() == ID);
+            }
+            JsonSerializer serializer = new JsonSerializer();
+            if (ThisBot != null)
+            {
+                using (StreamWriter file = File.CreateText(Program.BotPath + $"Users\\{ID.ToString()}.json"))
+                {
+                    serializer.Serialize(file, ThisBot);
+                }
+            }
+            return ThisBot;
         }
     }
 }

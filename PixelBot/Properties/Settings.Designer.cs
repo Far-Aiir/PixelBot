@@ -57,5 +57,17 @@ namespace PixelBot.Properties {
                 this["FeatureList"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public ulong ChatLogGuild {
+            get {
+                return ((ulong)(this["ChatLogGuild"]));
+            }
+            set {
+                this["ChatLogGuild"] = value;
+            }
+        }
     }
 }

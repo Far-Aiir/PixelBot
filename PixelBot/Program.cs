@@ -20,7 +20,6 @@ using Discord.Addons.Preconditions;
 using OverwatchAPI;
 using RiotApi.Net.RestClient;
 using RiotApi.Net.RestClient.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 class Program
 {
@@ -32,6 +31,7 @@ class Program
     public static PaginationService.Min.Service _PagMin;
     public static PaginationService.Full.Service _PagFull;
     public static TokenClass _Token = new TokenClass();
+    public static List<IGuildUser> ALLUSERS = new List<IGuildUser>();
     static void Main()
     {
         DisableConsoleQuickEdit.Go();
@@ -53,6 +53,7 @@ class Program
         string TokenPath = BotPath + "Tokens.txt";
         Directory.CreateDirectory(BotPath + "Uptime\\");
         Directory.CreateDirectory(BotPath + "Twitch\\");
+        Directory.CreateDirectory(BotPath + "Users\\");
         foreach (var File in Directory.GetFiles(BotPath + "Uptime\\"))
         {
                 using (StreamReader reader = new StreamReader(File))
@@ -67,6 +68,15 @@ class Program
                 JsonSerializer serializer = new JsonSerializer();
                 Services.TwitchNotifyClass Item = (Services.TwitchNotifyClass)serializer.Deserialize(reader, typeof(Services.TwitchNotifyClass));
                 Services.TwitchNotifications.Add(Item);
+            }
+        }
+        foreach(var File in Directory.GetFiles(BotPath + "Users\\"))
+        {
+            using (StreamReader reader = new StreamReader(File))
+            {
+                JsonSerializer serializer = new JsonSerializer();
+                _Apis.Bots.BotClass Item = (_Apis.Bots.BotClass)serializer.Deserialize(reader, typeof(_Apis.Bots.BotClass));
+                _Apis.Bots.BotsList.Add(Item);
             }
         }
         if (PixelBot.Properties.Settings.Default.Blacklist == null)
@@ -91,7 +101,6 @@ class Program
         });
         await InstallCommands();
         
-
         _client.Connected += () =>
         {
             if (DevMode == true)
@@ -174,12 +183,26 @@ class Program
                 await g.DefaultChannel.SendMessageAsync($"This guild has been blacklist by the owner ({g.Id}) contact `xXBuilderBXx#9113` for more info");
                 await g.LeaveAsync();
             }
+            await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ");  
+        };
+        _client.JoinedGuild += (g) =>
+        {
+            if (DevMode == false & PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
+            {
+                return Task.CompletedTask;
+            }
+            foreach (var User in g.Users)
+            {
+                if (!ALLUSERS.Exists(x => x.Id == User.Id))
+                {
+                    ALLUSERS.Add(User);
+                }
+            }
             IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
             _Utils.GuildBotCache.Add(g.Id, BotUser);
             Console.WriteLine($"[Joined] {g.Name} - {g.Id}");
-                await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ");
+            return Task.CompletedTask;
         };
-
         _client.GuildAvailable += async (g) =>
         {
             if (DevMode == false & PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
@@ -188,20 +211,46 @@ class Program
                 await g.DefaultChannel.SendMessageAsync($"This guild has been blacklist by the owner ({g.Id}) contact `xXBuilderBXx#9113` for more info");
                 await g.LeaveAsync();
             }
-            else
+        };
+        _client.GuildAvailable += (g) =>
+        {
+            if (DevMode == false & PixelBot.Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
             {
-                IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
-                _Utils.GuildBotCache.Add(g.Id, BotUser);
+                return Task.CompletedTask;
             }
+            foreach(var User in g.Users)
+            {
+                if (!ALLUSERS.Exists(x => x.Id == User.Id))
+                {
+                    ALLUSERS.Add(User);
+                }
+            }
+                IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
+            _Utils.GuildBotCache.Add(g.Id, BotUser);
+            return Task.CompletedTask;
         };
         _client.MessageReceived += (g) =>
         {
-            if (g.Channel is IGuildChannel)
+            if (PixelBot.Properties.Settings.Default.ChatLogGuild != 0)
             {
-                var GU = g.Channel as ITextChannel;
-                if (GU.GuildId == 323533467608416256)
+                if (g.Channel is IGuildChannel)
                 {
-                    Console.WriteLine($"{g.Author.Username} | {g.Content}");
+                    var GU = g.Channel as ITextChannel;
+                    if (GU.GuildId == PixelBot.Properties.Settings.Default.ChatLogGuild)
+                    {
+                        Console.WriteLine($"[{GU.Guild.Name}] | {g.Author.Username}: {g.Content}");
+                    }
+                }
+            }
+            else
+            {
+                if (PixelBot.Properties.Settings.Default.ChatLogGuild == 1)
+                {
+                    if (g.Channel is IGuildChannel)
+                    {
+                        var GU = g.Channel as ITextChannel;
+                            Console.WriteLine($"[{GU.Guild.Name}] | {g.Author.Username}: {g.Content}");
+                    }
                 }
             }
             return Task.CompletedTask;
@@ -280,6 +329,17 @@ class Program
 
 public class Main : ModuleBase
 {
+    [Command("find")]
+    public async Task Find(string ID)
+    {
+        IGuildUser ThisBot = null;
+        var Guilds = await Context.Client.GetGuildsAsync();
+        foreach(var Guild in Guilds)
+        {
+            var Users = await Guild.GetUsersAsync();
+            
+        }
+    }
 
     [Command("uptime")]
     public async Task Resetuptime(string User = "")
@@ -383,6 +443,8 @@ public class Main : ModuleBase
     [RequireOwner]
     public async Task Testt(string all)
     {
+        await Context.Channel.SendMessageAsync("<:pixelbot:324256130307981312>");
+        return;
         switch (all)
         {
             case "all":
@@ -597,6 +659,11 @@ public class Misc : ModuleBase
             await Context.Channel.SendMessageAsync($"`You can search for a discrim using p/discrim {Context.User.Discriminator} guild/global | The guild or global is optional`");
             return;
         }
+        if (Discrim == 0000)
+        {
+            await Context.Channel.SendMessageAsync($"`0000 is a prefix only used by webhooks and not users`");
+            return;
+        }
         List<IGuildUser> GuildUsers = new List<IGuildUser>();
         var Guilds = await Context.Client.GetGuildsAsync();
         foreach (var Guild in Guilds)
@@ -608,14 +675,14 @@ public class Misc : ModuleBase
             }
         }
 
-        List<string> UserList = new List<string>();
+        Dictionary<ulong, string> DiscrimList = new Dictionary<ulong, string>();
         if (Context.Channel is IPrivateChannel)
         {
             foreach (var User in GuildUsers.Where(x => x.DiscriminatorValue == Discrim))
             {
-                if (!UserList.Contains($"{User.Username}#{User.Discriminator}") && User.Id != Context.User.Id)
+                if (!DiscrimList.Keys.Contains(User.Id) && User.Id != Context.User.Id)
                 {
-                    UserList.Add($"{User.Username}#{User.Discriminator}");
+                    DiscrimList.Add(User.Id, $"{User.Username}#{User.Discriminator}");
                 }
             }
         }
@@ -625,9 +692,23 @@ public class Misc : ModuleBase
             {
                 foreach (var GuildUser in GuildUsers.Where(x => x.GuildId == Context.Guild.Id))
                 {
-                    if (!UserList.Contains($"{GuildUser.Username}#{GuildUser.Discriminator} (Guild)") && GuildUser.DiscriminatorValue == Discrim && GuildUser.Id != Context.User.Id)
+                    if (!DiscrimList.Keys.Contains(GuildUser.Id) && GuildUser.DiscriminatorValue == Discrim)
                     {
-                        UserList.Add($"{GuildUser.Username}#{GuildUser.Discriminator} (Guild)");
+                        if (GuildUser.Id == Context.User.Id)
+                        {
+                            DiscrimList.Add(GuildUser.Id, $"{GuildUser.Username}#{GuildUser.Discriminator} (You)");
+                        }
+                        else
+                        {
+                            if (GuildUser.IsBot)
+                            {
+                                DiscrimList.Add(GuildUser.Id, $"{GuildUser.Username}#{GuildUser.Discriminator} (Guild) (Bot)");
+                            }
+                            else
+                            {
+                                DiscrimList.Add(GuildUser.Id, $"{GuildUser.Username}#{GuildUser.Discriminator} (Guild)");
+                            }
+                        }
                     }
                 }
             }
@@ -635,22 +716,36 @@ public class Misc : ModuleBase
             {
                 foreach (var GuildUser in GuildUsers.Where(x => x.GuildId != Context.Guild.Id))
                 {
-                    if (!UserList.Contains($"{GuildUser.Username}#{GuildUser.Discriminator} (Global)") & !UserList.Contains($"{GuildUser.Username}#{GuildUser.Discriminator} (Guild)") && GuildUser.DiscriminatorValue == Discrim && GuildUser.Id != Context.User.Id)
+                    if (!DiscrimList.Keys.Contains(GuildUser.Id) && GuildUser.DiscriminatorValue == Discrim)
                     {
-                        UserList.Add($"{GuildUser.Username}#{GuildUser.Discriminator} (Global)");
+                        if (GuildUser.Id == Context.User.Id)
+                        {
+                            DiscrimList.Add(GuildUser.Id, $"{GuildUser.Username}#{GuildUser.Discriminator} (You)");
+                        }
+                        else
+                        {
+                            if (GuildUser.IsBot)
+                            {
+                                DiscrimList.Add(GuildUser.Id, $"{GuildUser.Username}#{GuildUser.Discriminator} (Global) (Bot)");
+                            }
+                            else
+                            {
+                                DiscrimList.Add(GuildUser.Id, $"{GuildUser.Username}#{GuildUser.Discriminator} (Global)");
+                            }
+                        }
                     }
                 }
             }
         }
 
-        if (UserList.Count == 0)
+        if (DiscrimList.Values.Count == 0)
         {
             await Context.Channel.SendMessageAsync($"`Could not find any users with the discrim {Discrim}`");
         }
         else
         {
-            string Users = string.Join(Environment.NewLine, UserList.ToArray());
-            await Context.Channel.SendMessageAsync($"**Found {UserList.Count} users with the discrim {Discrim}**" + Environment.NewLine + "```" + Users + "```");
+            string Users = string.Join(Environment.NewLine, DiscrimList.Values.ToArray());
+            await Context.Channel.SendMessageAsync($"**Found {DiscrimList.Values.Count} users with the discrim {Discrim}**" + Environment.NewLine + "```" + Users + "```");
         }
     }
 
