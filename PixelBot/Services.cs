@@ -10,7 +10,7 @@ using System.Net;
 using System.Timers;
 using TwitchCSharp.Clients;
 
-public class Services
+public class MyServices
 {
     public class TwitchNotifyClass
     {
@@ -32,11 +32,11 @@ public class Services
         {
             var request = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/277933222015401985/stats");
             request.ContentType = "application/json";
-            request.Headers.Add("Authorization", Program._Token.Dbots);
+            request.Headers.Add("Authorization", PixelBot.PixelBot.Tokens.Dbots);
             request.Method = "POST";
             using (var streamWriter = new StreamWriter(request.GetRequestStream()))
             {
-                string json = "{\"server_count\":\"" + Program._client.Guilds.Count.ToString() + "\"}";
+                string json = "{\"server_count\":\"" + PixelBot.PixelBot._client.Guilds.Count.ToString() + "\"}";
 
                 streamWriter.Write(json);
             }
@@ -50,11 +50,11 @@ public class Services
         {
             var request = (HttpWebRequest)WebRequest.Create("https://discordbots.org/api/bots/277933222015401985/stats");
             request.ContentType = "application/json";
-            request.Headers.Add("Authorization", Program._Token.DbotsV2);
+            request.Headers.Add("Authorization", PixelBot.PixelBot.Tokens.DbotsV2);
             request.Method = "POST";
             using (var streamWriter = new StreamWriter(request.GetRequestStream()))
             {
-                string json = "{\"server_count\":\"" + Program._client.Guilds.Count.ToString() + "\"}";
+                string json = "{\"server_count\":\"" + PixelBot.PixelBot._client.Guilds.Count.ToString() + "\"}";
 
                 streamWriter.Write(json);
             }
@@ -67,7 +67,7 @@ public class Services
     }
     public static void TwitchNotification(object sender, ElapsedEventArgs e)
     {
-        var TwitchClient = new TwitchAuthenticatedClient(Program._Token.Twitch, Program._Token.TwitchAuth);
+        var TwitchClient = new TwitchAuthenticatedClient(PixelBot.PixelBot.Tokens.Twitch, PixelBot.PixelBot.Tokens.TwitchAuth);
         foreach (var Item in TwitchNotifications)
         {
             try
@@ -79,7 +79,7 @@ public class Services
                         Item.Live = true;
                         if (Item.Type == "user")
                         {
-                            IGuild Guild = Program._client.GetGuild(Item.Guild);
+                            IGuild Guild = PixelBot.PixelBot._client.GetGuild(Item.Guild);
                             IUser User = Guild.GetUserAsync(Item.User).GetAwaiter().GetResult() as IUser;
                             var TwitchChannel = TwitchClient.GetChannel(Item.Twitch);
                             var embed = new EmbedBuilder()
@@ -96,14 +96,14 @@ public class Services
                             var DM = User.CreateDMChannelAsync().GetAwaiter().GetResult();
                             DM.SendMessageAsync("", false, embed).GetAwaiter();
                             JsonSerializer serializer = new JsonSerializer();
-                            using (StreamWriter file = File.CreateText(Program.BotPath + $"Twitch\\user-{Item.User}-{Item.Twitch.ToLower()}.json"))
+                            using (StreamWriter file = File.CreateText(PixelBot.PixelBot.BotPath + $"Twitch\\user-{Item.User}-{Item.Twitch.ToLower()}.json"))
                             {
                                 serializer.Serialize(file, Item);
                             }
                         }
                         else
                         {
-                            IGuild Guild = Program._client.GetGuild(Item.Guild);
+                            IGuild Guild = PixelBot.PixelBot._client.GetGuild(Item.Guild);
                             ITextChannel Channel = Guild.GetChannelAsync(Item.Channel).GetAwaiter().GetResult() as ITextChannel;
                             var TwitchChannel = TwitchClient.GetChannel(Item.Twitch);
                             var embed = new EmbedBuilder()
@@ -119,7 +119,7 @@ public class Services
                             };
                             Channel.SendMessageAsync("", false, embed).GetAwaiter();
                             JsonSerializer serializer = new JsonSerializer();
-                            using (StreamWriter file = File.CreateText(Program.BotPath + $"Twitch\\channel-{Item.Guild.ToString()}-{Item.Channel}-{Item.Twitch}.json"))
+                            using (StreamWriter file = File.CreateText(PixelBot.PixelBot.BotPath + $"Twitch\\channel-{Item.Guild.ToString()}-{Item.Channel}-{Item.Twitch}.json"))
                             {
                                 serializer.Serialize(file, Item);
                             }
@@ -146,8 +146,8 @@ public class Services
         try
         {
             List<IGuildUser> BotsList = new List<IGuildUser>();
-            var Dbots = Program._client.GetGuild(110373943822540800);
-            var DbotsV2 = Program._client.GetGuild(264445053596991498);
+            var Dbots = PixelBot.PixelBot._client.GetGuild(110373943822540800);
+            var DbotsV2 = PixelBot.PixelBot._client.GetGuild(264445053596991498);
             await Dbots.DownloadUsersAsync();
             await DbotsV2.DownloadUsersAsync();
 
@@ -156,9 +156,9 @@ public class Services
 
             foreach (var Bot in BotsList)
             {
-                if (!File.Exists(Program.BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt"))
+                if (!File.Exists(PixelBot.PixelBot.BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt"))
                 {
-                    File.WriteAllText(Program.BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt", "75");
+                    File.WriteAllText(PixelBot.PixelBot.BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt", "75");
                 }
                 int UptimeCount = 100;
                 if (!UptimeBotsList.Keys.Contains(Bot.Id))
@@ -180,7 +180,7 @@ public class Services
                         UptimeCount++;
                     }
                 }
-                File.WriteAllText(Program.BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt", UptimeCount.ToString());
+                File.WriteAllText(PixelBot.PixelBot.BotPath + "Uptime\\" + Bot.Id.ToString() + ".txt", UptimeCount.ToString());
                 UptimeBotsList[Bot.Id] = UptimeCount;
                 BotsList.RemoveAll(x => x.Id == Bot.Id);
             }
@@ -194,7 +194,7 @@ public class Services
     {
         var youtubeService = new YouTubeService(new BaseClientService.Initializer()
         {
-            ApiKey = Program._Token.Youtube
+            ApiKey = PixelBot.PixelBot.Tokens.Youtube
         });
     }
 }

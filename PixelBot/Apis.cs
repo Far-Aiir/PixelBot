@@ -9,187 +9,218 @@ using RiotApi.Net.RestClient.Configuration;
 using System.Data;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using OverwatchAPI;
 
-public class _Apis
+namespace PixelBot.Apis
 {
+    public enum RequestStatus
+    {
+        OK, UnknownRegion, UnknownPlayer, Other
+    }
     public class WOT
     {
-        public class API
+        #region WOT
+        public class Player
         {
-            public static string GetUserID(string Region, [Remainder] string User)
+            public RequestStatus Status = RequestStatus.Other;
+            public string Region = "";
+            public string User = "";
+            public string ID = "";
+            public DateTime CreatedAt = DateTime.MinValue;
+            public DateTime LastBattle = DateTime.MinValue;
+            public string Raiting = "";
+            public string Win = "";
+            public string Loss = "";
+            public string Shots = "";
+            public string Hits = "";
+            public string Battles = "";
+            public string Draws = "";
+        }
+        public static Player GetUserStats(string Region, string User)
+        {
+            Player Player = new Player();
+                Player.Region = Region.ToUpper();
+                Player.User = User;
+                string RegionUrl = GetRegionUrl(Player, Region);
+                if (Player.Status == RequestStatus.UnknownRegion)
+                {
+                    return Player;
+                }
+                dynamic GetID = Utils.HttpRequest.GetJsonObject(RegionUrl + "/wot/account/list/?application_id=" + PixelBot.Tokens.Wargaming + "&search=" + User + "&limit=1");
+                if (GetID == null)
+                {
+                    Player.Status = RequestStatus.UnknownPlayer;
+                    return Player;
+                }
+            int Count = GetID.meta.count;
+            if (Count == 0)
             {
-                string WOTURL = Region + "/wot/account/list/?application_id=";
-                HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(WOTURL + Program._Token.Wargaming + "&search=" + User + "&limit=1");
-                httpWebRequest.Method = WebRequestMethods.Http.Get;
-                httpWebRequest.Accept = "application/json";
-                HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
-                Stream receiveStream = response.GetResponseStream();
-                StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
-                var Req = readStream.ReadToEnd();
-                dynamic JA = Newtonsoft.Json.Linq.JObject.Parse(Req);
-                string ID = JA.data[0].account_id;
-                return ID;
-            }
-            public static Data.PlayerData GetUserData(string Region, string ID = "")
-            {
-                Data.PlayerData Player = new Data.PlayerData();
-                dynamic Stat = null;
-                string WOTURL = Region + "/wot/account/info/?application_id=";
-                HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(WOTURL + Program._Token.Wargaming + "&account_id=" + ID);
-                httpWebRequest.Method = WebRequestMethods.Http.Get;
-                httpWebRequest.Accept = "application/json";
-                HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
-                Stream receiveStream = response.GetResponseStream();
-                StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
-                var Req = readStream.ReadToEnd();
-                var Get = Newtonsoft.Json.Linq.JObject.Parse(Req);
-                Stat = Get.Last.First.First.First;
-                long Last = Stat.last_battle_time;
-                long Created = Stat.created_at;
-                Player.LastBattle = _Utils.UnixToDateTime(Last);
-                Player.CreatedAt = _Utils.UnixToDateTime(Created);
-                Player.Raiting = Stat.global_rating;
-                Player.Win = Stat.statistics.all.wins;
-                Player.Loss = Stat.statistics.all.losses;
-                Player.Battles = Stat.statistics.all.battles;
-                Player.Draws = Stat.statistics.all.draws;
-                Player.Hits = Stat.statistics.all.hits;
-                Player.Shots = Stat.statistics.all.shots;
+                Player.Status = RequestStatus.UnknownPlayer;
                 return Player;
             }
-        }
-        public class Data
-        {
-            public class PlayerData
-            {
-                public DateTime CreatedAt { get; set; }
-                public DateTime LastBattle { get; set; }
-                public string Raiting { get; set; }
-                public string Win { get; set; }
-                public string Loss { get; set; }
-                public string Shots { get; set; }
-                public string Hits { get; set; }
-                public string Battles { get; set; }
-                public string Draws { get; set; }
-            }
-            public static string GetRegionUrl(string Region)
-            {
-                string ThisRegion = "null";
-                switch (Region.ToLower())
+
+                Player.ID = GetID.data[0].account_id;
+                dynamic GetInfo = Utils.HttpRequest.GetJsonObject(RegionUrl + "/wot/account/info/?application_id=" + PixelBot.Tokens.Wargaming + "&account_id=" + Player.ID);
+            JObject ConvertInfo = (JObject)GetInfo;
+            dynamic Info = ConvertInfo.Last.First.First.First;
+            if (Info == null)
                 {
-                    case "ru":
-                        ThisRegion = "https://api.worldoftanks.ru";
-                        break;
-                    case "eu":
-                        ThisRegion = "https://api.worldoftanks.eu";
-                        break;
-                    case "na":
-                        ThisRegion = "https://api.worldoftanks.com";
-                        break;
-                    case "as":
-                        ThisRegion = "https://api.worldoftanks.asia";
-                        break;
+                    Player.Status = RequestStatus.Other;
+                    return Player;
                 }
-                return ThisRegion;
-            }
+                Player.Region = Info.Raiting;
+            long Last = Info.last_battle_time;
+            long Created = Info.created_at;
+            Player.LastBattle = Utils.OtherUtils.UnixToDateTime(Last);
+            Player.CreatedAt = Utils.OtherUtils.UnixToDateTime(Created);
+            Player.Raiting = Info.global_rating;
+            Player.Win = Info.statistics.all.wins;
+            Player.Loss = Info.statistics.all.losses;
+            Player.Battles = Info.statistics.all.battles;
+            Player.Draws = Info.statistics.all.draws;
+            Player.Hits = Info.statistics.all.hits;
+            Player.Shots = Info.statistics.all.shots;
+            Player.Status = RequestStatus.OK;
+            return Player;
         }
+        
+        private static string GetRegionUrl(Player Player, string Region)
+        {
+            string ThisRegion = "null";
+            switch (Region.ToUpper())
+            {
+                case "RU":
+                    ThisRegion = "https://api.worldoftanks.ru";
+                    break;
+                case "EU":
+                    ThisRegion = "https://api.worldoftanks.eu";
+                    break;
+                case "NA":
+                    ThisRegion = "https://api.worldoftanks.com";
+                    break;
+                case "AS":
+                    ThisRegion = "https://api.worldoftanks.asia";
+                    break;
+                default:
+                    ThisRegion = "null";
+                    break;
+            }
+            if (ThisRegion == "null")
+            {
+                Player.Status = RequestStatus.UnknownRegion;
+            }
+            return ThisRegion;
+        }
+        #endregion
     }
     public class LOL
     {
-
-        public class Data
+        #region LOL
+        public static RiotApiConfig.Regions GetRegion(string Tag)
         {
-            public static RiotApiConfig.Regions GetRegion(string Tag)
+            RiotApiConfig.Regions UserRegion = RiotApiConfig.Regions.Global;
+            switch (Tag.ToUpper())
             {
-                RiotApiConfig.Regions UserRegion = RiotApiConfig.Regions.Global;
-                switch (Tag.ToUpper())
-                {
-                    case "NA":
-                        UserRegion = RiotApiConfig.Regions.NA;
-                        break;
-                    case "EUW":
-                        UserRegion = RiotApiConfig.Regions.EUW;
-                        break;
-                    case "EUN":
-                    case "EUNE":
-                        UserRegion = RiotApiConfig.Regions.EUNE;
-                        break;
-                    case "LAN":
-                        UserRegion = RiotApiConfig.Regions.LAN;
-                        break;
-                    case "LAS":
-                        UserRegion = RiotApiConfig.Regions.LAS;
-                        break;
-                    case "BR":
-                    case "BRAZIL":
-                        UserRegion = RiotApiConfig.Regions.BR;
-                        break;
-                    case "JP":
-                    case "JAPAN":
-                        UserRegion = RiotApiConfig.Regions.TR;
-                        break;
-                    case "RU":
-                    case "RUSSIA":
-                        UserRegion = RiotApiConfig.Regions.RU;
-                        break;
-                    case "TR":
-                    case "TURKEY":
-                        UserRegion = RiotApiConfig.Regions.TR;
-                        break;
-                    case "OC":
-                    case "OCE":
-                    case "OCEANIA":
-                        UserRegion = RiotApiConfig.Regions.OCE;
-                        break;
-                    case "KR":
-                    case "KOREA":
-                        UserRegion = RiotApiConfig.Regions.KR;
-                        break;
-                }
-                return UserRegion;
+                case "NA":
+                    UserRegion = RiotApiConfig.Regions.NA;
+                    break;
+                case "EUW":
+                    UserRegion = RiotApiConfig.Regions.EUW;
+                    break;
+                case "EUN":
+                case "EUNE":
+                    UserRegion = RiotApiConfig.Regions.EUNE;
+                    break;
+                case "LAN":
+                    UserRegion = RiotApiConfig.Regions.LAN;
+                    break;
+                case "LAS":
+                    UserRegion = RiotApiConfig.Regions.LAS;
+                    break;
+                case "BR":
+                case "BRAZIL":
+                    UserRegion = RiotApiConfig.Regions.BR;
+                    break;
+                case "JP":
+                case "JAPAN":
+                    UserRegion = RiotApiConfig.Regions.TR;
+                    break;
+                case "RU":
+                case "RUSSIA":
+                    UserRegion = RiotApiConfig.Regions.RU;
+                    break;
+                case "TR":
+                case "TURKEY":
+                    UserRegion = RiotApiConfig.Regions.TR;
+                    break;
+                case "OC":
+                case "OCE":
+                case "OCEANIA":
+                    UserRegion = RiotApiConfig.Regions.OCE;
+                    break;
+                case "KR":
+                case "KOREA":
+                    UserRegion = RiotApiConfig.Regions.KR;
+                    break;
             }
+            return UserRegion;
         }
+        #endregion
     }
-    public class _Class_Vainglory
+    public class Vainglory
     {
-        public class API
+        #region Vainglory
+        public class Player
         {
-            public static dynamic GetPlayer(string Region, string Player)
-            {
-                dynamic Dynamic = null;
-                HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerNames]=" + Player);
-                httpWebRequest.Method = WebRequestMethods.Http.Get;
-                httpWebRequest.Headers.Add("Authorization", Program._Token.Vainglory);
-                httpWebRequest.Headers.Add("X-TITLE-ID", "semc-vainglory");
-                httpWebRequest.Accept = "application/json";
-
-                HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
-                Stream receiveStream = response.GetResponseStream();
-                StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
-                var Req = readStream.ReadToEnd();
-                Dynamic = Newtonsoft.Json.Linq.JObject.Parse(Req);
-                return Dynamic;
-            }
-            public static dynamic GetPlayerMatch(string Region, string Player)
-            {
-                dynamic Dynamic = null;
-                HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("https://api.dc01.gamelockerapp.com/shards/" + Region + "/matches?sort=createdAt&page[limit]=3&filter[playerNames]=" + Player);
-                httpWebRequest.Method = WebRequestMethods.Http.Get;
-                httpWebRequest.Headers.Add("Authorization", Program._Token.Vainglory);
-                httpWebRequest.Headers.Add("X-TITLE-ID", "semc-vainglory");
-                httpWebRequest.Accept = "application/json";
-
-                HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
-                Stream receiveStream = response.GetResponseStream();
-                StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
-                var Req = readStream.ReadToEnd();
-                Dynamic = Newtonsoft.Json.Linq.JObject.Parse(Req);
-                return Dynamic;
-            }
+            public string Region;
+            public string User;
+            public string ID = "";
+            public DateTime Created = DateTime.MinValue;
+            public int KarmaLevel = 0;
+            public int Level = 0;
+            public string LifetimeGold = "";
+            public int XP = 0;
+            public int Wins = 0;
+            public int Loss = 0;
+            public int Played = 0;
+            public int PlayedRanked = 0;
+            public int SkillTier = 0;
         }
+        public class Match
+        {
+
+        }
+        public static Player GetPlayerStats(string Region, string User)
+        {
+            Player Player = new Player(); 
+                dynamic Request = Utils.HttpRequest.GetJsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerNames]=" + User, PixelBot.Tokens.Vainglory, "X-TITLE-ID", "semc-vainglory");
+                
+                Player.ID = Request.data[0].id;
+                Player.User = User;
+                Player.Region = Region;
+                Player.Created = Request.data[0].attributes.createdAt;
+                Player.KarmaLevel = Request.data[0].attributes.stats.karmaLevel;
+                Player.Level = Request.data[0].attributes.stats.level;
+                Player.LifetimeGold = Request.data[0].attributes.stats.lifetimeGold;
+                Player.XP = Request.data[0].attributes.stats.xp;
+                Player.Wins = Request.data[0].attributes.stats.wins;
+                Player.Played = Request.data[0].attributes.stats.played;
+                Player.Loss = Player.Wins = Player.Played;
+                Player.SkillTier = Request.data[0].attributes.stats.skillTier;
+                Player.PlayedRanked = Request.data[0].attributes.stats.played_ranked;
+            return Player;
+        }
+        public static dynamic GetPlayerMatch(string Region, string User)
+        {
+            Match Match = new Match();
+            dynamic Dynamic = Utils.HttpRequest.GetJsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/matches?sort=createdAt&page[limit]=3&filter[playerNames]=" + User, PixelBot.Tokens.Vainglory, "X-TITLE-ID", "semc-vainglory");
+            return Match;
+        }
+        #endregion
     }
     public class Poke
     {
+        #region Pokemon
         public class PokemonClass
         {
             public class Pokemon
@@ -205,35 +236,35 @@ public class _Apis
         {
             public static List<string> GetMainTable(string url, string Class, int TableNum)
             {
-List<string> List = new List<string>();
-                    WebClient webClient = new WebClient();
-                    string page = webClient.DownloadString(url);
-                    HtmlAgilityPack.HtmlDocument doc = new HtmlAgilityPack.HtmlDocument();
-                    doc.LoadHtml(page);
-                    List<List<string>> table = doc.DocumentNode.SelectSingleNode("//table[" + TableNum + "][@class='" + Class + "']")
-                                    .Descendants("tr")
-                                    .Skip(1)
-                                    .Where(tr => tr.Elements("td").Count() > 1)
-                                    .Select(tr => tr.Elements("td").Select(td => td.InnerText.Trim()).ToList())
-                                    .ToList();
-                    int Count = 0;
-                    foreach (var Item in table)
+                List<string> List = new List<string>();
+                WebClient webClient = new WebClient();
+                string page = webClient.DownloadString(url);
+                HtmlAgilityPack.HtmlDocument doc = new HtmlAgilityPack.HtmlDocument();
+                doc.LoadHtml(page);
+                List<List<string>> table = doc.DocumentNode.SelectSingleNode("//table[" + TableNum + "][@class='" + Class + "']")
+                                .Descendants("tr")
+                                .Skip(1)
+                                .Where(tr => tr.Elements("td").Count() > 1)
+                                .Select(tr => tr.Elements("td").Select(td => td.InnerText.Trim()).ToList())
+                                .ToList();
+                int Count = 0;
+                foreach (var Item in table)
+                {
+                    foreach (var Item2 in Item)
                     {
-                        foreach (var Item2 in Item)
+                        if (Count != 55)
                         {
-                            if (Count != 55)
-                            {
-                                Count++;
-                                List.Add(Item2);
-                            }
+                            Count++;
+                            List.Add(Item2);
                         }
                     }
-                    List.RemoveAt(0);
-                    List.RemoveAt(0);
-                    List.RemoveAt(0);
-                    List.RemoveAt(0);
-                    List.RemoveAt(0);
-                
+                }
+                List.RemoveAt(0);
+                List.RemoveAt(0);
+                List.RemoveAt(0);
+                List.RemoveAt(0);
+                List.RemoveAt(0);
+
                 return List;
             }
 
@@ -272,24 +303,26 @@ List<string> List = new List<string>();
         public static int GetPokemonID(string Pokemon)
         {
             int ID = 0;
-                    HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("http://pokeapi.co/api/v2/pokemon/" + Pokemon + "/");
-                    httpWebRequest.Method = WebRequestMethods.Http.Get;
-                    httpWebRequest.Accept = "application/json";
-                    HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
-                    if (response.StatusCode != HttpStatusCode.NotFound)
-                    {
-                        Stream receiveStream = response.GetResponseStream();
-                        StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
-                        var Req = readStream.ReadToEnd();
-                        dynamic Data = JObject.Parse(Req);
-                        ID = Data.id;
-                    }
-                
+            HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("http://pokeapi.co/api/v2/pokemon/" + Pokemon + "/");
+            httpWebRequest.Method = WebRequestMethods.Http.Get;
+            httpWebRequest.Accept = "application/json";
+            HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
+            if (response.StatusCode != HttpStatusCode.NotFound)
+            {
+                Stream receiveStream = response.GetResponseStream();
+                StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
+                var Req = readStream.ReadToEnd();
+                dynamic Data = JObject.Parse(Req);
+                ID = Data.id;
+            }
+
             return ID;
         }
+        #endregion
     }
     public class Bots
     {
+        #region Bots
         public static List<BotClass> BotsList = new List<BotClass>();
         public class BotClass
         {
@@ -319,7 +352,7 @@ List<string> List = new List<string>();
                 HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/" + ID);
                 httpWebRequest.Method = WebRequestMethods.Http.Get;
                 httpWebRequest.Accept = "application/json";
-                httpWebRequest.Headers.Add("Authorization", Program._Token.Dbots);
+                httpWebRequest.Headers.Add("Authorization", PixelBot.Tokens.Dbots);
                 HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
                 if (response.StatusCode != HttpStatusCode.NotFound)
                 {
@@ -348,12 +381,75 @@ List<string> List = new List<string>();
             JsonSerializer serializer = new JsonSerializer();
             if (ThisBot != null)
             {
-                using (StreamWriter file = File.CreateText(Program.BotPath + $"Users\\{ID.ToString()}.json"))
+                using (StreamWriter file = File.CreateText(PixelBot.BotPath + $"Users\\{ID.ToString()}.json"))
                 {
                     serializer.Serialize(file, ThisBot);
                 }
             }
             return ThisBot;
+        }
+        #endregion
+    }
+    public class Overwatch
+    {
+        public class Player
+        {
+            public RequestStatus Status = RequestStatus.Other;
+            public string Region = "";
+            public string User = "";
+            public string ProfileUrl = "";
+            public int Achievements = 0;
+            public int Level = 0;
+            public int CompetitiveRank = 0;
+            public DateTime LastPlayed = DateTime.MinValue;
+            public double CasualPlayed = 0;
+            public double CasualPlaytime = 0;
+            public double RankPlayed = 0;
+            public double RankPlaytime = 0;
+        }
+        public static Player GetPlayerStat(string User)
+        {
+            Player Player = new Player();
+            if (!User.Contains("#") | OverwatchAPIHelpers.IsValidBattletag(User) == false)
+            {
+                Player.Status = RequestStatus.UnknownPlayer;
+                return Player;
+            }
+            OverwatchPlayer OWplayer = new OverwatchPlayer(User);
+             OWplayer.DetectPlatform().GetAwaiter();
+            OWplayer.DetectRegionPC().GetAwaiter();
+            OWplayer.UpdateStats().GetAwaiter();
+            if (OWplayer == null)
+            {
+                Player.Status = RequestStatus.UnknownPlayer;
+                return Player;
+            }
+            var CasualStats = OWplayer.CasualStats.GetHero("AllHeroes");
+            var RankedStats = OWplayer.CompetitiveStats.GetHero("AllHeroes");
+            int Achievements = 0;
+
+            foreach (var A in OWplayer.Achievements)
+            {
+                foreach (var B in A)
+                {
+                    
+                    if (B.IsUnlocked)
+                    {
+                        Achievements++;
+                    }
+                }
+            }
+            Player.Achievements = Achievements;
+            Player.Level = OWplayer.PlayerLevel;
+            Player.CompetitiveRank = OWplayer.CompetitiveRank;
+            Player.ProfileUrl = OWplayer.ProfileURL;
+            Player.LastPlayed = OWplayer.ProfileLastDownloaded;
+            Player.CasualPlayed = CasualStats.GetCategory("Game").GetStat("Games Won").Value;
+            Player.CasualPlaytime = CasualStats.GetCategory("Game").GetStat("Time Played").Value;
+            Player.RankPlayed = RankedStats.GetCategory("Game").GetStat("Games Won").Value;
+            Player.RankPlaytime = RankedStats.GetCategory("Game").GetStat("Time Played").Value;
+            
+            return Player;
         }
     }
 }

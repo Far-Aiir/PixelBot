@@ -14,7 +14,7 @@ public class OwnerCommands : ModuleBase
         await Context.Message.DeleteAsync();
         await Context.Channel.SendMessageAsync("`chatlog (ID) | invite (ID) | info (ID) | leavehere | leave (ID) | botcol | clear | blacklist (add/remove/list) | toggle`");
     }
-
+    
     [Command("owner")]
     public async Task Owner()
     {
@@ -22,7 +22,7 @@ public class OwnerCommands : ModuleBase
         {
             Title = "xXBuilderBXx#9113 owns this bot",
             Description = "<@190590364871032834>",
-            Color = _Utils.GetRoleColor(Context)
+            Color = PixelBot.Utils.DiscordUtils.GetRoleColor(Context)
         };
         await Context.Channel.SendMessageAsync("", false, embed);
     }
@@ -91,7 +91,7 @@ public class OwnerCommands : ModuleBase
                         IconUrl = Guild.IconUrl
                     },
                     Description = $"Owner: {Owner}" + Environment.NewLine + $"Users {Users.Where(x => !x.IsBot).Count()}/{Users.Where(x => x.IsBot).Count()} Bots",
-                    Color = _Utils.GetRoleColor(Context),
+                    Color = PixelBot.Utils.DiscordUtils.GetRoleColor(Context),
                     Footer = new EmbedFooterBuilder()
                     {
                         Text = $"Created {Guild.CreatedAt.Day}/{Guild.CreatedAt.Month}/{Guild.CreatedAt.Year}"

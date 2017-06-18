@@ -26,10 +26,10 @@ namespace PaginationService
 
             public async Task<IUserMessage> SendPagFullMessageAsync(IMessageChannel channel, Message paginated)
             {
-                var message = await channel.SendMessageAsync("", embed: paginated.GetEmbed());
-                await message.AddReactionAsync(new Emoji(BACK));
-                await message.AddReactionAsync(new Emoji(NEXT));
-                await message.AddReactionAsync(new Emoji(STOP));
+                var message = await channel.SendMessageAsync("", embed: paginated.GetEmbed()).ConfigureAwait(false);
+                await message.AddReactionAsync(new Emoji(BACK)).ConfigureAwait(false);
+                await message.AddReactionAsync(new Emoji(NEXT)).ConfigureAwait(false);
+                await message.AddReactionAsync(new Emoji(STOP)).ConfigureAwait(false);
                 _messages.Add(message.Id, paginated);
 
                 return message;
@@ -49,7 +49,7 @@ namespace PaginationService
                 if (!_messages.ContainsKey(message.Id)) return;
                 if (_messages.TryGetValue(message.Id, out Message page))
                 {
-                    if (reaction.UserId == Program._client.CurrentUser.Id) return;
+                    if (reaction.UserId == PixelBot.PixelBot._client.CurrentUser.Id) return;
                     if (page.User != null && reaction.UserId != page.User.Id)
                     {
                         if (page.FullMode == true)
@@ -99,7 +99,7 @@ namespace PaginationService
                 if (_messages.TryGetValue(message.Id, out Message page))
                 {
                     if (page.FullMode == true) return;
-                    if (reaction.UserId == Program._client.CurrentUser.Id) return;
+                    if (reaction.UserId == PixelBot.PixelBot._client.CurrentUser.Id) return;
                     if (page.User != null && reaction.UserId != page.User.Id)
                     {
                         if (page.FullMode == true)
@@ -215,7 +215,7 @@ namespace PaginationService
                 if (!_messages.ContainsKey(message.Id)) return;
                 if (_messages.TryGetValue(message.Id, out Message page))
                 {
-                    if (reaction.UserId == Program._client.CurrentUser.Id) return;
+                    if (reaction.UserId == PixelBot.PixelBot._client.CurrentUser.Id) return;
                     if (page.User != null && reaction.UserId != page.User.Id)
                     {
                         // var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
@@ -257,7 +257,7 @@ namespace PaginationService
                 if (!_messages.ContainsKey(message.Id)) return;
                 if (_messages.TryGetValue(message.Id, out Message page))
                 {
-                    if (reaction.UserId == Program._client.CurrentUser.Id) return;
+                    if (reaction.UserId == PixelBot.PixelBot._client.CurrentUser.Id) return;
                     if (page.User != null && reaction.UserId != page.User.Id)
                     {
                         // var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
