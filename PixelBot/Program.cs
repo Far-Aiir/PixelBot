@@ -25,7 +25,6 @@ using PixelBot.Services;
 using Microsoft.Extensions.DependencyInjection;
 using PixelBot.Utils;
 using PixelBot.Apis;
-using PixelBot.Data;
 namespace PixelBot
 {
     public class TokenClass
@@ -320,7 +319,6 @@ namespace PixelBot
             await _commands.AddModulesAsync(Assembly.GetEntryAssembly());
             _client.MessageReceived += Handle.HandleCommand;
         }
-        
         public class Handle
         {
             public static async Task HandleCommand(SocketMessage messageParam)
@@ -378,51 +376,7 @@ namespace PixelBot
 
     public class Main : ModuleBase
     {
-        [Command("find")]
-        public async Task Find(string ID)
-        {
-            try
-            {
-                HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("http://64.137.189.209:2403/blacklist");
-                httpWebRequest.Method = WebRequestMethods.Http.Get;
-                httpWebRequest.Accept = "application/json";
-                httpWebRequest.Host = "92.237.155.18";
-                HttpWebResponse response = (HttpWebResponse)httpWebRequest.GetResponse();
-
-                Stream receiveStream = response.GetResponseStream();
-                StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
-                var Req = readStream.ReadToEnd();
-                dynamic Data = JArray.Parse(Req);
-                foreach (var i in Data)
-                {
-                    Console.WriteLine(i);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-            }
-
-
-
-
-
-            return;
-            IGuildUser ThisBot = null;
-            var Guilds = await Context.Client.GetGuildsAsync();
-            foreach (var Guild in Guilds)
-            {
-                var Users = await Guild.GetUsersAsync();
-
-            }
-        }
-
-        [Command("prunetest")]
-        public async Task Prunetest()
-        {
-            
-
-        }
+        
 
         [Command("uptime")]
         public async Task Resetuptime(string User = "")
@@ -920,30 +874,42 @@ namespace PixelBot
         public async Task User(string User = "")
         {
             IGuildUser GuildUser = null;
+            string NotInGuild = " - Not In This Guild";
+            int Count = 0;
             if (User == "")
             {
-                GuildUser = Context.User as IGuildUser;
+                User = Context.User.Id.ToString();
             }
-            else
-            {
                 if (User.StartsWith("<@"))
                 {
-                    string RealUser = User;
-                    RealUser = RealUser.Replace("<@", "").Replace(">", "");
-                    if (RealUser.Contains("!"))
+                    User = User.Replace("<@", "").Replace(">", "");
+                    if (User.Contains("!"))
                     {
-                        RealUser = RealUser.Replace("!", "");
+                        User = User.Replace("!", "");
                     }
-                    GuildUser = await Context.Guild.GetUserAsync(Convert.ToUInt64(RealUser));
                 }
-                else
+                
+                foreach (var Guild in PixelBot._client.Guilds)
                 {
-                    GuildUser = await Context.Guild.GetUserAsync(Convert.ToUInt64(User));
+                    IGuildUser FindUser = Guild.GetUser(Convert.ToUInt64(User));
+                    if (FindUser != null)
+                    {
+                        Count++;
+                        if (Guild.Id == Context.Guild.Id)
+                        {
+                            NotInGuild = "";
+                        }
+                        if (GuildUser == null)
+                        {
+                            GuildUser = FindUser;
+                        }
+                    }
+                    
                 }
-            }
+            
             if (GuildUser == null)
             {
-                await Context.Channel.SendMessageAsync("`Could not find user`");
+                await Context.Channel.SendMessageAsync($"`Could not find user in {PixelBot._client.Guilds.Count} guilds`").ConfigureAwait(false);
                 return;
             }
 
@@ -956,11 +922,11 @@ namespace PixelBot
                 },
                 ThumbnailUrl = GuildUser.GetAvatarUrl(),
                 Color = DiscordUtils.GetRoleColor(Context),
-                Description = $"<@{GuildUser.Id}>" + Environment.NewLine + "```md" + Environment.NewLine + $"<Discrim {GuildUser.Discriminator}> <ID {GuildUser.Id}>" + Environment.NewLine + $"<Joined_Guild {GuildUser.JoinedAt.Value.Date.ToShortDateString()}>" + Environment.NewLine + $"<Created_Account {GuildUser.CreatedAt.Date.ToShortDateString()}>```",
+                Description = $"<@{GuildUser.Id}>{NotInGuild}" + Environment.NewLine + "```md" + Environment.NewLine + $"<Discrim {GuildUser.Discriminator}> <ID {GuildUser.Id}>" + Environment.NewLine + $"<Joined_Guild {GuildUser.JoinedAt.Value.Day} {GuildUser.JoinedAt.Value.Date.ToString("MMMM")} {GuildUser.JoinedAt.Value.Year}>" + Environment.NewLine + $"<Created_Account {GuildUser.CreatedAt.Day} {GuildUser.CreatedAt.DateTime.ToString("MMMM")} {GuildUser.CreatedAt.Year}>" + Environment.NewLine + $"Found in {Count} guilds```",
                 Footer = new EmbedFooterBuilder()
                 { Text = "To lookup a discrim use | p/discrim 0000" }
             };
-            await Context.Channel.SendMessageAsync("", false, embed);
+            await Context.Channel.SendMessageAsync("", false, embed).ConfigureAwait(false);
         }
 
         [Command("bot")]
@@ -1110,6 +1076,192 @@ namespace PixelBot
             await Context.Channel.SendMessageAsync("", false, embed);
         }
 
+        [Command("getbot")]
+        [Remarks("getbot (@Mention/User ID)")]
+        [Summary("Get info about any bot")]
+        public async Task Getinvite(string User = "", string Api = "")
+        {
+            Apis.Bots.BotClass GetBot = null;
+            if (Context.Guild.Id == 264445053596991498 || Api.Contains("list"))
+            {
+                Api = "list";
+                GetBot = Apis.Bots.DiscordBotsList(Utils.DiscordUtils.StringToUserID(User));
+
+                if (GetBot == null)
+                {
+                    GetBot = Apis.Bots.MainDiscordBots(Utils.DiscordUtils.StringToUserID(User));
+                    Api = "";
+                }
+            }
+            else
+            {
+                GetBot = Apis.Bots.MainDiscordBots(Utils.DiscordUtils.StringToUserID(User));
+                if (GetBot == null)
+                {
+                    GetBot = Apis.Bots.DiscordBotsList(Utils.DiscordUtils.StringToUserID(User));
+                    Api = "list";
+                }
+            }
+            if (GetBot == null)
+            {
+                await ReplyAsync("`Could not find bot`").ConfigureAwait(false);
+                return;
+            }
+            string Owner = $"Owner: {GetBot.OwnersID[0].ToString()}";
+            string Bot = $"{GetBot.Name} - {GetBot.ID}";
+            IGuildUser GetOwner = await Context.Guild.GetUserAsync(GetBot.OwnersID[0]).ConfigureAwait(false);
+            if (GetOwner != null)
+            {
+                Owner = $"Owner: <@{GetBot.OwnersID[0].ToString()}>";
+            }
+            IGuildUser GetBotUser = await Context.Guild.GetUserAsync(GetBot.ID).ConfigureAwait(false);
+            if (GetBotUser != null)
+            {
+                Bot = $"{GetBot.Name} <@{GetBot.ID.ToString()}>";
+            }
+            string Links = "";
+            if (GetBot.Invite != "")
+            {
+                if (GetBot.Invite.Contains("redirect_uri"))
+                {
+                    Links = $"Invite: {GetBot.Invite}" + Environment.NewLine;
+                }
+                else
+                {
+                    Links = $"[Invite]({GetBot.Invite}) ";
+                }
+            }
+            if (GetBot.Website != "")
+            {
+                Links = Links + $"[Website]({GetBot.Website}) ";
+            }
+            if (GetBot.Github != "")
+            {
+                Links = Links + $"[Github]({GetBot.Github})";
+            }
+            if (GetBot.OwnersID.Count != 1)
+            {
+                if (GetBot.OwnersID.Count == 2)
+                {
+                    Owner = $"{Owner} +{GetBot.OwnersID.Count() - 1} Other";
+                }
+                else
+                {
+                    Owner = $"{Owner} +{GetBot.OwnersID.Count() - 1} Others";
+                }
+            }
+            var embed = new EmbedBuilder();
+            if (Api.Contains("list"))
+            {
+                embed = new EmbedBuilder()
+                {
+                    Color = Utils.DiscordUtils.GetRoleColor(Context),
+                    Description = $"{Bot} | {Owner} ```md" + Environment.NewLine + $"<Prefix {GetBot.Prefix}> <Lib {GetBot.Libary}>" + Environment.NewLine + $"<Guilds {GetBot.ServerCount}> <Tags {string.Join(", ", GetBot.Tags)}>" + Environment.NewLine + $"<Points {GetBot.Points}> <Certified {GetBot.Certified}>```" + Links + Environment.NewLine + GetBot.Description
+                };
+            }
+            else
+            {
+                embed = new EmbedBuilder()
+                {
+                    Color = Utils.DiscordUtils.GetRoleColor(Context),
+                    Description = $"{Bot} | {Owner} ```md" + Environment.NewLine + $"<Prefix {GetBot.Prefix}> <Lib {GetBot.Libary}>" + Environment.NewLine + $"<Guilds {GetBot.ServerCount}> <Tags {string.Join(", ", GetBot.Tags)}>```" + Links + Environment.NewLine + GetBot.Description
+                };
+            }
+            await ReplyAsync("", false, embed).ConfigureAwait(false);
+        }
+
+        [Command("getowner")]
+        [Alias("getowners")]
+        [Remarks("getowner (@Mention/User ID)")]
+        [Summary("Get owner of a bot")]
+        public async Task GetOwner(string User = "", string Api = "")
+        {
+            Apis.Bots.BotClass GetBot = null;
+            if (Context.Guild.Id == 264445053596991498 || Api.Contains("list"))
+            {
+                GetBot = Apis.Bots.DiscordBotsList(Utils.DiscordUtils.StringToUserID(User));
+
+                if (GetBot == null)
+                {
+                    GetBot = Apis.Bots.MainDiscordBots(Utils.DiscordUtils.StringToUserID(User));
+                }
+            }
+            else
+            {
+                GetBot = Apis.Bots.MainDiscordBots(Utils.DiscordUtils.StringToUserID(User));
+                if (GetBot == null)
+                {
+                    GetBot = Apis.Bots.DiscordBotsList(Utils.DiscordUtils.StringToUserID(User));
+                }
+            }
+            if (GetBot == null)
+            {
+                await ReplyAsync("`Could not find bot`").ConfigureAwait(false);
+                return;
+            }
+            List<string> Owners = new List<string>();
+            foreach(var Owner in GetBot.OwnersID)
+            {
+                Owners.Add($"<@{Owner}>");
+            }
+
+            var embed = new EmbedBuilder()
+            {
+                Description = string.Join(Environment.NewLine, Owners),
+                Color = Utils.DiscordUtils.GetRoleColor(Context)
+            };
+            if (GetBot.OwnersID.Count == 1)
+            {
+                embed.Title = $"Owner of {GetBot.Name}";
+            }
+            else
+            {
+                embed.Title = $"Owners of {GetBot.Name}";
+            }
+            await ReplyAsync("", false, embed).ConfigureAwait(false);
+        }
+
+        [Command("getinvite")]
+        [Remarks("getinvite (@Mention/User ID)")]
+        [Summary("Get invite of a bot")]
+        public async Task GetInvite(string User = "", string Api = "")
+        {
+            Apis.Bots.BotClass GetBot = null;
+            if (Context.Guild.Id == 264445053596991498 || Api.Contains("list"))
+            {
+                GetBot = Apis.Bots.DiscordBotsList(Utils.DiscordUtils.StringToUserID(User));
+
+                if (GetBot == null)
+                {
+                    GetBot = Apis.Bots.MainDiscordBots(Utils.DiscordUtils.StringToUserID(User));
+                }
+            }
+            else
+            {
+                GetBot = Apis.Bots.MainDiscordBots(Utils.DiscordUtils.StringToUserID(User));
+                if (GetBot == null)
+                {
+                    GetBot = Apis.Bots.DiscordBotsList(Utils.DiscordUtils.StringToUserID(User));
+                }
+            }
+            if (GetBot == null)
+            {
+                await ReplyAsync("`Could not find bot`").ConfigureAwait(false);
+                return;
+            }
+            if (GetBot.Invite == "")
+            {
+                await ReplyAsync("`This bot has no invite or is private`").ConfigureAwait(false);
+                return;
+            }
+            var embed = new EmbedBuilder()
+            {
+                Title = $"Invite for {GetBot.Name}",
+                Description = GetBot.Invite,
+                Color = Utils.DiscordUtils.GetRoleColor(Context)
+            };
+            await ReplyAsync("", false, embed).ConfigureAwait(false);
+        }
     }
     public class Game : ModuleBase
     {
@@ -2110,12 +2262,19 @@ namespace PixelBot
         }
     }
 
-    public class Pruenafag : ModuleBase
+    public class Prune : ModuleBase
     {
-        [Group("ttprunet")]
-        [Alias("ttpurge", "tttidy", "ttclean")]
-        public class Pruafagagbasdg : ModuleBase
+        [Group("prune")]
+        [Alias("purge", "tttidy", "ttclean")]
+        public class PruneGroup : ModuleBase
         {
+            private readonly TimeSpan twoWeeks = TimeSpan.FromDays(14);
+            private readonly PruneService _prune;
+            public PruneGroup(PruneService prune)
+            {
+                _prune = prune;
+            }
+
             [Command("all")]
             [Remarks("prune all (Ammount)")]
             [Summary("Prune all messages | Not pinned")]
@@ -2144,15 +2303,14 @@ namespace PixelBot
                     await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                     return;
                 }
-                var enume = (await Context.Channel.GetMessagesAsync(100).Flatten());
-                await Context.Channel.DeleteMessagesAsync(enume).ConfigureAwait(false);
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {enume.Count()} messages`").ConfigureAwait(false);
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => !x.IsPinned).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted all messages (Not Pinned)`").ConfigureAwait(false);
             }
 
             [Command("user")]
             [Remarks("prune user (@Mention/User ID) (Ammount)")]
             [Summary("Prune messages made by thi user")]
-            public async Task Pruneuser(IUser User = null, int Ammount = 30)
+            public async Task Pruneuser(string User = "", int Ammount = 30)
             {
                 if (User == null)
                 {
@@ -2182,16 +2340,9 @@ namespace PixelBot
                     await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                     return;
                 }
-                int Count = 0;
-                foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
-                {
-                    if (Count != Ammount & Item.Author.Id == User.Id)
-                    {
-                        Count++;
-                        await Item.DeleteAsync();
-                    }
-                }
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} user messages`");
+                var user = await Context.Guild.GetUserAsync(Convert.ToUInt64(Utils.DiscordUtils.StringToUserID(User))).ConfigureAwait(false);
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Author.Id == user.Id).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted user {user.Username} messages`");
             }
 
             [Command("bot")]
@@ -2223,16 +2374,8 @@ namespace PixelBot
                     await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                     return;
                 }
-                int Count = 0;
-                foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
-                {
-                    if (Count != Ammount & Item.Author.IsBot)
-                    {
-                        Count++;
-                        await Item.DeleteAsync();
-                    }
-                }
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} bot messages`");
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Author.IsBot).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted bot messages`");
             }
 
             [Command("image")]
@@ -2264,16 +2407,8 @@ namespace PixelBot
                     await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                     return;
                 }
-                int Count = 0;
-                foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
-                {
-                    if (Count != Ammount & Item.Attachments.Any())
-                    {
-                        Count++;
-                        await Item.DeleteAsync();
-                    }
-                }
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} images`");
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Attachments.Count != 0).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted images`");
             }
 
             [Command("embed")]
@@ -2305,16 +2440,8 @@ namespace PixelBot
                     await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                     return;
                 }
-                int Count = 0;
-                foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
-                {
-                    if (Count != Ammount & Item.Embeds.Any())
-                    {
-                        Count++;
-                        await Item.DeleteAsync();
-                    }
-                }
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} embeds`");
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Embeds.Count != 0).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted embeds`");
             }
 
             [Command("link")]
@@ -2347,56 +2474,8 @@ namespace PixelBot
                     return;
                 }
                 int Count = 0;
-                foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
-                {
-                    if (Count != Ammount & Item.Content.Contains("http://") || Item.Content.Contains("https://"))
-                    {
-                        Count++;
-                        await Item.DeleteAsync();
-                    }
-                }
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} links`");
-            }
-
-            [Command("command")]
-            [Alias("commands")]
-            [Remarks("prune command")]
-            [Summary("Prune messages that are a bot prefix like /help p/help $help *help")]
-            public async Task Prunecommands(int Ammount = 30)
-            {
-                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
-                    return;
-                }
-                await Context.Message.DeleteAsync();
-                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
-                    return;
-                }
-                if (Ammount < 0)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
-                    return;
-                }
-                if (Ammount > 30)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
-                    return;
-                }
-                int Count = 0;
-                foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
-                {
-                    if (Count != Ammount & Item.Content.StartsWith("p/") || Item.Content.StartsWith("/") || Item.Content.StartsWith("!") || Item.Content.StartsWith(",") || Item.Content.StartsWith("=") || Item.Content.StartsWith("%") || Item.Content.StartsWith("b!"))
-                    {
-                        Count++;
-                        await Item.DeleteAsync();
-                    }
-                }
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} commands`");
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Content.Contains("http://") | x.Content.Contains("https://")).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted links`");
             }
 
             [Command("text")]
@@ -2421,16 +2500,8 @@ namespace PixelBot
                 {
                     await Context.Channel.SendMessageAsync("`You need to specify text | p/prune text (Text) | Replace (Text) with anything`");
                 }
-                int Count = 0;
-                foreach (var Item in await Context.Channel.GetMessagesAsync(100).Flatten())
-                {
-                    if (Item.Content.Contains(Text))
-                    {
-                        Count++;
-                        await Item.DeleteAsync();
-                    }
-                }
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted {Count} messages`");
+                await _prune.PruneWhere((ITextChannel)Context.Channel, 100, (x) => x.Content.Contains(Text)).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted messages that contain ({Text})`");
             }
         }
     }

@@ -259,9 +259,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Tokens.cs" />
     <Compile Include="Other\ConcurrentHashSet.cs" />
-    <Compile Include="Commands\PruneCommands.cs" />
     <Compile Include="ConsoleFix.cs" />
     <Compile Include="MineStat.cs" />
     <Compile Include="Pagination.cs" />
