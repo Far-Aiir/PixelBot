@@ -353,7 +353,7 @@ namespace PixelBot
                 {
                     if (!(message.HasStringPrefix("p/", ref argPos) || message.HasMentionPrefix(_client.CurrentUser, ref argPos))) return;
                     var context = new CommandContext(_client, message);
-                    var result = await _commands.ExecuteAsync(context, argPos).ConfigureAwait(false);
+                    var result = await _commands.ExecuteAsync(context, argPos, _service).ConfigureAwait(false);
                     if (result.IsSuccess)
                     {
                         if (Properties.Settings.Default.CommandOutput == true)
@@ -2265,7 +2265,7 @@ namespace PixelBot
     public class Prune : ModuleBase
     {
         [Group("prune")]
-        [Alias("purge", "tttidy", "ttclean")]
+        [Alias("purge", "tidy", "clean")]
         public class PruneGroup : ModuleBase
         {
             private readonly TimeSpan twoWeeks = TimeSpan.FromDays(14);
@@ -2613,7 +2613,7 @@ namespace PixelBot
         }
 
         [Command("misc")]
-        [Alias("game", "media", "purge", "clean", "tidy")]
+        [Alias("game", "media", "prune", "purge", "clean", "tidy")]
         public async Task Misc()
         {
             if (Context.Message.Content.ToLower().EndsWith("/misc"))
