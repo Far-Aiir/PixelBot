@@ -169,9 +169,10 @@ namespace PixelBot.Utils
             }
             return RoleColor;
         }
-
-        private static PaginationService.Full.Service _paginationfull = PixelBot._PagFull;
-
+        public static PaginationService.Full.Service _paginationfull = new PaginationService.Full.Service(PixelBot._client);
+        
+        public static PaginationService.Min.Service _paginationmin = new PaginationService.Min.Service(PixelBot._client);
+        
         public static Dictionary<ulong, IGuildUser> GuildBotCache = new Dictionary<ulong, IGuildUser>();
 
         public static async void UpdateUptimeGuilds()
@@ -188,37 +189,39 @@ namespace PixelBot.Utils
                 Console.WriteLine(ex);
             }
         }
-
-        public static async Task SendPaginator(List<string> pages, string title, ICommandContext context, EmbedBuilder fallback)
-        {
-            IGuildUser PixelBot = null;
-            GuildBotCache.TryGetValue(context.Guild.Id, out PixelBot);
-            if (PixelBot.GetPermissions(context.Channel as ITextChannel).ManageMessages & PixelBot.GetPermissions(context.Channel as ITextChannel).AddReactions)
+            public static async Task SendPaginator(List<string> pages, string title, ICommandContext context, EmbedBuilder fallback)
             {
-                var message = new PaginationService.Full.Message(pages, title, Utils.DiscordUtils.GetRoleColor(context), true, "", context.User);
-
-                await _paginationfull.SendPagFullMessageAsync(context.Channel, message).ConfigureAwait(false);
-            }
-            else
-            {
-                if (PixelBot.GetPermissions(context.Channel as ITextChannel).AddReactions)
+            
+           
+                IGuildUser PixelBot = null;
+                GuildBotCache.TryGetValue(context.Guild.Id, out PixelBot);
+                if (PixelBot.GetPermissions(context.Channel as ITextChannel).ManageMessages & PixelBot.GetPermissions(context.Channel as ITextChannel).AddReactions)
                 {
-                    var message = new PaginationService.Full.Message(pages, title, Utils.DiscordUtils.GetRoleColor(context), false, "- Cannot delete reactions | No perm manage messages", context.User);
-                    await _paginationfull.SendPagFullMessageAsync(context.Channel, message);
+                    var message = new PaginationService.Full.Message(pages, title, Utils.DiscordUtils.GetRoleColor(context), true, "", context.User);
+
+                    await _paginationfull.SendPagFullMessageAsync(context.Channel, message).ConfigureAwait(false);
                 }
                 else
                 {
-                    if (PixelBot.GetPermissions(context.Channel as ITextChannel).EmbedLinks)
+                    if (PixelBot.GetPermissions(context.Channel as ITextChannel).AddReactions)
                     {
-                        fallback.Color = GetRoleColor(context);
-                        await context.Channel.SendMessageAsync("", false, fallback.Build());
+                        var message = new PaginationService.Full.Message(pages, title, Utils.DiscordUtils.GetRoleColor(context), false, "- Cannot delete reactions | No perm manage messages", context.User);
+                        await _paginationfull.SendPagFullMessageAsync(context.Channel, message);
                     }
                     else
                     {
-                        await context.Channel.SendMessageAsync("This bot needs permission `embed links` to function");
+                        if (PixelBot.GetPermissions(context.Channel as ITextChannel).EmbedLinks)
+                        {
+                            fallback.Color = GetRoleColor(context);
+                            await context.Channel.SendMessageAsync("", false, fallback.Build());
+                        }
+                        else
+                        {
+                            await context.Channel.SendMessageAsync("This bot needs permission `embed links` to function");
+                        }
                     }
-                }
 
+                
             }
         }
     }

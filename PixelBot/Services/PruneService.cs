@@ -62,7 +62,7 @@ namespace PixelBot.Services
                         msgs = (await channel.GetMessagesAsync(lastMessage, Direction.Before, amount > 100 ? 100 : amount).Flatten()).Where(predicate).ToArray();
                 }
             }
-            catch (Exception ex)
+            catch
             {
 
             }

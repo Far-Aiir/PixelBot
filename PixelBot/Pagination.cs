@@ -305,7 +305,6 @@ namespace PaginationService
 
             internal string Title { get; }
             internal Color EmbedColor { get; }
-            internal IReadOnlyCollection<EmbedFieldBuilder> fields { get; }
             internal IReadOnlyCollection<EmbedBuilder> Pages { get; }
             internal IUser User { get; }
             internal int CurrentPage { get; set; }

@@ -47,9 +47,9 @@ namespace PixelBot
     }
     public class Start
     {
-        public static string BotPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\";
+        private static string BotPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\PixelBot\\";
         
-        static void Main()
+        private static void Main()
         {
             DisableConsoleQuickEdit.Go();
             if (File.Exists(BotPath + "LIVE.txt"))
@@ -59,7 +59,7 @@ namespace PixelBot
             }
             else
             {
-                Console.Title = "[DevMode] PixelBot";
+                Console.Title = "Dev PixelBot";
             }
             using (StreamWriter file = File.CreateText(BotPath + "TokensTemplate" + ".json"))
             {
@@ -68,23 +68,14 @@ namespace PixelBot
 
             }
             string TokenPath = BotPath + "Tokens.txt";
-            Directory.CreateDirectory(BotPath + "Uptime\\");
             Directory.CreateDirectory(BotPath + "Twitch\\");
             Directory.CreateDirectory(BotPath + "Users\\");
-            foreach (var File in Directory.GetFiles(BotPath + "Uptime\\"))
-            {
-                using (StreamReader reader = new StreamReader(File))
-                {
-                    MyServices.UptimeBotsList.Add(Convert.ToUInt64(File.Replace(BotPath + "Uptime\\", "").Replace(".txt", "")), Convert.ToInt32(reader.ReadLine()));
-                }
-            }
             foreach (var File in Directory.GetFiles(BotPath + "Twitch\\"))
             {
                 using (StreamReader reader = new StreamReader(File))
                 {
                     JsonSerializer serializer = new JsonSerializer();
-                    MyServices.TwitchNotifyClass Item = (MyServices.TwitchNotifyClass)serializer.Deserialize(reader, typeof(MyServices.TwitchNotifyClass));
-                    MyServices.TwitchNotifications.Add(Item);
+                    Twitch.NotificationList.Add((Twitch.TwitchClass)serializer.Deserialize(reader, typeof(Twitch.TwitchClass)));
                 }
             }
             foreach (var File in Directory.GetFiles(BotPath + "Users\\"))
@@ -92,8 +83,7 @@ namespace PixelBot
                 using (StreamReader reader = new StreamReader(File))
                 {
                     JsonSerializer serializer = new JsonSerializer();
-                    Apis.Bots.BotClass Item = (Apis.Bots.BotClass)serializer.Deserialize(reader, typeof(Apis.Bots.BotClass));
-                    Apis.Bots.BotsList.Add(Item);
+                    Apis.Bots.BotsList.Add((Apis.Bots.BotClass)serializer.Deserialize(reader, typeof(Apis.Bots.BotClass)));
                 }
             }
             if (Properties.Settings.Default.Blacklist == null)
@@ -120,145 +110,265 @@ namespace PixelBot
         public static DiscordSocketClient _client;
         public static CommandService _commands = new CommandService();
         public static IServiceProvider _service;
-        public static PaginationService.Min.Service _PagMin;
-        public static PaginationService.Full.Service _PagFull;
+        public static ITextChannel BlacklistChannel = null;
+        public static ITextChannel NewGuildChannel = null;
         public async Task RunBot()
         {
             _client = new DiscordSocketClient(new DiscordSocketConfig
             {
                 MessageCacheSize = 10,
                 ConnectionTimeout = int.MaxValue,
-                LogLevel = LogSeverity.Warning,
                 AlwaysDownloadUsers = true
             });
             _commands = new CommandService(new CommandServiceConfig()
             {
                 CaseSensitiveCommands = false,
-                DefaultRunMode = RunMode.Async,
-                LogLevel = LogSeverity.Warning
+                DefaultRunMode = RunMode.Async
             });
             await InstallCommands(_client).ConfigureAwait(false);
 
             _client.Connected += () =>
             {
+                if (BlacklistChannel == null)
+                {
+                    IGuild Guild = _client.GetGuild(275054291360940032);
+                    BlacklistChannel = Guild.GetTextChannelAsync(327398925889961984).GetAwaiter().GetResult();
+                }
+                if (NewGuildChannel == null)
+                {
+                    IGuild Guild = _client.GetGuild(275054291360940032);
+                    NewGuildChannel = Guild.GetTextChannelAsync(327398889298853898).GetAwaiter().GetResult();
+                }
                 if (DevMode == true)
                 {
-                    Console.Title = "[DevMode] PixelBot - Online!";
-                    Console.WriteLine("[PixelBot] Connected - DevMode is enabled!");
+                    Console.Title = "Dev PixelBot Online!";
+                    Console.WriteLine("[Dev PixelBot] Connected");
                 }
                 else
                 {
+                    
                     Console.Title = "PixelBot - Online!";
                     Console.WriteLine("[PixelBot] Connected");
                 }
                 return Task.CompletedTask;
             };
 
-            _client.UserJoined += (User) =>
-            {
-                if (DevMode == false & User.Guild.Id == 81384788765712384 || User.Guild.Id == 264445053596991498 & User.IsBot & !File.Exists(PixelBot.BotPath + "Uptime\\" + User.Id.ToString() + ".txt"))
-                {
-                    System.IO.File.WriteAllText(BotPath + "Uptime\\" + User.Id.ToString() + ".txt", "75");
-                }
-                return Task.CompletedTask;
-            };
-
             _client.Disconnected += (r) =>
             {
+                BlacklistChannel = null;
+                NewGuildChannel = null;
                 if (DevMode == true)
                 {
-                    Console.Title = "[DevMode] PixelBot - Offline!";
+                    Console.Title = "Dev PixelBot - Offline!";
+                    Console.WriteLine("[Dev PixelBot] Disconnected");
                 }
                 else
                 {
                     Console.Title = "PixelBot - Offline!";
+                    Console.WriteLine("[PixelBot] Disconnected");
                 }
-                Console.WriteLine("[PixelBot] Disconnected");
                 return Task.CompletedTask;
             };
 
             _client.Ready += async () =>
             {
                 Console.WriteLine($"[PixelBot] Online in {_client.Guilds.Count} Guilds");
-                MyServices._Timer_Twitch.Interval = 60000;
-                MyServices._Timer_Twitch.Elapsed += MyServices.TwitchNotification;
-                MyServices._Timer_Twitch.Start();
+                
                 if (DevMode == false)
                 {
-                    await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
+                    await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml").ConfigureAwait(false);
+                    
                     if (FirstStart == false)
                     {
+                        Twitch.Timer.Interval = 60000;
+                        Twitch.Timer.Elapsed += Twitch.SendNotifications;
+                        Twitch.Timer.Start();
                         Utils.DiscordUtils.UpdateUptimeGuilds();
-                        MyServices.BotGuildCount(null, null);
-
-                        MyServices._Timer_Stats.Interval = 600000;
-                        MyServices._Timer_Stats.Elapsed += MyServices.BotGuildCount;
-                        MyServices._Timer_Stats.Start();
-                        MyServices._Timer_Uptime.Interval = 600000;
-                        MyServices._Timer_Uptime.Elapsed += MyServices.Uptime;
-                        MyServices._Timer_Uptime.Start();
+                        Services.Stats.PostStats(null, null);
+                        Stats.Timer.Interval = 1800000;
+                        Stats.Timer.Elapsed += Stats.PostStats;
+                        Stats.Timer.Start();
+                        Blacklist.Timer.Interval = 300000;
+                        Blacklist.Timer.Elapsed += Blacklist.CheckBlacklist;
+                        Blacklist.Timer.Start();
                         Console.WriteLine("[PixelBot] Timer Service Online");
                     }
                 }
                 FirstStart = true;
             };
 
-            _client.LeftGuild += async (g) =>
+            _client.LeftGuild += (g) =>
             {
                 Utils.DiscordUtils.GuildBotCache.Remove(g.Id);
                 Console.WriteLine($"[Left] > {g.Name} - {g.Id}");
                 if (DevMode == false)
                 {
-                    await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml");
+                    _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ").GetAwaiter();
+                    if (NewGuildChannel != null)
+                    {
+                        var embed = new EmbedBuilder()
+                        {
+                            Title = $"Left {g.Name}",
+                            Description = g.Id.ToString()
+                        };
+                        NewGuildChannel.SendMessageAsync("", false, embed).GetAwaiter();
+                    }
                 }
-            };
-
-            _client.JoinedGuild += async (g) =>
-            {
-                if (DevMode == false & Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
+                foreach (var i in ALLUSERS.Where(x => x.Guild.Id == g.Id))
                 {
-                    Console.WriteLine($"[Blacklist] Removed {g.Name} - {g.Id}");
-                    await g.DefaultChannel.SendMessageAsync($"This guild has been blacklist by the owner ({g.Id}) contact `xXBuilderBXx#9113` for more info");
-                    await g.LeaveAsync();
+                    ALLUSERS.Remove(i);
                 }
-                await _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ");
+                return Task.CompletedTask;
             };
 
             _client.JoinedGuild += (g) =>
             {
-                if (DevMode == false & Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
+                #region Blacklist
+                if (DevMode == false)
                 {
-                    return Task.CompletedTask;
-                }
-                foreach (var User in g.Users)
-                {
-                    if (!ALLUSERS.Exists(x => x.Id == User.Id))
+                    var GuildUsers = g.Users;
+                    int Users = GuildUsers.Where(x => !x.IsBot).Count();
+                    int Bots = GuildUsers.Where(x => x.IsBot).Count();
+                    if (DevMode == false & Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
                     {
-                        ALLUSERS.Add(User);
+                        Console.WriteLine($"[Blacklist] Removed {g.Name} - {g.Id}");
+                        g.LeaveAsync().GetAwaiter();
+                        if (BlacklistChannel != null)
+                        {
+                            var embed = new EmbedBuilder()
+                            {
+                                Title = g.Name,
+                                Description = $"Users {Users}/{Bots} Bots",
+                                Footer = new EmbedFooterBuilder()
+                                {
+                                    Text = g.Id.ToString()
+                                }
+                            };
+                            BlacklistChannel.SendMessageAsync("", false, embed).GetAwaiter();
+                        }
+                        return Task.CompletedTask;
+                    }
+
+                    if (g.Users.Where(x => x.IsBot).Count() * 100 / g.Users.Count() > 90)
+                    {
+                        Console.WriteLine($"[Blacklist] Added {g.Name} - {g.Id}");
+                        Properties.Settings.Default.Blacklist.Add(g.Id.ToString());
+                        Properties.Settings.Default.Save();
+                        g.LeaveAsync().GetAwaiter();
+                        if (BlacklistChannel != null)
+                        {
+                            var embed = new EmbedBuilder()
+                            {
+                                Title = g.Name,
+                                Description = $"Users {Users}/{Bots} Bots",
+                                Footer = new EmbedFooterBuilder()
+                                {
+                                    Text = g.Id.ToString()
+                                }
+                            };
+                            BlacklistChannel.SendMessageAsync("", false, embed).GetAwaiter();
+                        }
+                        return Task.CompletedTask;
+                    }
+                }
+                #endregion
+                if (DevMode == false)
+                {
+                    _client.SetGameAsync($"p/help | {_client.Guilds.Count} Guilds | https://blaze.ml ").GetAwaiter();
+                    if (NewGuildChannel != null)
+                    {
+                        var embed = new EmbedBuilder()
+                        {
+                            Title = $"Joined {g.Name}",
+                            Description = g.Id.ToString()
+                        };
+                        NewGuildChannel.SendMessageAsync("", false, embed).GetAwaiter();
                     }
                 }
                 IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
                 Utils.DiscordUtils.GuildBotCache.Add(g.Id, BotUser);
                 Console.WriteLine($"[Joined] {g.Name} - {g.Id}");
+                foreach (var User in g.Users.Where(x => !x.IsBot))
+                {
+                    if (!ALLUSERS.Exists(x => x.Id == User.Id))
+                    {
+                        ALLUSERS.Add(User);
+                    }
+                }
                 return Task.CompletedTask;
             };
 
-            _client.GuildAvailable += async (g) =>
+            _client.UserJoined += (u) =>
             {
-                if (DevMode == false & Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
+                if (!ALLUSERS.Exists(x => x.Id == u.Id))
                 {
-                    Console.WriteLine($"[Blacklist] Removed {g.Name} - {g.Id}");
-                    await g.DefaultChannel.SendMessageAsync($"This guild has been blacklist by the owner ({g.Id}) contact `xXBuilderBXx#9113` for more info");
-                    await g.LeaveAsync();
+                    ALLUSERS.Add(u);
                 }
+                return Task.CompletedTask;
+            };
+
+            _client.UserLeft += (u) =>
+            {
+                if (!ALLUSERS.Exists(x => x.Id == u.Id & x.GuildId == u.Guild.Id))
+                {
+                    ALLUSERS.Add(u);
+                }
+                return Task.CompletedTask;
             };
 
             _client.GuildAvailable += (g) =>
             {
-                if (DevMode == false & Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
+                #region Blacklist
+                if (DevMode == false)
                 {
-                    return Task.CompletedTask;
+                    var GuildUsers = g.Users;
+                    int Users = GuildUsers.Where(x => !x.IsBot).Count();
+                    int Bots = GuildUsers.Where(x => x.IsBot).Count();
+                    if (Properties.Settings.Default.Blacklist.Contains(g.Id.ToString()))
+                    {
+                        Console.WriteLine($"[Blacklist] Removed {g.Name} - {g.Id}");
+                        g.LeaveAsync().GetAwaiter();
+                        if (BlacklistChannel != null)
+                        {
+                            var embed = new EmbedBuilder()
+                            {
+                                Title = g.Name,
+                                Description = $"Users {Users}/{Bots} Bots",
+                                Footer = new EmbedFooterBuilder()
+                                {
+                                    Text = g.Id.ToString()
+                                }
+                            };
+                            BlacklistChannel.SendMessageAsync("", false, embed).GetAwaiter();
+                        }
+                        return Task.CompletedTask;
+                    }
+
+                    if (g.Users.Where(x => x.IsBot).Count() * 100 / g.Users.Count() > 90)
+                    {
+                        Console.WriteLine($"[Blacklist] Added {g.Name} - {g.Id}");
+                        Properties.Settings.Default.Blacklist.Add(g.Id.ToString());
+                        Properties.Settings.Default.Save();
+                        g.LeaveAsync().GetAwaiter();
+                        if (BlacklistChannel != null)
+                        {
+                            var embed = new EmbedBuilder()
+                            {
+                                Title = g.Name,
+                                Description = $"Users {Users}/{Bots} Bots",
+                                Footer = new EmbedFooterBuilder()
+                                {
+                                    Text = g.Id.ToString()
+                                }
+                            };
+                            BlacklistChannel.SendMessageAsync("", false, embed).GetAwaiter();
+                        }
+                        return Task.CompletedTask;
+                    }
                 }
+                #endregion
+                IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
+                Utils.DiscordUtils.GuildBotCache.Add(g.Id, BotUser);
                 foreach (var User in g.Users)
                 {
                     if (!ALLUSERS.Exists(x => x.Id == User.Id))
@@ -266,37 +376,9 @@ namespace PixelBot
                         ALLUSERS.Add(User);
                     }
                 }
-                IGuildUser BotUser = g.GetUser(_client.CurrentUser.Id);
-                Utils.DiscordUtils.GuildBotCache.Add(g.Id, BotUser);
                 return Task.CompletedTask;
             };
 
-            _client.MessageReceived += (g) =>
-            {
-                if (Properties.Settings.Default.ChatLogGuild != 0)
-                {
-                    if (g.Channel is IGuildChannel)
-                    {
-                        var GU = g.Channel as ITextChannel;
-                        if (GU.GuildId == Properties.Settings.Default.ChatLogGuild)
-                        {
-                            Console.WriteLine($"[{GU.Guild.Name}] | {g.Author.Username}: {g.Content}");
-                        }
-                    }
-                }
-                else
-                {
-                    if (Properties.Settings.Default.ChatLogGuild == 1)
-                    {
-                        if (g.Channel is IGuildChannel)
-                        {
-                            var GU = g.Channel as ITextChannel;
-                            Console.WriteLine($"[{GU.Guild.Name}] | {g.Author.Username}: {g.Content}");
-                        }
-                    }
-                }
-                return Task.CompletedTask;
-            };
             try
             {
                 await _client.LoginAsync(TokenType.Bot, Tokens.Discord).ConfigureAwait(false);
@@ -312,10 +394,7 @@ namespace PixelBot
 
         private async Task InstallCommands(IDiscordClient client)
         {
-            
-            _PagFull = new PaginationService.Full.Service(_client);
-            _PagMin = new PaginationService.Min.Service(_client);
-            _service = new ServiceCollection().AddSingleton(client).AddSingleton(new PruneService()).BuildServiceProvider();
+            _service = new ServiceCollection().AddSingleton(client).AddSingleton(new PruneService()).AddSingleton(new PaginationService.Full.Service(_client)).AddSingleton(new PaginationService.Min.Service(_client)).BuildServiceProvider();
             await _commands.AddModulesAsync(Assembly.GetEntryAssembly());
             _client.MessageReceived += Handle.HandleCommand;
         }
@@ -376,40 +455,6 @@ namespace PixelBot
 
     public class Main : ModuleBase
     {
-        
-
-        [Command("uptime")]
-        public async Task Resetuptime(string User = "")
-        {
-
-            IGuildUser GuildUser = null;
-            if (User == "")
-            {
-                await Context.Channel.SendMessageAsync("`You need to mention a bot or insert the ID | p/uptime @Bot`");
-            }
-            else
-            {
-                GuildUser = await DiscordUtils.StringToUser(Context.Guild, User);
-                if (!GuildUser.IsBot)
-                {
-                    await Context.Channel.SendMessageAsync("`This is not a bot`");
-                }
-                else
-                {
-                    if (MyServices.UptimeBotsList.Keys.Contains(GuildUser.Id))
-                    {
-                        int Uptime = 75;
-                        MyServices.UptimeBotsList.TryGetValue(GuildUser.Id, out Uptime);
-                        await Context.Channel.SendMessageAsync($"`{GuildUser.Username} has an uptime of {Uptime}%`");
-                    }
-                    else
-                    {
-                        await Context.Channel.SendMessageAsync("`This bot does not have any stats only bots in | Discord Bots | Discord Bot List | are supported for now`");
-                    }
-                }
-            }
-        }
-
         [Command("test")]
         [RequireOwner]
         public async Task Test(string Region = "", [Remainder] string User = "")
@@ -947,7 +992,7 @@ namespace PixelBot
                 int Guilds = (await Context.Client.GetGuildsAsync().ConfigureAwait(false)).Count();
                 embed.AddField(x =>
                 {
-                    x.Name = ":information_source: Info"; x.Value = "```md" + Environment.NewLine + "<Language C#>" + Environment.NewLine + "<Lib .net 1.0>" + Environment.NewLine + $"<Guilds {Guilds}>" + Environment.NewLine + $"<Uptime_Bots {MyServices.UptimeBotsList.Count()}>```" + Environment.NewLine + "**Created by**" + Environment.NewLine + "xXBuilderBXx#9113" + Environment.NewLine + "<@190590364871032834>"; x.IsInline = true;
+                    x.Name = ":information_source: Info"; x.Value = "```md" + Environment.NewLine + "<Language C#>" + Environment.NewLine + "<Lib .net 1.0>" + Environment.NewLine + $"<Guilds {Guilds}>```" + Environment.NewLine + "**Created by**" + Environment.NewLine + "xXBuilderBXx#9113" + Environment.NewLine + "<@190590364871032834>"; x.IsInline = true;
                 });
                 embed.AddField(x =>
                 {
@@ -1714,7 +1759,7 @@ namespace PixelBot
             EmbedList.Add(embed2);
             EmbedList.Add(embed3);
             PaginationService.Min.Message message = new PaginationService.Min.Message(EmbedList, "Test", DiscordUtils.GetRoleColor(Context), Context.User);
-            await PixelBot._PagMin.SendPagMessageAsync(Context.Channel, message);
+            await DiscordUtils._paginationmin.SendPagMessageAsync(Context.Channel, message);
 
         }
 
@@ -2109,12 +2154,12 @@ namespace PixelBot
             }
             if (Option == "me")
             {
-                if (MyServices.TwitchNotifications.Exists(x => x.Twitch == Channel.ToLower() & x.User == Context.User.Id & x.Type == "user"))
+                if (Services.Twitch.NotificationList.Exists(x => x.Twitch == Channel.ToLower() & x.User == Context.User.Id & x.Type == "user"))
                 {
                     await Context.Channel.SendMessageAsync($"`You already have {Channel} listed`");
                     return;
                 }
-                MyServices.TwitchNotifyClass NewNotif = new MyServices.TwitchNotifyClass()
+               Services.Twitch.TwitchClass NewNotif = new Services.Twitch.TwitchClass()
                 {
                     Type = "user",
                     Guild = Context.Guild.Id,
@@ -2128,7 +2173,7 @@ namespace PixelBot
                 {
                     serializer.Serialize(file, NewNotif);
                 }
-                MyServices.TwitchNotifications.Add(NewNotif);
+                Services.Twitch.NotificationList.Add(NewNotif);
                 await Context.Channel.SendMessageAsync($"`You added notifications for {Channel} to yourself`");
 
             }
@@ -2139,12 +2184,12 @@ namespace PixelBot
                     await Context.Channel.SendMessageAsync("`You are not the guild owner`");
                     return;
                 }
-                if (MyServices.TwitchNotifications.Exists(x => x.Twitch == Channel.ToLower() & x.Guild == Context.Guild.Id & x.Type == "channel" & x.Channel == Context.Channel.Id))
+                if (Services.Twitch.NotificationList.Exists(x => x.Twitch == Channel.ToLower() & x.Guild == Context.Guild.Id & x.Type == "channel" & x.Channel == Context.Channel.Id))
                 {
                     await Context.Channel.SendMessageAsync($"`This channel already has {Channel} listed`");
                     return;
                 }
-                MyServices.TwitchNotifyClass NewNotif = new MyServices.TwitchNotifyClass()
+                Services.Twitch.TwitchClass NewNotif = new Services.Twitch.TwitchClass()
                 {
                     Type = "channel",
                     Guild = Context.Guild.Id,
@@ -2158,7 +2203,7 @@ namespace PixelBot
                 {
                     serializer.Serialize(file, NewNotif);
                 }
-                MyServices.TwitchNotifications.Add(NewNotif);
+                Services.Twitch.NotificationList.Add(NewNotif);
                 await Context.Channel.SendMessageAsync($"`You added notifications for {Channel} to this channel`");
             }
         }
@@ -2181,21 +2226,21 @@ namespace PixelBot
             }
             if (Option == "me")
             {
-                List<string> TWList = MyServices.TwitchNotifications.Where(x => x.User == Context.User.Id & x.Type == "user").Select(x => x.Twitch).ToList();
+                List<string> TWList = Services.Twitch.NotificationList.Where(x => x.User == Context.User.Id & x.Type == "user").Select(x => x.Twitch).ToList();
                 var embed = new EmbedBuilder()
                 { Title = "Twitch Notifications For You", Description = string.Join(", ", TWList), Color = DiscordUtils.GetRoleColor(Context) };
                 await Context.Channel.SendMessageAsync("", false, embed);
             }
             if (Option == "guild")
             {
-                List<string> TWList = MyServices.TwitchNotifications.Where(x => x.Guild == Context.Guild.Id & x.Type == "channel").Select(x => x.Twitch).ToList();
+                List<string> TWList = Services.Twitch.NotificationList.Where(x => x.Guild == Context.Guild.Id & x.Type == "channel").Select(x => x.Twitch).ToList();
                 var embed = new EmbedBuilder()
                 { Title = "Twitch Notifications For This Guild", Description = string.Join(", ", TWList), Color = DiscordUtils.GetRoleColor(Context) };
                 await Context.Channel.SendMessageAsync("", false, embed);
             }
             if (Option == "here")
             {
-                List<string> TWList = MyServices.TwitchNotifications.Where(x => x.Channel == Context.Channel.Id & x.Type == "channel").Select(x => x.Twitch).ToList();
+                List<string> TWList = Services.Twitch.NotificationList.Where(x => x.Channel == Context.Channel.Id & x.Type == "channel").Select(x => x.Twitch).ToList();
                 var embed = new EmbedBuilder()
                 {
                     Title = $"Twitch Notifications For #{Context.Channel.Name}",
@@ -2229,9 +2274,9 @@ namespace PixelBot
             }
             if (Option == "me")
             {
-                if (MyServices.TwitchNotifications.Exists(x => x.Type == "user" & x.Twitch == Channel.ToLower() & x.User == Context.User.Id))
+                if (Services.Twitch.NotificationList.Exists(x => x.Type == "user" & x.Twitch == Channel.ToLower() & x.User == Context.User.Id))
                 {
-                    MyServices.TwitchNotifications.RemoveAll(x => x.Type == "user" & x.Twitch == Channel.ToLower() & x.User == Context.User.Id);
+                    Services.Twitch.NotificationList.RemoveAll(x => x.Type == "user" & x.Twitch == Channel.ToLower() & x.User == Context.User.Id);
                     File.Delete($"Twitch\\user-{Context.User.Id}-{Channel.ToLower()}.json");
                     await Context.Channel.SendMessageAsync($"`You removed notifications for {Channel} from yourself`");
                 }
@@ -2247,9 +2292,9 @@ namespace PixelBot
                     await Context.Channel.SendMessageAsync("`You are not the guild owner`");
                     return;
                 }
-                if (MyServices.TwitchNotifications.Exists(x => x.Type == "channel" & x.Twitch == Channel.ToLower() & x.Guild == Context.Guild.Id & x.Channel == Context.Channel.Id))
+                if (Services.Twitch.NotificationList.Exists(x => x.Type == "channel" & x.Twitch == Channel.ToLower() & x.Guild == Context.Guild.Id & x.Channel == Context.Channel.Id))
                 {
-                    MyServices.TwitchNotifications.RemoveAll(x => x.Type == "channel" & x.Twitch == Channel & x.Guild == Context.Guild.Id & x.Channel == Context.Channel.Id);
+                    Services.Twitch.NotificationList.RemoveAll(x => x.Type == "channel" & x.Twitch == Channel & x.Guild == Context.Guild.Id & x.Channel == Context.Channel.Id);
 
                     File.Delete($"Twitch\\channel-{Context.Guild.Id.ToString()}-{Context.Guild.Id}-{Channel.ToLower()}.json");
                     await Context.Channel.SendMessageAsync($"`You removed notifications for {Channel} from this channel`");
