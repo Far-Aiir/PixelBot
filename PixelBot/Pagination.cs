@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using PixelBot;
 
 namespace PaginationService
 {
@@ -16,12 +17,13 @@ namespace PaginationService
             const string STOP = "⏹";
 
             private readonly Dictionary<ulong, Message> _messages;
-
-            public Service(DiscordSocketClient Client)
+            private readonly DiscordSocketClient _Client;
+            public Service(DiscordSocketClient client)
             {
+                _Client = client;
                 _messages = new Dictionary<ulong, Message>();
-                Client.ReactionAdded += OnReactionAdded;
-                Client.ReactionRemoved += OnReactionRemoved;
+                _Client.ReactionAdded += OnReactionAdded;
+                _Client.ReactionRemoved += OnReactionRemoved;
             }
 
             public async Task<IUserMessage> SendPagFullMessageAsync(IMessageChannel channel, Message paginated)
@@ -49,7 +51,7 @@ namespace PaginationService
                 if (!_messages.ContainsKey(message.Id)) return;
                 if (_messages.TryGetValue(message.Id, out Message page))
                 {
-                    if (reaction.UserId == PixelBot.PixelBot._client.CurrentUser.Id) return;
+                    if (reaction.UserId == _Client.CurrentUser.Id) return;
                     if (page.User != null && reaction.UserId != page.User.Id)
                     {
                         if (page.FullMode == true)
@@ -99,7 +101,7 @@ namespace PaginationService
                 if (_messages.TryGetValue(message.Id, out Message page))
                 {
                     if (page.FullMode == true) return;
-                    if (reaction.UserId == PixelBot.PixelBot._client.CurrentUser.Id) return;
+                    if (reaction.UserId == _Client.CurrentUser.Id) return;
                     if (page.User != null && reaction.UserId != page.User.Id)
                     {
                         if (page.FullMode == true)
@@ -182,12 +184,13 @@ namespace PaginationService
 
 
             private readonly Dictionary<ulong, Message> _messages;
-
-            public Service(DiscordSocketClient Client)
+            private readonly DiscordSocketClient _Client;
+            public Service(DiscordSocketClient client)
             {
+                _Client = client;
                 _messages = new Dictionary<ulong, Message>();
-                Client.ReactionAdded += OnReactionAdded;
-                Client.ReactionRemoved += OnReactionRemoved;
+                _Client.ReactionAdded += OnReactionAdded;
+                _Client.ReactionRemoved += OnReactionRemoved;
             }
 
             public async Task<IUserMessage> SendPagMessageAsync(IMessageChannel channel, Message paginated)
@@ -215,7 +218,7 @@ namespace PaginationService
                 if (!_messages.ContainsKey(message.Id)) return;
                 if (_messages.TryGetValue(message.Id, out Message page))
                 {
-                    if (reaction.UserId == PixelBot.PixelBot._client.CurrentUser.Id) return;
+                    if (reaction.UserId == _Client.CurrentUser.Id) return;
                     if (page.User != null && reaction.UserId != page.User.Id)
                     {
                         // var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
@@ -257,7 +260,7 @@ namespace PaginationService
                 if (!_messages.ContainsKey(message.Id)) return;
                 if (_messages.TryGetValue(message.Id, out Message page))
                 {
-                    if (reaction.UserId == PixelBot.PixelBot._client.CurrentUser.Id) return;
+                    if (reaction.UserId == _Client.CurrentUser.Id) return;
                     if (page.User != null && reaction.UserId != page.User.Id)
                     {
                         // var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);

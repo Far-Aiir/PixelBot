@@ -16,7 +16,6 @@ public static class Extensions
 }
 namespace PixelBot.Services
 {
-    
     public class PruneService
     {
         private ConcurrentHashSet<ulong> _pruningChannels = new ConcurrentHashSet<ulong>();

@@ -169,9 +169,9 @@ namespace PixelBot.Utils
             }
             return RoleColor;
         }
-        public static PaginationService.Full.Service _paginationfull = new PaginationService.Full.Service(PixelBot._client);
+        //public static PaginationService.Full.Service _paginationfull = new PaginationService.Full.Service(PixelBot._Client);
         
-        public static PaginationService.Min.Service _paginationmin = new PaginationService.Min.Service(PixelBot._client);
+        //public static PaginationService.Min.Service _paginationmin = new PaginationService.Min.Service();
         
         public static Dictionary<ulong, IGuildUser> GuildBotCache = new Dictionary<ulong, IGuildUser>();
 
@@ -179,16 +179,17 @@ namespace PixelBot.Utils
         {
             try
             {
-                var Dbots = PixelBot._client.GetGuild(110373943822540800);
-                await Dbots.DownloadUsersAsync();
-                var DbotsV2 = PixelBot._client.GetGuild(264445053596991498);
-                await DbotsV2.DownloadUsersAsync();
+                //var Dbots = PixelBot._Client.GetGuild(110373943822540800);
+                //await Dbots.DownloadUsersAsync();
+                //var DbotsV2 = PixelBot._Client.GetGuild(264445053596991498);
+                //await DbotsV2.DownloadUsersAsync();
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
             }
         }
+
             public static async Task SendPaginator(List<string> pages, string title, ICommandContext context, EmbedBuilder fallback)
             {
             
@@ -199,14 +200,14 @@ namespace PixelBot.Utils
                 {
                     var message = new PaginationService.Full.Message(pages, title, Utils.DiscordUtils.GetRoleColor(context), true, "", context.User);
 
-                    await _paginationfull.SendPagFullMessageAsync(context.Channel, message).ConfigureAwait(false);
+                    //await _paginationfull.SendPagFullMessageAsync(context.Channel, message).ConfigureAwait(false);
                 }
                 else
                 {
                     if (PixelBot.GetPermissions(context.Channel as ITextChannel).AddReactions)
                     {
                         var message = new PaginationService.Full.Message(pages, title, Utils.DiscordUtils.GetRoleColor(context), false, "- Cannot delete reactions | No perm manage messages", context.User);
-                        await _paginationfull.SendPagFullMessageAsync(context.Channel, message);
+                        //await _paginationfull.SendPagFullMessageAsync(context.Channel, message);
                     }
                     else
                     {

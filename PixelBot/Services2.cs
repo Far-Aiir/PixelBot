@@ -9,10 +9,27 @@ using System.Linq;
 using System.Net;
 using System.Timers;
 using TwitchCSharp.Clients;
+using Discord.WebSocket;
 namespace PixelBot.Services
 {
     public class Twitch
     {
+        readonly DiscordSocketClient _Client;
+        public Twitch(DiscordSocketClient client)
+        {
+            _Client = client;
+            foreach (var File in Directory.GetFiles(Config.BotPath + "Twitch\\"))
+            {
+                using (StreamReader reader = new StreamReader(File))
+                {
+                    JsonSerializer serializer = new JsonSerializer();
+                    NotificationList.Add((TwitchClass)serializer.Deserialize(reader, typeof(TwitchClass)));
+                }
+            }
+            Timer.Interval = 60000;
+            Timer.Elapsed += SendNotifications;
+            Timer.Start();
+        }
         public class TwitchClass
         {
             public string Type { get; set; }
@@ -22,13 +39,13 @@ namespace PixelBot.Services
             public string Twitch { get; set; }
             public bool Live { get; set; }
         }
-        public static Timer Timer = new Timer();
+        public Timer Timer = new Timer();
         
-        public static List<TwitchClass> NotificationList = new List<TwitchClass>();
+        public List<TwitchClass> NotificationList = new List<TwitchClass>();
 
-        public static void SendNotifications(object sender, ElapsedEventArgs e)
+        public void SendNotifications(object sender, ElapsedEventArgs e)
         {
-            var TwitchClient = new TwitchAuthenticatedClient(PixelBot.Tokens.Twitch, PixelBot.Tokens.TwitchAuth);
+            var TwitchClient = new TwitchAuthenticatedClient(Config._Configs.Twitch, Config._Configs.TwitchAuth);
             foreach (var Item in NotificationList)
             {
                 try
@@ -40,7 +57,7 @@ namespace PixelBot.Services
                             Item.Live = true;
                             if (Item.Type == "user")
                             {
-                                IGuild Guild = PixelBot._client.GetGuild(Item.Guild);
+                                IGuild Guild = _Client.GetGuild(Item.Guild);
                                 IUser User = Guild.GetUserAsync(Item.User).GetAwaiter().GetResult() as IUser;
                                 var TwitchChannel = TwitchClient.GetChannel(Item.Twitch);
                                 var embed = new EmbedBuilder()
@@ -57,14 +74,14 @@ namespace PixelBot.Services
                                 var DM = User.CreateDMChannelAsync().GetAwaiter().GetResult();
                                 DM.SendMessageAsync("", false, embed).GetAwaiter();
                                 JsonSerializer serializer = new JsonSerializer();
-                                using (StreamWriter file = File.CreateText(PixelBot.BotPath + $"Twitch\\user-{Item.User}-{Item.Twitch.ToLower()}.json"))
+                                using (StreamWriter file = File.CreateText(Config.BotPath + $"Twitch\\user-{Item.User}-{Item.Twitch.ToLower()}.json"))
                                 {
                                     serializer.Serialize(file, Item);
                                 }
                             }
                             else
                             {
-                                IGuild Guild = PixelBot._client.GetGuild(Item.Guild);
+                                IGuild Guild = _Client.GetGuild(Item.Guild);
                                 ITextChannel Channel = Guild.GetChannelAsync(Item.Channel).GetAwaiter().GetResult() as ITextChannel;
                                 var TwitchChannel = TwitchClient.GetChannel(Item.Twitch);
                                 var embed = new EmbedBuilder()
@@ -80,7 +97,7 @@ namespace PixelBot.Services
                                 };
                                 Channel.SendMessageAsync("", false, embed).GetAwaiter();
                                 JsonSerializer serializer = new JsonSerializer();
-                                using (StreamWriter file = File.CreateText(PixelBot.BotPath + $"Twitch\\channel-{Item.Guild.ToString()}-{Item.Channel}-{Item.Twitch}.json"))
+                                using (StreamWriter file = File.CreateText(Config.BotPath + $"Twitch\\channel-{Item.Guild.ToString()}-{Item.Channel}-{Item.Twitch}.json"))
                                 {
                                     serializer.Serialize(file, Item);
                                 }
@@ -105,15 +122,23 @@ namespace PixelBot.Services
     }
     public class Stats
     {
-        public static Timer Timer = new Timer();
-        public static void PostStats(object sender, ElapsedEventArgs e)
+        readonly DiscordSocketClient _Client;
+        public Stats(DiscordSocketClient client)
         {
-            string json = "{\"server_count\":\"" + PixelBot._client.Guilds.Count.ToString() + "\"}";
+            _Client = client;
+            Timer.Interval = 1800000;
+            Timer.Elapsed += PostStats;
+            Timer.Start();
+        }
+        public Timer Timer = new Timer();
+        public void PostStats(object sender, ElapsedEventArgs e)
+        {
+            string json = "{\"server_count\":\"" + _Client.Guilds.Count.ToString() + "\"}";
             try
             {
                 var request = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/277933222015401985/stats");
                 request.ContentType = "application/json";
-                request.Headers.Add("Authorization", PixelBot.Tokens.Dbots);
+                request.Headers.Add("Authorization", Config._Configs.Dbots);
                 request.Method = "POST";
                 using (var streamWriter = new StreamWriter(request.GetRequestStream()))
                 {
@@ -130,7 +155,7 @@ namespace PixelBot.Services
             {
                 var request = (HttpWebRequest)WebRequest.Create("https://discordbots.org/api/bots/277933222015401985/stats");
                 request.ContentType = "application/json";
-                request.Headers.Add("Authorization", PixelBot.Tokens.DbotsV2);
+                request.Headers.Add("Authorization", Config._Configs.DbotsV2);
                 request.Method = "POST";
                 using (var streamWriter = new StreamWriter(request.GetRequestStream()))
                 {
@@ -146,21 +171,29 @@ namespace PixelBot.Services
     }
     public class Youtube
     {
-        public static void YTNOTIFY()
+        public void YTNOTIFY()
         {
             var youtubeService = new YouTubeService(new BaseClientService.Initializer()
             {
-                ApiKey = PixelBot.Tokens.Youtube
+                ApiKey = Config._Configs.Youtube
             });
         }
     }
     public class Blacklist
     {
-        public static Timer Timer = new Timer();
-
-        public static void CheckBlacklist(object sender, ElapsedEventArgs e)
+        readonly DiscordSocketClient _Client;
+        public Blacklist(DiscordSocketClient client)
         {
-            foreach(var Guild in PixelBot._client.Guilds)
+            _Client = client;
+            Timer.Interval = 300000;
+            Timer.Elapsed += CheckBlacklist;
+            Timer.Start();
+        }
+        public Timer Timer = new Timer();
+
+        public void CheckBlacklist(object sender, ElapsedEventArgs e)
+        {
+            foreach(var Guild in _Client.Guilds)
             {
                 if (Properties.Settings.Default.Blacklist.Contains(Guild.Id.ToString()))
                 {

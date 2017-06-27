@@ -46,7 +46,7 @@ namespace PixelBot.Apis
                 {
                     return Player;
                 }
-                dynamic GetID = Utils.HttpRequest.GetJsonObject(RegionUrl + "/wot/account/list/?application_id=" + PixelBot.Tokens.Wargaming + "&search=" + User + "&limit=1");
+                dynamic GetID = Utils.HttpRequest.GetJsonObject(RegionUrl + "/wot/account/list/?application_id=" + Config._Configs.Wargaming + "&search=" + User + "&limit=1");
                 if (GetID == null)
                 {
                     Player.Status = RequestStatus.UnknownPlayer;
@@ -60,7 +60,7 @@ namespace PixelBot.Apis
             }
 
                 Player.ID = GetID.data[0].account_id;
-                dynamic GetInfo = Utils.HttpRequest.GetJsonObject(RegionUrl + "/wot/account/info/?application_id=" + PixelBot.Tokens.Wargaming + "&account_id=" + Player.ID);
+                dynamic GetInfo = Utils.HttpRequest.GetJsonObject(RegionUrl + "/wot/account/info/?application_id=" + Config._Configs.Wargaming + "&account_id=" + Player.ID);
             JObject ConvertInfo = (JObject)GetInfo;
             dynamic Info = ConvertInfo.Last.First.First.First;
             if (Info == null)
@@ -193,7 +193,7 @@ namespace PixelBot.Apis
         public static Player GetPlayerStats(string Region, string User)
         {
             Player Player = new Player(); 
-                dynamic Request = Utils.HttpRequest.GetJsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerNames]=" + User, PixelBot.Tokens.Vainglory, "X-TITLE-ID", "semc-vainglory");
+                dynamic Request = Utils.HttpRequest.GetJsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerNames]=" + User, Config._Configs.Vainglory, "X-TITLE-ID", "semc-vainglory");
                 
                 Player.ID = Request.data[0].id;
                 Player.User = User;
@@ -213,7 +213,7 @@ namespace PixelBot.Apis
         public static dynamic GetPlayerMatch(string Region, string User)
         {
             Match Match = new Match();
-            dynamic Dynamic = Utils.HttpRequest.GetJsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/matches?sort=createdAt&page[limit]=3&filter[playerNames]=" + User, PixelBot.Tokens.Vainglory, "X-TITLE-ID", "semc-vainglory");
+            dynamic Dynamic = Utils.HttpRequest.GetJsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/matches?sort=createdAt&page[limit]=3&filter[playerNames]=" + User, Config._Configs.Vainglory, "X-TITLE-ID", "semc-vainglory");
             return Match;
         }
         #endregion
@@ -323,123 +323,9 @@ namespace PixelBot.Apis
     public class Bots
     {
         #region Bots
-        public enum BotApiType
-        {
-            DiscordBots, DiscordBotsList
-        }
-        public static List<BotClass> BotsList = new List<BotClass>();
-        public class BotClass
-        {
-            public ulong ID = 0;
-            public string Name = "";
-            public string Api = "";
-            public string Invite = "";
-            public string Github = "";
-            public string Description = "";
-            public string Libary = "";
-            public List<ulong> OwnersID = new List<ulong>();
-            public string Prefix = "";
-            public string Website = "";
-            public int LastDay;
-            public string ServerCount = "0";
-            public List<string> Tags = new List<string>();
-            public int Points = 0;
-            public bool Certified = false;
-        }
-        public static BotClass MainDiscordBots(string ID)
-        {
-            BotClass ThisBot = new BotClass();
-            int LastDay = 0;
-            if (BotsList.Exists(x => x.ID.ToString() == ID))
-            {
-                LastDay = BotsList.Find(x => x.ID.ToString() == ID).LastDay;
-            }
-            if (LastDay == 0 || LastDay == DateTime.Now.Day)
-            {
-                dynamic Data = null;
-                Data = Utils.HttpRequest.GetJsonObject("https://bots.discord.pw/api/bots/" + ID, PixelBot.Tokens.Dbots);
-                if (Data == null)
-                {
-                    ThisBot = null;
-                    return ThisBot;
-                }
-                ThisBot.ID = Convert.ToUInt64(ID);
-                ThisBot.Invite = Data.invite_url;
-                ThisBot.Description = Data.description;
-                ThisBot.Libary = Data.library;
-                ThisBot.Name = Data.name;
-                foreach (var i in Data.owner_ids)
-                {
-                    ThisBot.OwnersID.Add(Convert.ToUInt64(i));
-                }
-                ThisBot.Prefix = Data.prefix;
-                ThisBot.Website = Data.website;
-                ThisBot.Api = "(Main) Discord Bots";
-                dynamic ServerCount = Utils.HttpRequest.GetJsonObject("https://bots.discord.pw/api/bots/" + ID + "/stats", PixelBot.Tokens.Dbots);
-                ThisBot.ServerCount = ServerCount.stats[0].server_count;
-            }
-            else
-            {
-                ThisBot = BotsList.Find(x => x.ID.ToString() == ID);
-            }
-            JsonSerializer serializer = new JsonSerializer();
-            if (ThisBot != null)
-            {
-                using (StreamWriter file = File.CreateText(PixelBot.BotPath + $"Users\\{ID.ToString()}.json"))
-                {
-                    serializer.Serialize(file, ThisBot);
-                }
-            }
-            return ThisBot;
-        }
-        public static BotClass DiscordBotsList(string ID)
-        {
-            BotClass ThisBot = new BotClass();
-            int LastDay = 0;
-            if (BotsList.Exists(x => x.ID.ToString() == ID))
-            {
-                LastDay = BotsList.Find(x => x.ID.ToString() == ID).LastDay;
-            }
-            if (LastDay == 0 || LastDay == DateTime.Now.Day)
-            {
-                dynamic Data = null;
-                Data = Utils.HttpRequest.GetJsonObject("https://discordbots.org/api/bots/" + ID, PixelBot.Tokens.Dbots);
-                if (Data == null)
-                {
-                    ThisBot = null;
-                    return ThisBot;
-                }
-                ThisBot.ID = Convert.ToUInt64(ID);
-                ThisBot.Invite = Data.invite;
-                ThisBot.Description = Data.shortdesc;
-                ThisBot.Libary = Data.lib;
-                ThisBot.Name = Data.username;
-                foreach (var i in Data.owners)
-                {
-                    ThisBot.OwnersID.Add(Convert.ToUInt64(i));
-                }
-                ThisBot.Prefix = Data.prefix;
-                ThisBot.Certified = Data.certifiedBot;
-                ThisBot.Github = Data.github;
-                ThisBot.Points = Data.points;
-                ThisBot.Website = Data.website;
-                ThisBot.Api = "Discord Bots List";
-                ThisBot.ServerCount = Data.server_count;
-            }
-            else
-            {
-                ThisBot = BotsList.Find(x => x.ID.ToString() == ID);
-            }
-            JsonSerializer serializer = new JsonSerializer();
-            if (ThisBot != null)
-            {
-                using (StreamWriter file = File.CreateText(PixelBot.BotPath + $"Users\\{ID.ToString()}.json"))
-                {
-                    serializer.Serialize(file, ThisBot);
-                }
-            }
-            return ThisBot;
-        }
+
+        
+        
         #endregion
     }
     public class Overwatch

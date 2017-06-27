@@ -77,7 +77,7 @@
     <ApplicationIcon>PixelBot.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>PixelBot.Start</StartupObject>
+    <StartupObject>PixelBot.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="AngleSharp, Version=0.9.6.41832, Culture=neutral, PublicKeyToken=e83494dcdc6d31ea, processorArchitecture=MSIL">
@@ -256,8 +256,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Commands.cs" />
+    <Compile Include="Config.cs" />
+    <Compile Include="DiscordEvents.cs" />
     <Compile Include="Other\ConcurrentHashSet.cs" />
-    <Compile Include="ConsoleFix.cs" />
     <Compile Include="MineStat.cs" />
     <Compile Include="Pagination.cs" />
     <Compile Include="Program.cs" />
@@ -267,10 +269,12 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
-    <Compile Include="Owner.cs" />
-    <Compile Include="Services.cs" />
+    <Compile Include="ServiceProvider.cs" />
+    <Compile Include="Services2.cs" />
     <Compile Include="Apis.cs" />
+    <Compile Include="Services\BotInfo.cs" />
     <Compile Include="Services\PruneService.cs" />
+    <Compile Include="Startup.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="Other\PlatformHelper.cs" />
   </ItemGroup>
