@@ -10,13 +10,14 @@ using System.Net;
 using System.Timers;
 using TwitchCSharp.Clients;
 using Discord.WebSocket;
-namespace PixelBot.Services
+namespace Bot.Services
 {
     public class Twitch
     {
         readonly DiscordSocketClient _Client;
         public Twitch(DiscordSocketClient client)
         {
+            Directory.CreateDirectory(Config.BotPath + "Twitch\\");
             _Client = client;
             foreach (var File in Directory.GetFiles(Config.BotPath + "Twitch\\"))
             {
@@ -177,29 +178,6 @@ namespace PixelBot.Services
             {
                 ApiKey = Config._Configs.Youtube
             });
-        }
-    }
-    public class Blacklist
-    {
-        readonly DiscordSocketClient _Client;
-        public Blacklist(DiscordSocketClient client)
-        {
-            _Client = client;
-            Timer.Interval = 300000;
-            Timer.Elapsed += CheckBlacklist;
-            Timer.Start();
-        }
-        public Timer Timer = new Timer();
-
-        public void CheckBlacklist(object sender, ElapsedEventArgs e)
-        {
-            foreach(var Guild in _Client.Guilds)
-            {
-                if (Properties.Settings.Default.Blacklist.Contains(Guild.Id.ToString()))
-                {
-                    Guild.LeaveAsync().GetAwaiter();
-                }
-            }
         }
     }
 }

@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PixelBot.Services
+namespace Bot.Services
 {
     public class BotClass
     {

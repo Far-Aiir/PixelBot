@@ -1,5 +1,9 @@
 ﻿using Discord;
+using Discord.Commands;
+using Discord.WebSocket;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
+using Bot.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,7 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PixelBot
+namespace Bot
 {
     public class Config
     {
@@ -19,12 +23,12 @@ namespace PixelBot
         public static string BotPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/PixelBot/";
         public static string PathBlacklist = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/Blacklist/";
         public static ConfigClass _Configs = new ConfigClass();
-        public static bool FirstStart = false;
-        public static List<IGuildUser> ALLUSERS = new List<IGuildUser>();
+        
+
         public static ITextChannel BlacklistChannel = null;
-        public static ITextChannel NewGuildChannel = null;
         public static ulong ChatlogGuild = 0;
-        public static void ConfigWrite()
+
+        public static void ConfigLoad()
         {
             ConfigClass NewConfig = new ConfigClass();
             using (StreamWriter file = File.CreateText(BotPath + "Config-Example" + ".json"))
@@ -33,13 +37,13 @@ namespace PixelBot
                 serializer.Serialize(file, NewConfig);
 
             }
-        }
-        public static void ConfigLoad()
-        {
-            using (StreamReader reader = new StreamReader(BotPath + "Config.json"))
+            if (File.Exists(Config.BotPath + "Config.json"))
             {
-                JsonSerializer serializer = new JsonSerializer();
-                _Configs = (ConfigClass)serializer.Deserialize(reader, typeof(ConfigClass));
+                using (StreamReader reader = new StreamReader(BotPath + "Config.json"))
+                {
+                    JsonSerializer serializer = new JsonSerializer();
+                    _Configs = (ConfigClass)serializer.Deserialize(reader, typeof(ConfigClass));
+                }
             }
         }
     }
@@ -60,5 +64,25 @@ namespace PixelBot
         public string DbotsV2 { get; set; } = "";
         public string Riot { get; set; } = "";
         public string Wargaming { get; set; } = "";
+    }
+    public class BotServices
+    {
+        public static IServiceProvider AddServices(DiscordSocketClient _Client, CommandService _CommandService, CommandHandler _CommandHandler)
+        {
+            IServiceProvider _Services = new ServiceCollection()
+               .AddSingleton(_Client)
+               .AddSingleton(new PruneService())
+               .AddSingleton(new PaginationService.Full.Service(_Client))
+               .AddSingleton(new PaginationService.Min.Service(_Client))
+               .AddSingleton(_CommandHandler)
+               .AddSingleton(_CommandService)
+               .AddSingleton(new Stats(_Client))
+               .AddSingleton(new Twitch(_Client))
+               .BuildServiceProvider();
+            _CommandHandler.AddServices(_Services);
+            Utils.DiscordUtils._paginationfull = _Services.GetService<PaginationService.Full.Service>();
+            Utils.DiscordUtils._paginationmin = _Services.GetService<PaginationService.Min.Service>();
+            return _Services;
+        }
     }
 }

@@ -11,7 +11,7 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using OverwatchAPI;
 
-namespace PixelBot.Apis
+namespace Bot.Apis
 {
     public enum RequestStatus
     {

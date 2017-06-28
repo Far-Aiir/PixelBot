@@ -14,7 +14,7 @@ public static class Extensions
             throw new ArgumentNullException(nameof(name));
     }
 }
-namespace PixelBot.Services
+namespace Bot.Services
 {
     public class PruneService
     {

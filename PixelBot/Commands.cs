@@ -7,9 +7,9 @@ using Google.Apis.Services;
 using Google.Apis.YouTube.v3;
 using Newtonsoft.Json;
 using OverwatchAPI;
-using PixelBot.Apis;
-using PixelBot.Services;
-using PixelBot.Utils;
+using Bot.Apis;
+using Bot.Services;
+using Bot.Utils;
 using PortableSteam;
 using RiotApi.Net.RestClient;
 using RiotApi.Net.RestClient.Configuration;
@@ -23,7 +23,7 @@ using System.Text;
 using System.Threading.Tasks;
 using TwitchCSharp.Clients;
 
-namespace PixelBot
+namespace Bot
 {
     public class Main : ModuleBase
     {
@@ -2118,7 +2118,7 @@ namespace PixelBot
             else
             {
                 IGuildUser BotUser = null;
-                Utils.DiscordUtils.GuildBotCache.TryGetValue(Context.Guild.Id, out BotUser);
+                Bot.GuildBotCache.TryGetValue(Context.Guild.Id, out BotUser);
                 string HelpText = "```md" + Environment.NewLine + "[ p/misc ]( Info/Dice Roll )" + Environment.NewLine + "[ p/game ]( Steam/Minecraft )" + Environment.NewLine + "[ p/media ]( Twitch )" + Environment.NewLine + "[ p/prune ]( Prune Messages )```";
                 if (!BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
                 {
