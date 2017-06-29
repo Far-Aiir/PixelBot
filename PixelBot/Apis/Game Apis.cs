@@ -320,14 +320,6 @@ namespace Bot.Apis
         }
         #endregion
     }
-    public class Bots
-    {
-        #region Bots
-
-        
-        
-        #endregion
-    }
     public class Overwatch
     {
         public class Player

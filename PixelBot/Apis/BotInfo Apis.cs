@@ -54,8 +54,11 @@ namespace Bot.Services
                 ThisBot.Prefix = Data.prefix;
                 ThisBot.Website = Data.website;
                 ThisBot.Api = "(Main) Discord Bots";
-                dynamic ServerCount = Utils.HttpRequest.GetJsonObject("https://bots.discord.pw/api/bots/" + ID + "/stats", Config._Configs.Dbots);
-                ThisBot.ServerCount = ServerCount.stats[0].server_count;
+                dynamic ServerCount = Utils.HttpRequest.GetJsonObject("https://bots.discord.pw/api/bots/" + ID + "/stats", Config._Configs.Dbots) ?? null;
+                if (ServerCount != null)
+                {
+                    ThisBot.ServerCount = ServerCount.stats[0].server_count;
+                }
             }
             return ThisBot;
         }
@@ -188,32 +191,97 @@ namespace Bot.Services
             }
             await Channel.SendMessageAsync("", false, embed).ConfigureAwait(false);
         }
-        public static async Task GetInvite(ITextChannel Channel, string User)
+
+        public static void GetInvite(ITextChannel Channel, string User, string Api)
         {
-            IGuildUser GuildUser = await Utils.DiscordUtils.StringToUser(Channel.Guild, User);
-            if (GuildUser == null)
+            IGuildUser GuildUser = Utils.DiscordUtils.StringToUser(Channel.Guild, User).GetAwaiter().GetResult();
+            BotClass GetBot = null;
+            if (Channel.Guild.Id == 264445053596991498 || Api.Contains("list"))
             {
-                await Channel.SendMessageAsync("`User not found`").ConfigureAwait(false);
+                Api = "list";
+                GetBot = BotInfo.DiscordBotsList(Utils.DiscordUtils.StringToUserID(User));
+
+                if (GetBot == null)
+                {
+                    GetBot = BotInfo.MainDiscordBots(Utils.DiscordUtils.StringToUserID(User));
+                    Api = "";
+                }
+            }
+            else
+            {
+                GetBot = BotInfo.MainDiscordBots(Utils.DiscordUtils.StringToUserID(User));
+                if (GetBot == null)
+                {
+                    GetBot = BotInfo.DiscordBotsList(Utils.DiscordUtils.StringToUserID(User));
+                    Api = "list";
+                }
+            }
+            if (GetBot == null)
+            {
+                 Channel.SendMessageAsync("`Could not find bot`").GetAwaiter().GetResult();
                 return;
             }
+            if (GetBot.Invite == null)
+            {
+                Channel.SendMessageAsync("`This bot does not have an invite`").GetAwaiter().GetResult();
+                return;
+            }
+            var embed = new EmbedBuilder()
+            {
+                Author = new EmbedAuthorBuilder()
+                { Name = $"Invite for {GetBot.Name}", IconUrl = new Uri(GuildUser?.GetAvatarUrl()) },
+                Description = $"[Invite This Bot]({GetBot.Invite})",
+                Color = Utils.DiscordUtils.GetRoleColor(Channel as ITextChannel)
+            };
+            Channel.SendMessageAsync("", false, embed).GetAwaiter().GetResult();
         }
-        public static async Task GetOwner(ITextChannel Channel, string User)
+
+        public static void GetOwner(ITextChannel Channel, string User, string Api)
         {
-            IGuildUser GuildUser = await Utils.DiscordUtils.StringToUser(Channel.Guild, User);
-            if (GuildUser == null)
+            IGuildUser GuildUser = Utils.DiscordUtils.StringToUser(Channel.Guild, User).GetAwaiter().GetResult();
+            BotClass GetBot = null;
+            if (Channel.Guild.Id == 264445053596991498 || Api.Contains("list"))
             {
-                await Channel.SendMessageAsync("`User not found`").ConfigureAwait(false);
+                Api = "list";
+                GetBot = BotInfo.DiscordBotsList(Utils.DiscordUtils.StringToUserID(User));
+
+                if (GetBot == null)
+                {
+                    GetBot = BotInfo.MainDiscordBots(Utils.DiscordUtils.StringToUserID(User));
+                    Api = "";
+                }
+            }
+            else
+            {
+                GetBot = BotInfo.MainDiscordBots(Utils.DiscordUtils.StringToUserID(User));
+                if (GetBot == null)
+                {
+                    GetBot = BotInfo.DiscordBotsList(Utils.DiscordUtils.StringToUserID(User));
+                    Api = "list";
+                }
+            }
+            if (GetBot == null)
+            {
+                Channel.SendMessageAsync("`Could not find bot`").GetAwaiter().GetResult();
                 return;
             }
+            List<string> Owners = new List<string>();
+            foreach(var Owner in GetBot.OwnersID)
+            {
+                Owners.Add($"<@{Owner}>");
+            }
+            var embed = new EmbedBuilder()
+            {
+                Author = new EmbedAuthorBuilder()
+                { Name = $"Owners for {GetBot.Name}", IconUrl = new Uri(GuildUser?.GetAvatarUrl()) },
+                Description = $"{string.Join(Environment.NewLine, Owners)}",
+                Color = Utils.DiscordUtils.GetRoleColor(Channel as ITextChannel)
+            };
+            Channel.SendMessageAsync("", false, embed).GetAwaiter().GetResult();
         }
-        public static async Task GetBots(ITextChannel Channel, string User)
+        public static void GetBots(ITextChannel Channel, string User, string Api)
         {
-            IGuildUser GuildUser = await Utils.DiscordUtils.StringToUser(Channel.Guild, User);
-            if (GuildUser == null)
-            {
-                await Channel.SendMessageAsync("`User not found`").ConfigureAwait(false);
-                return;
-            }
+            
         }
     }
 }

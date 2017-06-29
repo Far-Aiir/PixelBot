@@ -728,48 +728,18 @@ namespace Bot
             await Services.BotInfo.GetInfo(Context.Channel as ITextChannel, User, Api);
         }
         
-
         [Command("getinvite")]
         [Remarks("getinvite (@Mention/User ID)")]
         [Summary("Get invite of a bot")]
-        public async Task GetInvite(string User = "", string Api = "")
+        public void GetInvite(string User = "", string Api = "")
         {
-            
-            //BotClass GetBot = null;
-            //if (Context.Guild.Id == 264445053596991498 || Api.Contains("list"))
-            //{
-                //GetBot = Apis.Bots.DiscordBotsList(Utils.DiscordUtils.StringToUserID(User));
+            Services.BotInfo.GetInvite(Context.Channel as ITextChannel, DiscordUtils.StringToUserID(User), Api);
+        }
 
-                //if (GetBot == null)
-                //{
-                    //GetBot = Apis.Bots.MainDiscordBots(Utils.DiscordUtils.StringToUserID(User));
-                //}
-            //}
-            //else
-            //{
-                //GetBot = Apis.Bots.MainDiscordBots(Utils.DiscordUtils.StringToUserID(User));
-                //if (GetBot == null)
-                //{
-                    //GetBot = Apis.Bots.DiscordBotsList(Utils.DiscordUtils.StringToUserID(User));
-                //}
-            //}
-            //if (GetBot == null)
-            //{
-             //   await ReplyAsync("`Could not find bot`").ConfigureAwait(false);
-           //     return;
-          //  }
-          //  if (GetBot.Invite == "")
-          //  {
-          //      await ReplyAsync("`This bot has no invite or is private`").ConfigureAwait(false);
-          //      return;
-         //   }
-          //  var embed = new EmbedBuilder()
-          //  {
-         //       Title = $"Invite for {GetBot.Name}",
-         //       Description = GetBot.Invite,
-         //       Color = Utils.DiscordUtils.GetRoleColor(Context)
-         //   };
-          //  await ReplyAsync("", false, embed).ConfigureAwait(false);
+        [Command("getowner"), Remarks("getowner (@Mention/User ID)"), Summary("Get the owner of a bot"), Alias("getowners")]
+        public void GetOwner(string User = "", string Api = "")
+        {
+            BotInfo.GetOwner(Context.Channel as ITextChannel, User, Api);
         }
     }
     public class Game : ModuleBase
@@ -1160,8 +1130,6 @@ namespace Bot
                 }
             }
         }
-
-
 
         [Command("pokerev")]
         [Remarks("pokerev")]
