@@ -515,7 +515,7 @@ namespace Bot
                         Author = new EmbedAuthorBuilder()
                         {
                             Name = $"{Guild.Name}",
-                            IconUrl = Guild.IconUrl
+                            IconUrl = new Uri(Guild.IconUrl)
                         },
                         Description = $"Owner: {Owner}" + Environment.NewLine + $"Users {Users.Where(x => !x.IsBot).Count()}/{Users.Where(x => x.IsBot).Count()} Bots",
                         Color = Utils.DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
@@ -572,7 +572,7 @@ namespace Bot
 
                 }
                 string AllGuilds = string.Join(Environment.NewLine, GuildList.ToArray());
-                IDMChannel DM = await Context.User.CreateDMChannelAsync().ConfigureAwait(false);
+                IDMChannel DM = await Context.User.GetOrCreateDMChannelAsync().ConfigureAwait(false);
                     await DM.SendMessageAsync("```" + Environment.NewLine + AllGuilds + "```");
             }
 

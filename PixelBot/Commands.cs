@@ -63,9 +63,9 @@ namespace Bot
                 {
                     Author = new EmbedAuthorBuilder()
                     {
-                        IconUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRidv7J3fXl5wUJIOTb-8-Pd3JM5IYD52JVBsCSk0lMFnz4tsPXpPvoLA",
+                        IconUrl = new Uri("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRidv7J3fXl5wUJIOTb-8-Pd3JM5IYD52JVBsCSk0lMFnz4tsPXpPvoLA"),
                         Name = "League Of Legends",
-                        Url = "http://leagueoflegends.com"
+                        Url = new Uri("http://leagueoflegends.com")
                     },
 
                     Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
@@ -158,7 +158,7 @@ namespace Bot
             var embed = new EmbedBuilder()
             {
                 Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
-                ImageUrl = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/sprites/pokemon/" + Data + ".png"
+                ImageUrl = new Uri("https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/sprites/pokemon/" + Data + ".png")
             };
         }
 
@@ -443,7 +443,7 @@ namespace Bot
                 var line = string.Join(Environment.NewLine, RoleList.ToArray());
 
                 var User = Context.User as IUser;
-                var UserDM = await User.CreateDMChannelAsync();
+                var UserDM = await User.GetOrCreateDMChannelAsync();
                 await Context.Channel.SendMessageAsync($"`{Context.User.Username} I sent you a list of guild roles`");
                 await UserDM.SendMessageAsync($"Guild roles for {Context.Guild.Name}```md" + Environment.NewLine + line + "```");
                 return;
@@ -501,7 +501,7 @@ namespace Bot
                 {
                     Name = $"{Context.Guild.Name}"
                 },
-                ThumbnailUrl = Context.Guild.IconUrl,
+                ThumbnailUrl = new Uri(Context.Guild.IconUrl),
                 Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
                 Description = $"Owner: {Owner.Mention}```md" + Environment.NewLine + $"[Online](Offline)" + Environment.NewLine + $"<Users> [{MembersOnline}]({Members}) <Bots> [{BotsOnline}]({Bots})" + Environment.NewLine + $"Channels <Text {TextChan}> <Voice {VoiceChan}>" + Environment.NewLine + $"<Roles {Context.Guild.Roles.Count}> <Region {Context.Guild.VoiceRegionId}>" + Environment.NewLine + "List of roles | p/guild roles```",
                 Footer = new EmbedFooterBuilder()
@@ -562,9 +562,9 @@ namespace Bot
                 Author = new EmbedAuthorBuilder()
                 {
                     Name = $"User Info (Click For Avatar Url)",
-                    Url = GuildUser.GetAvatarUrl()
+                    Url = new Uri(GuildUser.GetAvatarUrl())
                 },
-                ThumbnailUrl = GuildUser.GetAvatarUrl(),
+                ThumbnailUrl = new Uri(GuildUser.GetAvatarUrl()),
                 Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
                 Description = $"<@{GuildUser.Id}>{NotInGuild}" + Environment.NewLine + "```md" + Environment.NewLine + $"<Discrim {GuildUser.Discriminator}> <ID {GuildUser.Id}>" + Environment.NewLine + $"<Joined_Guild {GuildUser.JoinedAt.Value.Day} {GuildUser.JoinedAt.Value.Date.ToString("MMMM")} {GuildUser.JoinedAt.Value.Year}>" + Environment.NewLine + $"<Created_Account {GuildUser.CreatedAt.Day} {GuildUser.CreatedAt.DateTime.ToString("MMMM")} {GuildUser.CreatedAt.Year}>" + Environment.NewLine + $"Found in {Count} guilds```",
                 Footer = new EmbedFooterBuilder()
@@ -712,8 +712,8 @@ namespace Bot
             var embed = new EmbedBuilder()
             {
                 Title = "Random Dog :dog:",
-                Url = "http://random.dog/" + Item,
-                ImageUrl = "http://random.dog/" + Item,
+                Url = new Uri("http://random.dog/" + Item),
+                ImageUrl = new Uri("http://random.dog/" + Item),
                 Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel)
             };
 
@@ -774,7 +774,11 @@ namespace Bot
     }
     public class Game : ModuleBase
     {
-        
+        private readonly PaginationFull _PagFull;
+        public Game(CommandService commandservice, PaginationFull pagfull)
+        {
+            _PagFull = pagfull;
+        }
         [Command("lol")]
         public async Task Lol()
         {
@@ -797,7 +801,7 @@ namespace Bot
             var embed = new EmbedBuilder()
             {
                 Title = "Vainglory",
-                Url = "http://www.vainglorygame.com/",
+                Url = new Uri("http://www.vainglorygame.com/"),
                 Description = "Vainglory is a MOBA similar to league of legends that is a 3 vs 3 match with other online players available for android and ios```md" + Environment.NewLine + "[ p/vguser (Region) (User) ]( Get user stats )" + Environment.NewLine + "[ p/vgmatch (Region) (ID) ]( Coming Soon Get a match by ID )" + Environment.NewLine + "[ p/vgmatches (Region) (User) ]( Coming Soon Get the last 3 matches of a player )" + Environment.NewLine + "Full stats for all heroes and items coming soon```",
                 Footer = new EmbedFooterBuilder()
                 {
@@ -834,7 +838,7 @@ namespace Bot
             }
         }
 
-        [Command("vgmatch"), Ratelimit(2, 1, Measure.Minutes)]
+        [Command("vgmatch")]
         [Alias("vgmatches")]
         public async Task VaingloryMatch(string Region, [Remainder] string VGUser)
         {
@@ -871,10 +875,10 @@ namespace Bot
                 Author = new EmbedAuthorBuilder()
                 {
                     Name = $"{User} | {Player.Region} | (Level: {Player.Level}) | (Rank: {Player.CompetitiveRank})",
-                    IconUrl = "https://cdn2.iconfinder.com/data/icons/overwatch-players-icons/512/Overwatch-512.png",
-                    Url = Player.ProfileUrl
+                    IconUrl = new Uri("https://cdn2.iconfinder.com/data/icons/overwatch-players-icons/512/Overwatch-512.png"),
+                    Url = new Uri(Player.ProfileUrl)
                 },
-                ThumbnailUrl = Player.ProfileUrl,
+                ThumbnailUrl = new Uri(Player.ProfileUrl),
                 Color = Utils.DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
                 Timestamp = Player.LastPlayed.Date,
                 Description = "```md" + Environment.NewLine + $"<Achievements {Player.Achievements}>" + Environment.NewLine + $"<Casual Games won {Player.CasualPlayed} | Time {Player.CasualPlaytime} Seconds>" + Environment.NewLine + $"<Ranked Games played {Player.RankPlayed} | Time {Player.RankPlaytime} Seconds>```More stats coming soon"
@@ -1024,7 +1028,7 @@ namespace Bot
                     Author = new EmbedAuthorBuilder()
                     {
                         Name = $"[{Region}] {User} | Raiting {Player.Raiting}",
-                        IconUrl = "http://orig10.deviantart.net/4482/f/2015/301/2/c/world_of_tanks_icon___tiger1_by_adyshor37-d9eng1i.png"
+                        IconUrl = new Uri("http://orig10.deviantart.net/4482/f/2015/301/2/c/world_of_tanks_icon___tiger1_by_adyshor37-d9eng1i.png")
                     },
                     Footer = new EmbedFooterBuilder()
                     {
@@ -1048,8 +1052,8 @@ namespace Bot
                 Author = new EmbedAuthorBuilder()
                 {
                     Name = "Minecraft",
-                    Url = "https://minecraft.net",
-                    IconUrl = "http://www.rw-designer.com/icon-view/5547.png"
+                    Url = new Uri("https://minecraft.net"),
+                    IconUrl = new Uri("http://www.rw-designer.com/icon-view/5547.png")
                 }
             };
             embed.AddField(x =>
@@ -1164,14 +1168,13 @@ namespace Bot
         [Summary("Pokemon revolution red stats")]
         public async Task Pokerev()
         {
-            List<EmbedBuilder> EmbedList = new List<EmbedBuilder>();
             List<string> List1 = Apis.Poke.PokemonRevolution.GetMainTable("https://pokemon-revolution-online.net/ladder.php", "auto-style2", 1);
             var embed1 = new EmbedBuilder()
             {
                 Author = new EmbedAuthorBuilder()
                 {
                     Name = "RED | Pokémon Revolution Online",
-                    Url = "https://pokemon-revolution-online.net"
+                    Url = new Uri("https://pokemon-revolution-online.net")
                 },
                 Description = ":crossed_swords: Ranked",
                 Footer = new EmbedFooterBuilder()
@@ -1189,7 +1192,7 @@ namespace Bot
                 Author = new EmbedAuthorBuilder()
                 {
                     Name = "RED | Pokémon Revolution Online",
-                    Url = "https://pokemon-revolution-online.net"
+                    Url = new Uri("https://pokemon-revolution-online.net")
                 },
                 Description = ":shield: Non-Ranked",
                 Footer = new EmbedFooterBuilder()
@@ -1206,7 +1209,7 @@ namespace Bot
                 Author = new EmbedAuthorBuilder()
                 {
                     Name = "RED | Pokémon Revolution Online",
-                    Url = "https://pokemon-revolution-online.net"
+                    Url = new Uri("https://pokemon-revolution-online.net")
                 },
                 Description = ":stopwatch: Playtime:",
                 Footer = new EmbedFooterBuilder()
@@ -1216,11 +1219,12 @@ namespace Bot
             };
             embed3.AddInlineField("Rank | User", $"{List1[0]}. {List1[1]}" + Environment.NewLine + $"{List1[3]}. {List1[4]}" + Environment.NewLine + $"{List1[6]}. {List1[7]}" + Environment.NewLine + $"{List1[9]}. {List1[10]}" + Environment.NewLine + $"{List1[12]}. {List1[13]}" + Environment.NewLine + $"{List1[15]}. {List1[16]}" + Environment.NewLine + $"{List1[18]}. {List1[19]}" + Environment.NewLine + $"{List1[21]}. {List1[22]}" + Environment.NewLine + $"{List1[24]}. {List1[25]}" + Environment.NewLine + $"{List1[27]}. {List1[28]}");
             embed3.AddInlineField("Playtime", $"{List1[2]}" + Environment.NewLine + $"{List1[5]}" + Environment.NewLine + $"{List1[8]}" + Environment.NewLine + $"{List1[11]}" + Environment.NewLine + $"{List1[14]}" + Environment.NewLine + $"{List1[17]}" + Environment.NewLine + $"{List1[20]}" + Environment.NewLine + $"{List1[23]}" + Environment.NewLine + $"{List1[26]}" + Environment.NewLine + $"{List1[29]}");
-            EmbedList.Add(embed1);
-            EmbedList.Add(embed2);
-            EmbedList.Add(embed3);
-            //PaginationService.Min.Message message = new PaginationService.Min.Message(EmbedList, "Test", DiscordUtils.GetRoleColor(Context), Context.User);
-            //await DiscordUtils._paginationmin.SendPagMessageAsync(Context.Channel, message);
+            var Embeds = new List<PaginationFull.Page>
+            {
+                new PaginationFull.Page(){Description = embed1.Description, Author = embed1.Author, Fields = embed1.Fields }, new PaginationFull.Page(){Description = embed2.Description, Author = embed2.Author, Fields = embed2.Fields }, new PaginationFull.Page(){Description = embed3.Description, Author = embed3.Author, Fields = embed3.Fields }
+            };
+            PaginationFull.PaginatedMessage message = new PaginationFull.PaginatedMessage(Embeds, "", DiscordUtils.GetRoleColor(Context.Channel as ITextChannel), Context.User);
+            await _PagFull.SendPaginatedMessageAsync(Context.Channel, message);
 
         }
 
@@ -1234,8 +1238,8 @@ namespace Bot
                 Author = new EmbedAuthorBuilder()
                 {
                     Name = "Steam",
-                    IconUrl = "",
-                    Url = "http://store.steampowered.com/"
+                    IconUrl = new Uri(""),
+                    Url = new Uri("http://store.steampowered.com/")
                 },
                 Description = "Steam user and game lookup | Advanced game stats coming soon" + Environment.NewLine + "```md" + Environment.NewLine + "[ p/steam u (User) ]( Get info for a user )" + Environment.NewLine + "[ p/steam g (Game) ]( Get info about a game )```",
                 Color = new Color(255, 105, 180)
@@ -1307,7 +1311,7 @@ namespace Bot
                 var embed = new EmbedBuilder();
                 {
                     embed.Title = $"Steam - {User} | Level {Badges.Data.PlayerLevel} | Xp {Badges.Data.PlayerXP}";
-                    embed.Url = "http://steamcommunity.com/id/" + User;
+                    embed.Url = new Uri("http://steamcommunity.com/id/" + User);
                 }
                 if (Claim != "")
                 {
@@ -1376,8 +1380,8 @@ namespace Bot
                     Author = new EmbedAuthorBuilder()
                     {
                         Name = "Osu!",
-                        IconUrl = "http://orig09.deviantart.net/0c0c/f/2014/223/1/5/osu_icon_by_gentheminer-d7unrx3.png",
-                        Url = "https://osu.ppy.sh/"
+                        IconUrl = new Uri("http://orig09.deviantart.net/0c0c/f/2014/223/1/5/osu_icon_by_gentheminer-d7unrx3.png"),
+                        Url = new Uri("https://osu.ppy.sh/")
                     },
                     Description = "Osu is a free rhythm game for windows/ios and mobile platforms with custom skins and beatmaps for songs" + Environment.NewLine + "```md" + Environment.NewLine + "[ p/osu (User) ]( Get info for a user )```",
                     Color = new Color(255, 105, 180)
@@ -1449,8 +1453,8 @@ namespace Bot
                 {
                     Title = $"{OsuUser} | (Level: {OsuLevel.Split('.').First()})",
                     Description = "```md" + Environment.NewLine + $"<Played {OsuPlaycount}> <Accuracy {OsuAccuracy.Split('.').First()}>" + Environment.NewLine + $"[ A: {OsuRankA} S: {OsuRankS} SS: {OsuRankSS} ](Rank)" + Environment.NewLine + $"[ Total: {OsuTotal} Ranked: {OsuRanked} ](Score)```",
-                    ThumbnailUrl = "http://orig09.deviantart.net/0c0c/f/2014/223/1/5/osu_icon_by_gentheminer-d7unrx3.png",
-                    Url = "https://osu.ppy.sh/u/" + OsuUser,
+                    ThumbnailUrl = new Uri("http://orig09.deviantart.net/0c0c/f/2014/223/1/5/osu_icon_by_gentheminer-d7unrx3.png"),
+                    Url = new Uri("https://osu.ppy.sh/u/" + OsuUser),
                     Color = new Color(255, 105, 180)
                 };
                 await Context.Channel.SendMessageAsync("", false, embed);
@@ -1516,8 +1520,8 @@ namespace Bot
                 Author = new EmbedAuthorBuilder()
                 {
                     Name = "Twitch",
-                    IconUrl = "http://vignette3.wikia.nocookie.net/logopedia/images/8/83/Twitch_icon.svg/revision/latest/scale-to-width-down/421?cb=20140727180700",
-                    Url = "https://www.twitch.tv/"
+                    IconUrl = new Uri("http://vignette3.wikia.nocookie.net/logopedia/images/8/83/Twitch_icon.svg/revision/latest/scale-to-width-down/421?cb=20140727180700"),
+                    Url = new Uri("https://www.twitch.tv/")
                 },
                 Description = "Twitch channel lookup/search and livestream notifications in channel or user DMs" + Environment.NewLine + "```md" + Environment.NewLine + "[ p/tw (Channel) ]( Get info about a channel )" + Environment.NewLine + "[ p/tw s (Channel ]( Get 3 channel names )" + Environment.NewLine + "[ p/tw n (Option) (Channel) ]( Get a notification when a streamer goes live )" + Environment.NewLine + "[ p/tw l (Option) ]( Get a list of notification settings )" + Environment.NewLine + "[ p/tw r (Option) (Channel) ]( Remove a channel from notification setting )```",
                 Footer = new EmbedFooterBuilder()
@@ -1571,8 +1575,8 @@ namespace Bot
             var embed = new EmbedBuilder()
             {
                 Title = EmbedTitle,
-                Url = t.Url,
-                ThumbnailUrl = t.Logo,
+                Url = new Uri(t.Url),
+                ThumbnailUrl = new Uri(t.Logo),
                 Description = EmbedText,
                 Color = new Color(255, 0, 0),
                 Footer = new EmbedFooterBuilder()
@@ -2082,7 +2086,7 @@ namespace Bot
                     x.Name = "Prune"; x.Value = "```md" + Environment.NewLine + PruneText + "```";
                 });
                 allemebed.Color = new Color(0, 191, 255);
-                var DM = await Context.User.CreateDMChannelAsync().ConfigureAwait(false);
+                var DM = await Context.User.GetOrCreateDMChannelAsync().ConfigureAwait(false);
                 await DM.SendMessageAsync("", false, allemebed).ConfigureAwait(false);
                 return;
             }
@@ -2124,11 +2128,16 @@ namespace Bot
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Games |     Media     | Prune ► >" + Environment.NewLine + MediaText + "```"},
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Games |     Prune | >" + Environment.NewLine + PruneText + "```"}
                 };
-                var message = new PaginationFull.PaginatedMessage(EmbedPages, "T", new Color(1), Context.User);
-                if (Context.Guild != null)
+                var message = new PaginationFull.PaginatedMessage(EmbedPages, "Commands", new Color(1), Context.User);
+                if (BotUser.GuildPermissions.ManageMessages)
                 {
                     await _PagFull.SendPaginatedMessageAsync(Context.Channel, message, false);
                 }
+                else
+                {
+                    await _PagFull.SendPaginatedMessageAsync(Context.Channel, message, true);
+                }
+                
             }
         }
 
@@ -2226,7 +2235,7 @@ namespace Bot
             {
                 Title = $"{User} - Level {Badges.Data.PlayerLevel} - Games {Games.Data.GameCount}",
                 Description = "Would you like to claim this account? | yes / no",
-                Url = "http://steamcommunity.com/id/" + User
+                Url = new Uri("http://steamcommunity.com/id/" + User)
             };
             var claimtext = await Context.Channel.SendMessageAsync("", false, embed);
             var response = await WaitForMessage(Context.Message.Author, Context.Channel, TimeSpan.FromMinutes(1));

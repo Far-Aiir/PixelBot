@@ -64,15 +64,15 @@ namespace Bot.Services
                                 var embed = new EmbedBuilder()
                                 {
                                     Title = $"TWITCH - {TwitchChannel.DisplayName} is live playing {TwitchChannel.Game}",
-                                    Url = "https://www.twitch.tv/" + TwitchChannel.Name,
+                                    Url = new Uri("https://www.twitch.tv/" + TwitchChannel.Name),
                                     Description = TwitchChannel.Status,
                                     Footer = new EmbedFooterBuilder()
                                     {
                                         Text = $"To remove this notification do p/tw remove me {TwitchChannel.Name} IN A GUILD!"
                                     },
-                                    ThumbnailUrl = TwitchChannel.Logo
+                                    ThumbnailUrl = new Uri(TwitchChannel.Logo)
                                 };
-                                var DM = User.CreateDMChannelAsync().GetAwaiter().GetResult();
+                                var DM = User.GetOrCreateDMChannelAsync().GetAwaiter().GetResult();
                                 DM.SendMessageAsync("", false, embed).GetAwaiter();
                                 JsonSerializer serializer = new JsonSerializer();
                                 using (StreamWriter file = File.CreateText(Config.BotPath + $"Twitch\\user-{Item.User}-{Item.Twitch.ToLower()}.json"))
@@ -88,13 +88,13 @@ namespace Bot.Services
                                 var embed = new EmbedBuilder()
                                 {
                                     Title = $"TWITCH - {TwitchChannel.DisplayName} is live playing {TwitchChannel.Game}",
-                                    Url = "https://www.twitch.tv/" + TwitchChannel.Name,
+                                    Url = new Uri("https://www.twitch.tv/" + TwitchChannel.Name),
                                     Description = TwitchChannel.Status,
                                     Footer = new EmbedFooterBuilder()
                                     {
                                         Text = $"To remove this notification do p/tw remove here {TwitchChannel.Name}"
                                     },
-                                    ThumbnailUrl = TwitchChannel.Logo
+                                    ThumbnailUrl = new Uri(TwitchChannel.Logo)
                                 };
                                 Channel.SendMessageAsync("", false, embed).GetAwaiter();
                                 JsonSerializer serializer = new JsonSerializer();

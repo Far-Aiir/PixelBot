@@ -156,12 +156,26 @@ namespace Bot.Services
                         .WithColor(embedColor ?? Color.Default)
                         .WithTitle(title)
                         .WithDescription(page?.Description ?? "")
-                        .WithImageUrl(page?.ImageUrl ?? "")
-                        .WithThumbnailUrl(page?.ThumbnailUrl ?? "")
                         .WithFooter(footer =>
                         {
                             footer.Text = $"Page {i++}/{pages.Count()}";
                         });
+                    if (page.ImageUrl != null)
+                    {
+                        builder.ImageUrl = new Uri(page.ImageUrl);
+                    }
+                    if (page.ThumbnailUrl != null)
+                    {
+                        builder.ThumbnailUrl = new Uri(page.ThumbnailUrl);
+                    }
+                    if (page.Author != null)
+                    {
+                        builder.Author = page.Author;
+                    }
+                    if (page.Fields.Count != 0)
+                    {
+                        builder.Fields = page.Fields?.ToList();
+                    }
                     embeds.Add(builder.Build());
                 }
                 Pages = embeds;
@@ -186,9 +200,11 @@ namespace Bot.Services
 
         public class Page
         {
+            public EmbedAuthorBuilder Author { get; set; }
             public string Description { get; set; }
             public string ImageUrl { get; set; }
             public string ThumbnailUrl { get; set; }
+            public IReadOnlyCollection<EmbedFieldBuilder> Fields { get; set; }
         }
     }
 }
