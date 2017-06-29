@@ -6,295 +6,165 @@ using System.Linq;
 using System.Threading.Tasks;
 using PixelBot;
 
-namespace PaginationService
+namespace Bot.Services
 {
-    public class Full
+    public class PaginationFull
     {
-        public class Service
+        const string BACK = "◀";
+        const string NEXT = "▶";
+        const string STOP = "⏹";
+        private readonly Dictionary<ulong, PaginatedMessage> _messages;
+        private readonly DiscordSocketClient _client;
+
+        public PaginationFull(DiscordSocketClient client)
         {
-            const string BACK = "◀";
-            const string NEXT = "▶";
-            const string STOP = "⏹";
-
-            private readonly Dictionary<ulong, Message> _messages;
-            private readonly DiscordSocketClient _Client;
-            public Service(DiscordSocketClient client)
-            {
-                _Client = client;
-                _messages = new Dictionary<ulong, Message>();
-                _Client.ReactionAdded += OnReactionAdded;
-                _Client.ReactionRemoved += OnReactionRemoved;
-            }
-
-            public async Task<IUserMessage> SendPagFullMessageAsync(IMessageChannel channel, Message paginated)
-            {
-                var message = await channel.SendMessageAsync("", embed: paginated.GetEmbed()).ConfigureAwait(false);
-                await message.AddReactionAsync(new Emoji(BACK)).ConfigureAwait(false);
-                await message.AddReactionAsync(new Emoji(NEXT)).ConfigureAwait(false);
-                await message.AddReactionAsync(new Emoji(STOP)).ConfigureAwait(false);
-                _messages.Add(message.Id, paginated);
-
-                return message;
-            }
-
-            internal async Task OnReactionAdded(Cacheable<IUserMessage, ulong> messageParam, ISocketMessageChannel channel, SocketReaction reaction)
-            {
-                var message = await messageParam.GetOrDownloadAsync();
-                if (message == null)
-                {
-                    return;
-                }
-                if (!reaction.User.IsSpecified)
-                {
-                    return;
-                }
-                if (!_messages.ContainsKey(message.Id)) return;
-                if (_messages.TryGetValue(message.Id, out Message page))
-                {
-                    if (reaction.UserId == _Client.CurrentUser.Id) return;
-                    if (page.User != null && reaction.UserId != page.User.Id)
-                    {
-                        if (page.FullMode == true)
-                        {
-                            var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
-                        }
-                        return;
-                    }
-                    if (page.FullMode == true)
-                    {
-                        await message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
-                    }
-                    switch (reaction.Emote.Name)
-                    {
-                        case BACK:
-                            if (page.CurrentPage == 1) break;
-                            page.CurrentPage--;
-                            await message.ModifyAsync(x => x.Embed = page.GetEmbed());
-                            break;
-                        case NEXT:
-                            if (page.CurrentPage == page.Count) break;
-                            page.CurrentPage++;
-                            await message.ModifyAsync(x => x.Embed = page.GetEmbed());
-                            break;
-                        case STOP:
-                            await message.DeleteAsync();
-                            _messages.Remove(message.Id);
-                            return;
-                        default:
-                            break;
-                    }
-                }
-            }
-
-            internal async Task OnReactionRemoved(Cacheable<IUserMessage, ulong> messageParam, ISocketMessageChannel channel, SocketReaction reaction)
-            {
-                var message = await messageParam.GetOrDownloadAsync();
-                if (message == null)
-                {
-                    return;
-                }
-                if (!reaction.User.IsSpecified)
-                {
-                    return;
-                }
-                if (!_messages.ContainsKey(message.Id)) return;
-                if (_messages.TryGetValue(message.Id, out Message page))
-                {
-                    if (page.FullMode == true) return;
-                    if (reaction.UserId == _Client.CurrentUser.Id) return;
-                    if (page.User != null && reaction.UserId != page.User.Id)
-                    {
-                        if (page.FullMode == true)
-                        {
-                            var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
-                        }
-                        return;
-                    }
-                    if (page.FullMode == true)
-                    {
-                        await message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
-                    }
-                    switch (reaction.Emote.Name)
-                    {
-                        case BACK:
-                            if (page.CurrentPage == 1) break;
-                            page.CurrentPage--;
-                            await message.ModifyAsync(x => x.Embed = page.GetEmbed());
-                            break;
-                        case NEXT:
-                            if (page.CurrentPage == page.Count) break;
-                            page.CurrentPage++;
-                            await message.ModifyAsync(x => x.Embed = page.GetEmbed());
-                            break;
-                        case STOP:
-                            await message.DeleteAsync();
-                            _messages.Remove(message.Id);
-                            return;
-                        default:
-                            break;
-                    }
-                }
-            }
+            _messages = new Dictionary<ulong, PaginatedMessage>();
+            _client = client;
+            _client.ReactionAdded += OnReactionAdded;
+            _client.ReactionRemoved += OnReactionRemoved;
         }
-        public class Message
+
+        public async Task<IUserMessage> SendPaginatedMessageAsync(IMessageChannel channel, PaginatedMessage paginated, bool Limited = true)
         {
-            public Message(IReadOnlyCollection<string> pages, string title = "", Color? embedColor = null, bool fullmode = false, string footermessage = "", IUser user = null)
+            IUserMessage message = null;
+            if (Limited == true)
             {
-                Pages = pages;
-                Title = title;
-                EmbedColor = embedColor ?? Color.Default;
-                User = user;
-                CurrentPage = 1;
-                FullMode = fullmode;
-                FooterMessage = footermessage;
+                message = await channel.SendMessageAsync("Limited - No perms Manage Messages", embed: paginated.GetEmbed());
             }
-
-            internal Embed GetEmbed()
+            else
             {
-                return new EmbedBuilder()
-                    .WithColor(EmbedColor)
-                    .WithTitle(Title)
-                    .WithDescription(Pages.ElementAtOrDefault(CurrentPage - 1) ?? "")
-                    .WithFooter(footer =>
-                    {
-                        footer.Text = $"Page {CurrentPage}/{Count} {FooterMessage}";
-                    })
-                    .Build();
+                message = await channel.SendMessageAsync("", embed: paginated.GetEmbed());
             }
-
-            internal string Title { get; }
-            internal Color EmbedColor { get; }
-            internal IReadOnlyCollection<string> Pages { get; }
-            internal IUser User { get; }
-            internal int CurrentPage { get; set; }
-            internal int Count => Pages.Count;
-            internal bool FullMode { get; }
-            internal string FooterMessage { get; }
-        }
-    }
-    public class Min
-    {
-        public class Service
-        {
-            const string FIRST = "⏮";
-            const string BACK = "◀";
-            const string NEXT = "▶";
-            const string END = "⏭";
-            const string STOP = "⏹";
-
-
-            private readonly Dictionary<ulong, Message> _messages;
-            private readonly DiscordSocketClient _Client;
-            public Service(DiscordSocketClient client)
+            if (message != null)
             {
-                _Client = client;
-                _messages = new Dictionary<ulong, Message>();
-                _Client.ReactionAdded += OnReactionAdded;
-                _Client.ReactionRemoved += OnReactionRemoved;
-            }
-
-            public async Task<IUserMessage> SendPagMessageAsync(IMessageChannel channel, Message paginated)
-            {
-                var message = await channel.SendMessageAsync("", embed: paginated.GetEmbed());
                 await message.AddReactionAsync(new Emoji(BACK));
                 await message.AddReactionAsync(new Emoji(NEXT));
                 await message.AddReactionAsync(new Emoji(STOP));
+
                 _messages.Add(message.Id, paginated);
-
-                return message;
             }
+            return message;
+        }
 
-            internal async Task OnReactionAdded(Cacheable<IUserMessage, ulong> messageParam, ISocketMessageChannel channel, SocketReaction reaction)
+        internal async Task OnReactionAdded(Cacheable<IUserMessage, ulong> messageParam, ISocketMessageChannel channel, SocketReaction reaction)
+        {
+            var message = await messageParam.GetOrDownloadAsync();
+            if (message == null)
             {
-                var message = await messageParam.GetOrDownloadAsync();
-                if (message == null)
+                return;
+            }
+            if (!reaction.User.IsSpecified)
+            {
+                return;
+            }
+            if (message.Author.Id != _client.CurrentUser.Id) return;
+            if (_messages.TryGetValue(message.Id, out PaginatedMessage page))
+            {
+                if (reaction.UserId == _client.CurrentUser.Id) return;
+                if (page.User != null && reaction.UserId != page.User.Id)
                 {
-                    return;
-                }
-                if (!reaction.User.IsSpecified)
-                {
-                    return;
-                }
-                if (!_messages.ContainsKey(message.Id)) return;
-                if (_messages.TryGetValue(message.Id, out Message page))
-                {
-                    if (reaction.UserId == _Client.CurrentUser.Id) return;
-                    if (page.User != null && reaction.UserId != page.User.Id)
+                    if (!message.Content.StartsWith("Limited"))
                     {
-                        // var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
-                        return;
+                        var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
                     }
-                    //await message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
-                    switch (reaction.Emote.Name)
-                    {
-                        case BACK:
-                            if (page.CurrentPage == 1) break;
+                    return;
+                }
+                if (!message.Content.StartsWith("Limited"))
+                {
+                    await message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
+                }
+                switch(reaction.Emote.Name)
+                {
+                    case BACK:
+                        if (page.CurrentPage != 1)
+                        {
                             page.CurrentPage--;
                             await message.ModifyAsync(x => x.Embed = page.GetEmbed());
-                            break;
-                        case NEXT:
-                            if (page.CurrentPage == page.Count) break;
+                        }
+                        break;
+                    case NEXT:
+                        if (page.CurrentPage != page.Count)
+                        {
                             page.CurrentPage++;
                             await message.ModifyAsync(x => x.Embed = page.GetEmbed());
-                            break;
-                        case STOP:
-                            await message.DeleteAsync();
-                            _messages.Remove(message.Id);
-                            return;
-                        default:
-                            break;
-                    }
-                }
-            }
-            internal async Task OnReactionRemoved(Cacheable<IUserMessage, ulong> messageParam, ISocketMessageChannel channel, SocketReaction reaction)
-            {
-                var message = await messageParam.GetOrDownloadAsync();
-                if (message == null)
-                {
-                    return;
-                }
-                if (!reaction.User.IsSpecified)
-                {
-                    return;
-                }
-                if (!_messages.ContainsKey(message.Id)) return;
-                if (_messages.TryGetValue(message.Id, out Message page))
-                {
-                    if (reaction.UserId == _Client.CurrentUser.Id) return;
-                    if (page.User != null && reaction.UserId != page.User.Id)
-                    {
-                        // var _ = message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
-                        return;
-                    }
-                    //await message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
-                    switch (reaction.Emote.Name)
-                    {
-                        case BACK:
-                            if (page.CurrentPage == 1) break;
-                            page.CurrentPage--;
-                            await message.ModifyAsync(x => x.Embed = page.GetEmbed());
-                            break;
-                        case NEXT:
-                            if (page.CurrentPage == page.Count) break;
-                            page.CurrentPage++;
-                            await message.ModifyAsync(x => x.Embed = page.GetEmbed());
-                            break;
-                        case STOP:
-                            await message.DeleteAsync();
-                            _messages.Remove(message.Id);
-                            return;
-                        default:
-                            break;
-                    }
+                        }
+                        break;
+                    case STOP:
+                        await message.DeleteAsync();
+                        _messages.Remove(message.Id);
+                        break;
                 }
             }
         }
 
-        public class Message
+        internal async Task OnReactionRemoved(Cacheable<IUserMessage, ulong> messageParam, ISocketMessageChannel channel, SocketReaction reaction)
         {
-            public Message(IReadOnlyCollection<EmbedBuilder> pages, string title = "", Color? embedColor = null, IUser user = null)
+            var message = await messageParam.GetOrDownloadAsync();
+            if (message == null)
             {
-                Pages = pages;
+                return;
+            }
+            if (!message.Content.StartsWith("Limited")) return;
+            if (!reaction.User.IsSpecified)
+            {
+                return;
+            }
+            if (message.Author.Id != _client.CurrentUser.Id) return;
+            if (_messages.TryGetValue(message.Id, out PaginatedMessage page))
+            {
+                if (reaction.UserId == _client.CurrentUser.Id) return;
+                if (page.User != null && reaction.UserId != page.User.Id)
+                {
+                    return;
+                }
+                switch (reaction.Emote.Name)
+                {
+                    case BACK:
+                        if (page.CurrentPage != 1)
+                        {
+                            page.CurrentPage--;
+                            await message.ModifyAsync(x => x.Embed = page.GetEmbed());
+                        }
+                        break;
+                    case NEXT:
+                        if (page.CurrentPage != page.Count)
+                        {
+                            page.CurrentPage++;
+                            await message.ModifyAsync(x => x.Embed = page.GetEmbed());
+                        }
+                        break;
+                    case STOP:
+                        await message.DeleteAsync();
+                        _messages.Remove(message.Id);
+                        break;
+                }
+            }
+        }
+
+        public class PaginatedMessage
+        {
+            public PaginatedMessage(IEnumerable<string> pages, string title = "", Color? embedColor = null, IUser user = null)
+                => new PaginatedMessage(pages.Select(x => new Page { Description = x }), title, embedColor, user);
+            public PaginatedMessage(IEnumerable<Page> pages, string title = "", Color? embedColor = null, IUser user = null)
+            {
+                var embeds = new List<Embed>();
+                int i = 1;
+                foreach (var page in pages)
+                {
+
+                    var builder = new EmbedBuilder()
+                        .WithColor(embedColor ?? Color.Default)
+                        .WithTitle(title)
+                        .WithDescription(page?.Description ?? "")
+                        .WithImageUrl(page?.ImageUrl ?? "")
+                        .WithThumbnailUrl(page?.ThumbnailUrl ?? "")
+                        .WithFooter(footer =>
+                        {
+                            footer.Text = $"Page {i++}/{pages.Count()}";
+                        });
+                    embeds.Add(builder.Build());
+                }
+                Pages = embeds;
                 Title = title;
                 EmbedColor = embedColor ?? Color.Default;
                 User = user;
@@ -303,15 +173,22 @@ namespace PaginationService
 
             internal Embed GetEmbed()
             {
-                return Pages.ElementAtOrDefault(CurrentPage - 1).Build();
+                return Pages.ElementAtOrDefault(CurrentPage - 1);
             }
 
             internal string Title { get; }
             internal Color EmbedColor { get; }
-            internal IReadOnlyCollection<EmbedBuilder> Pages { get; }
+            internal IReadOnlyCollection<Embed> Pages { get; }
             internal IUser User { get; }
             internal int CurrentPage { get; set; }
             internal int Count => Pages.Count;
+        }
+
+        public class Page
+        {
+            public string Description { get; set; }
+            public string ImageUrl { get; set; }
+            public string ThumbnailUrl { get; set; }
         }
     }
 }

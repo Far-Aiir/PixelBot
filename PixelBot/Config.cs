@@ -24,8 +24,6 @@ namespace Bot
         public static string PathBlacklist = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/Blacklist/";
         public static ConfigClass _Configs = new ConfigClass();
         
-
-        public static ITextChannel BlacklistChannel = null;
         public static ulong ChatlogGuild = 0;
 
         public static void ConfigLoad()
@@ -72,16 +70,12 @@ namespace Bot
             IServiceProvider _Services = new ServiceCollection()
                .AddSingleton(_Client)
                .AddSingleton(new PruneService())
-               .AddSingleton(new PaginationService.Full.Service(_Client))
-               .AddSingleton(new PaginationService.Min.Service(_Client))
+               .AddSingleton(new PaginationFull(_Client))
                .AddSingleton(_CommandHandler)
                .AddSingleton(_CommandService)
                .AddSingleton(new Stats(_Client))
                .AddSingleton(new Twitch(_Client))
                .BuildServiceProvider();
-            _CommandHandler.AddServices(_Services);
-            Utils.DiscordUtils._paginationfull = _Services.GetService<PaginationService.Full.Service>();
-            Utils.DiscordUtils._paginationmin = _Services.GetService<PaginationService.Min.Service>();
             return _Services;
         }
     }

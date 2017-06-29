@@ -7,6 +7,9 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using Bot.Services;
+using Discord.WebSocket;
+
 namespace Bot.Utils
 {
     public class HttpRequest
@@ -143,14 +146,15 @@ namespace Bot.Utils
             }
             return User;
         }
-        public static Color GetRoleColor(ICommandContext Command)
+
+        public static Color GetRoleColor(ITextChannel Channel)
         {
             Color RoleColor = new Discord.Color(30, 0, 200);
             IGuildUser BotUser = null;
-            if (Command.Guild != null)
+            if (Channel != null)
             {
-                Bot.GuildBotCache.TryGetValue(Command.Guild.Id, out BotUser);
-                if (BotUser.GetPermissions(Command.Channel as ITextChannel).EmbedLinks)
+                Bot.GuildBotCache.TryGetValue(Channel.Guild.Id, out BotUser);
+                if (BotUser.GetPermissions(Channel).EmbedLinks)
                 {
                     if (BotUser != null)
                     {
@@ -168,60 +172,6 @@ namespace Bot.Utils
                 }
             }
             return RoleColor;
-        }
-        public static PaginationService.Full.Service _paginationfull;
-
-        public static PaginationService.Min.Service _paginationmin;
-
-        public static async void UpdateUptimeGuilds()
-        {
-            try
-            {
-                //var Dbots = PixelBot._Client.GetGuild(110373943822540800);
-                //await Dbots.DownloadUsersAsync();
-                //var DbotsV2 = PixelBot._Client.GetGuild(264445053596991498);
-                //await DbotsV2.DownloadUsersAsync();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-            }
-        }
-
-            public static async Task SendPaginator(List<string> pages, string title, ICommandContext context, EmbedBuilder fallback)
-            {
-            
-           
-                IGuildUser PixelBot = null;
-                Bot.GuildBotCache.TryGetValue(context.Guild.Id, out PixelBot);
-                if (PixelBot.GetPermissions(context.Channel as ITextChannel).ManageMessages & PixelBot.GetPermissions(context.Channel as ITextChannel).AddReactions)
-                {
-                    var message = new PaginationService.Full.Message(pages, title, Utils.DiscordUtils.GetRoleColor(context), true, "", context.User);
-
-                    await _paginationfull.SendPagFullMessageAsync(context.Channel, message).ConfigureAwait(false);
-                }
-                else
-                {
-                    if (PixelBot.GetPermissions(context.Channel as ITextChannel).AddReactions)
-                    {
-                        var message = new PaginationService.Full.Message(pages, title, Utils.DiscordUtils.GetRoleColor(context), false, "- Cannot delete reactions | No perm manage messages", context.User);
-                        await _paginationfull.SendPagFullMessageAsync(context.Channel, message);
-                    }
-                    else
-                    {
-                        if (PixelBot.GetPermissions(context.Channel as ITextChannel).EmbedLinks)
-                        {
-                            fallback.Color = GetRoleColor(context);
-                            await context.Channel.SendMessageAsync("", false, fallback.Build());
-                        }
-                        else
-                        {
-                            await context.Channel.SendMessageAsync("This bot needs permission `embed links` to function");
-                        }
-                    }
-
-                
-            }
         }
     }
 

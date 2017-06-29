@@ -92,7 +92,7 @@ namespace Bot.Services
             return ThisBot;
         }
 
-        public async Task GetInfo(ITextChannel Channel, string User, string Api)
+        public static async Task GetInfo(ITextChannel Channel, string User, string Api)
         {
             IGuildUser GuildUser = await Utils.DiscordUtils.StringToUser(Channel.Guild, User);
             if (GuildUser == null)
@@ -174,7 +174,7 @@ namespace Bot.Services
             {
                 embed = new EmbedBuilder()
                 {
-                    //Color = Utils.DiscordUtils.GetRoleColor(Conte),
+                    Color = Utils.DiscordUtils.GetRoleColor(Channel as ITextChannel),
                     Description = $"{Bot} | {Owner} ```md" + Environment.NewLine + $"<Prefix {GetBot.Prefix}> <Lib {GetBot.Libary}>" + Environment.NewLine + $"<Guilds {GetBot.ServerCount}> <Tags {string.Join(", ", GetBot.Tags)}>" + Environment.NewLine + $"<Points {GetBot.Points}> <Certified {GetBot.Certified}>```" + Links + Environment.NewLine + GetBot.Description
                 };
             }
@@ -182,13 +182,13 @@ namespace Bot.Services
             {
                 embed = new EmbedBuilder()
                 {
-                    //Color = Utils.DiscordUtils.GetRoleColor(Context),
+                    Color = Utils.DiscordUtils.GetRoleColor(Channel as ITextChannel),
                     Description = $"{Bot} | {Owner} ```md" + Environment.NewLine + $"<Prefix {GetBot.Prefix}> <Lib {GetBot.Libary}>" + Environment.NewLine + $"<Guilds {GetBot.ServerCount}> <Tags {string.Join(", ", GetBot.Tags)}>```" + Links + Environment.NewLine + GetBot.Description
                 };
             }
             await Channel.SendMessageAsync("", false, embed).ConfigureAwait(false);
         }
-        public async Task GetInvite(ITextChannel Channel, string User)
+        public static async Task GetInvite(ITextChannel Channel, string User)
         {
             IGuildUser GuildUser = await Utils.DiscordUtils.StringToUser(Channel.Guild, User);
             if (GuildUser == null)
@@ -197,7 +197,7 @@ namespace Bot.Services
                 return;
             }
         }
-        public async Task GetOwner(ITextChannel Channel, string User)
+        public static async Task GetOwner(ITextChannel Channel, string User)
         {
             IGuildUser GuildUser = await Utils.DiscordUtils.StringToUser(Channel.Guild, User);
             if (GuildUser == null)
@@ -206,7 +206,7 @@ namespace Bot.Services
                 return;
             }
         }
-        public async Task GetBots(ITextChannel Channel, string User)
+        public static async Task GetBots(ITextChannel Channel, string User)
         {
             IGuildUser GuildUser = await Utils.DiscordUtils.StringToUser(Channel.Guild, User);
             if (GuildUser == null)
