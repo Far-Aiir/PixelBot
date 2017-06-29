@@ -172,7 +172,7 @@ namespace Bot.Services
                     {
                         builder.Author = page.Author;
                     }
-                    if (page.Fields.Count != 0)
+                    if (page.Fields != null)
                     {
                         builder.Fields = page.Fields?.ToList();
                     }
