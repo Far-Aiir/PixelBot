@@ -2096,7 +2096,7 @@ namespace Bot
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Games |     Media     | Prune ► >" + Environment.NewLine + MediaText + "```"},
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Games |     Prune | >" + Environment.NewLine + PruneText + "```"}
                 };
-                var message = new PaginationFull.PaginatedMessage(EmbedPages, "Commands", new Color(1), Context.User);
+                var message = new PaginationFull.PaginatedMessage(EmbedPages, "Commands", Utils.DiscordUtils.GetRoleColor(Context.Channel as ITextChannel), Context.User);
                 if (BotUser.GuildPermissions.ManageMessages)
                 {
                     await _PagFull.SendPaginatedMessageAsync(Context.Channel, message, false);
