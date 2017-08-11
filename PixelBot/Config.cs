@@ -1,19 +1,18 @@
-﻿using Discord;
+﻿using Bot.Services;
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
-using Bot.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace Bot
 {
-    public class Config
+    public class _Config
     {
         public static bool DevMode = true;
         public static string BotName = "PixelBot";
@@ -22,61 +21,132 @@ namespace Bot
         public static string ClientID = "";
         public static string BotPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/PixelBot/";
         public static string PathBlacklist = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/Blacklist/";
-        public static ConfigClass _Configs = new ConfigClass();
-        
+        public static string BlacklistPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/Blacklist/";
+        public static Class Tokens = new Class();
+        public static bool Ready = false;
         public static ulong ChatlogGuild = 0;
 
-        public static void ConfigLoad()
+        public static string MiscHelp;
+        public static string GameHelp;
+        public static string MediaHelp;
+        public static string PruneHelp;
+
+        
+        public class Class
         {
-            ConfigClass NewConfig = new ConfigClass();
+            public string Discord { get; set; } = "";
+            public string MysqlHost { get; set; } = "";
+            public string MysqlUser { get; set; } = "";
+            public string MysqlPass { get; set; } = "";
+            public string Twitch { get; set; } = "";
+            public string TwitchAuth { get; set; } = "";
+            public string Steam { get; set; } = "";
+            public string Osu { get; set; } = "";
+            public string Xbox { get; set; } = "";
+            public string Vainglory { get; set; } = "";
+            public string Youtube { get; set; } = "";
+            public string Dbots { get; set; } = "";
+            public string DbotsV2 { get; set; } = "";
+            public string Riot { get; set; } = "";
+            public string Wargaming { get; set; } = "";
+        }
+        public static void SetupHelpMenu()
+        {
+            List<string> MiscList = new List<string>();
+        List<string> GameList = new List<string>();
+        List<string> MediaList = new List<string>();
+        List<string> PruneList = new List<string>();
+            foreach (var CMD in _Bot._Commands.Commands.Where(x => x.Module.Name == "Misc"))
+            {
+                try
+                {
+                    CMD.Summary.Trim();
+                    MiscList.Add($"[ p/{CMD.Remarks} ][ {CMD.Summary} ]");
+                }
+                catch
+                {
+
+                }
+
+            }
+            foreach (var CMD in _Bot._Commands.Commands.Where(x => x.Module.Name == "Game"))
+            {
+                try
+                {
+                    CMD.Summary.Trim();
+                    GameList.Add($"[ p/{CMD.Remarks} ][ {CMD.Summary} ]");
+                }
+                catch
+                {
+
+                }
+            }
+            foreach (var CMD in _Bot._Commands.Commands.Where(x => x.Module.Name == "Media"))
+            {
+                try
+                {
+                    CMD.Summary.Trim();
+                    MediaList.Add($"[ p/{CMD.Remarks} ][ {CMD.Summary} ]");
+                }
+                catch
+                {
+
+                }
+            }
+            foreach (var CMD in _Bot._Commands.Commands.Where(x => x.Module.Name == "prune"))
+            {
+                try
+                {
+                    CMD.Summary.Trim();
+                    PruneList.Add($"[ p/{CMD.Remarks} ][ {CMD.Summary} ]");
+                }
+                catch
+                {
+
+                }
+            }
+            MiscHelp = string.Join(Environment.NewLine, MiscList);
+            GameHelp = string.Join(Environment.NewLine, GameList);
+            MediaHelp = string.Join(Environment.NewLine, MediaList);
+            PruneHelp = string.Join(Environment.NewLine, PruneList);
+    }
+            public static async Task ConfigureServices(DiscordSocketClient Client, CommandService Commands, IServiceProvider Services)
+            {
+            await Commands.AddModulesAsync(Assembly.GetEntryAssembly());
+            Services = new ServiceCollection()
+                   .AddSingleton(Client)
+                   .AddSingleton(new PruneService())
+                   .AddSingleton(new PaginationFull(Client))
+                   .AddSingleton(new CommandHandler(Client, Commands))
+                   .AddSingleton(Commands)
+                   .AddSingleton(new Stats(Client))
+                   .AddSingleton(new Twitch(Client))
+                   .BuildServiceProvider();
+            var commandHandler = Services.GetService<CommandHandler>();
+            commandHandler.Setup(Services);
+            SetupHelpMenu();
+        }
+        
+        #region Functions
+        public static void CreateTemplate()
+        {
+            Class NewConfig = new Class();
             using (StreamWriter file = File.CreateText(BotPath + "Config-Example" + ".json"))
             {
                 JsonSerializer serializer = new JsonSerializer();
                 serializer.Serialize(file, NewConfig);
 
             }
-            if (File.Exists(Config.BotPath + "Config.json"))
+        }
+        public static void LoadFile()
+        {
+            using (StreamReader reader = new StreamReader(BotPath + "Config.json"))
             {
-                using (StreamReader reader = new StreamReader(BotPath + "Config.json"))
-                {
-                    JsonSerializer serializer = new JsonSerializer();
-                    _Configs = (ConfigClass)serializer.Deserialize(reader, typeof(ConfigClass));
-                }
+                JsonSerializer serializer = new JsonSerializer();
+                Tokens = (Class)serializer.Deserialize(reader, typeof(Class));
             }
         }
+        #endregion
     }
-    public class ConfigClass
-    {
-        public string Discord { get; set; } = "";
-        public string MysqlHost { get; set; } = "";
-        public string MysqlUser { get; set; } = "";
-        public string MysqlPass { get; set; } = "";
-        public string Twitch { get; set; } = "";
-        public string TwitchAuth { get; set; } = "";
-        public string Steam { get; set; } = "";
-        public string Osu { get; set; } = "";
-        public string Xbox { get; set; } = "";
-        public string Vainglory { get; set; } = "";
-        public string Youtube { get; set; } = "";
-        public string Dbots { get; set; } = "";
-        public string DbotsV2 { get; set; } = "";
-        public string Riot { get; set; } = "";
-        public string Wargaming { get; set; } = "";
-    }
-    public class BotServices
-    {
-        public static IServiceProvider AddServices(DiscordSocketClient _Client, CommandService _CommandService, CommandHandler _CommandHandler)
-        {
-            IServiceProvider _Services = new ServiceCollection()
-               .AddSingleton(_Client)
-               .AddSingleton(new PruneService())
-               .AddSingleton(new PaginationFull(_Client))
-               .AddSingleton(_CommandHandler)
-               .AddSingleton(_CommandService)
-               .AddSingleton(new Stats(_Client))
-               .AddSingleton(new Twitch(_Client))
-               .BuildServiceProvider();
-            return _Services;
-        }
-    }
+
 }

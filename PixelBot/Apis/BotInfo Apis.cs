@@ -1,13 +1,10 @@
 ﻿using Discord;
-using Newtonsoft.Json;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
-namespace Bot.Services
+namespace Bot.Apis
 {
     public class BotClass
     {
@@ -36,7 +33,7 @@ namespace Bot.Services
             if (LastDay == 0 || LastDay == DateTime.Now.Day)
             {
                 dynamic Data = null;
-                Data = Utils.HttpRequest.GetJsonObject("https://bots.discord.pw/api/bots/" + ID, Config._Configs.Dbots);
+                Data = Utils.HttpRequest.GetJsonObject("https://bots.discord.pw/api/bots/" + ID, _Config.Tokens.Dbots);
                 if (Data == null)
                 {
                     ThisBot = null;
@@ -54,7 +51,7 @@ namespace Bot.Services
                 ThisBot.Prefix = Data.prefix;
                 ThisBot.Website = Data.website;
                 ThisBot.Api = "(Main) Discord Bots";
-                dynamic ServerCount = Utils.HttpRequest.GetJsonObject("https://bots.discord.pw/api/bots/" + ID + "/stats", Config._Configs.Dbots) ?? null;
+                dynamic ServerCount = Utils.HttpRequest.GetJsonObject("https://bots.discord.pw/api/bots/" + ID + "/stats", _Config.Tokens.Dbots) ?? null;
                 if (ServerCount != null)
                 {
                     ThisBot.ServerCount = ServerCount.stats[0].server_count;
@@ -69,7 +66,7 @@ namespace Bot.Services
             if (LastDay == 0 || LastDay == DateTime.Now.Day)
             {
                 dynamic Data = null;
-                Data = Utils.HttpRequest.GetJsonObject("https://discordbots.org/api/bots/" + ID, Config._Configs.Dbots);
+                Data = Utils.HttpRequest.GetJsonObject("https://discordbots.org/api/bots/" + ID, _Config.Tokens.Dbots);
                 if (Data == null)
                 {
                     ThisBot = null;
@@ -218,7 +215,7 @@ namespace Bot.Services
             }
             if (GetBot == null)
             {
-                 Channel.SendMessageAsync("`Could not find bot`").GetAwaiter().GetResult();
+                Channel.SendMessageAsync("`Could not find bot`").GetAwaiter().GetResult();
                 return;
             }
             if (GetBot.Invite == null)
@@ -229,7 +226,7 @@ namespace Bot.Services
             var embed = new EmbedBuilder()
             {
                 Author = new EmbedAuthorBuilder()
-                { Name = $"Invite for {GetBot.Name}", IconUrl = new Uri(GuildUser?.GetAvatarUrl()) },
+                { Name = $"Invite for {GetBot.Name}", IconUrl = GuildUser?.GetAvatarUrl() },
                 Description = $"[Invite This Bot]({GetBot.Invite})",
                 Color = Utils.DiscordUtils.GetRoleColor(Channel as ITextChannel)
             };
@@ -266,14 +263,14 @@ namespace Bot.Services
                 return;
             }
             List<string> Owners = new List<string>();
-            foreach(var Owner in GetBot.OwnersID)
+            foreach (var Owner in GetBot.OwnersID)
             {
                 Owners.Add($"<@{Owner}>");
             }
             var embed = new EmbedBuilder()
             {
                 Author = new EmbedAuthorBuilder()
-                { Name = $"Owners for {GetBot.Name}", IconUrl = new Uri(GuildUser?.GetAvatarUrl()) },
+                { Name = $"Owners for {GetBot.Name}", IconUrl = GuildUser?.GetAvatarUrl() },
                 Description = $"{string.Join(Environment.NewLine, Owners)}",
                 Color = Utils.DiscordUtils.GetRoleColor(Channel as ITextChannel)
             };
@@ -281,7 +278,8 @@ namespace Bot.Services
         }
         public static void GetBots(ITextChannel Channel, string User, string Api)
         {
-            
+
         }
     }
+
 }

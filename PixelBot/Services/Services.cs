@@ -10,6 +10,8 @@ using System.Net;
 using System.Timers;
 using TwitchCSharp.Clients;
 using Discord.WebSocket;
+using Bot;
+
 namespace Bot.Services
 {
     public class Twitch
@@ -17,9 +19,9 @@ namespace Bot.Services
         readonly DiscordSocketClient _Client;
         public Twitch(DiscordSocketClient client)
         {
-            Directory.CreateDirectory(Config.BotPath + "Twitch\\");
+            Directory.CreateDirectory(_Config.BotPath + "Twitch\\");
             _Client = client;
-            foreach (var File in Directory.GetFiles(Config.BotPath + "Twitch\\"))
+            foreach (var File in Directory.GetFiles(_Config.BotPath + "Twitch\\"))
             {
                 using (StreamReader reader = new StreamReader(File))
                 {
@@ -41,12 +43,12 @@ namespace Bot.Services
             public bool Live { get; set; }
         }
         public Timer Timer = new Timer();
-        
+
         public List<TwitchClass> NotificationList = new List<TwitchClass>();
 
         public void SendNotifications(object sender, ElapsedEventArgs e)
         {
-            var TwitchClient = new TwitchAuthenticatedClient(Config._Configs.Twitch, Config._Configs.TwitchAuth);
+            var TwitchClient = new TwitchAuthenticatedClient(_Config.Tokens.Twitch, _Config.Tokens.TwitchAuth);
             foreach (var Item in NotificationList)
             {
                 try
@@ -64,18 +66,18 @@ namespace Bot.Services
                                 var embed = new EmbedBuilder()
                                 {
                                     Title = $"TWITCH - {TwitchChannel.DisplayName} is live playing {TwitchChannel.Game}",
-                                    Url = new Uri("https://www.twitch.tv/" + TwitchChannel.Name),
+                                    Url = "https://www.twitch.tv/" + TwitchChannel.Name,
                                     Description = TwitchChannel.Status,
                                     Footer = new EmbedFooterBuilder()
                                     {
                                         Text = $"To remove this notification do p/tw remove me {TwitchChannel.Name} IN A GUILD!"
                                     },
-                                    ThumbnailUrl = new Uri(TwitchChannel.Logo)
+                                    ThumbnailUrl = TwitchChannel.Logo
                                 };
                                 var DM = User.GetOrCreateDMChannelAsync().GetAwaiter().GetResult();
                                 DM.SendMessageAsync("", false, embed).GetAwaiter();
                                 JsonSerializer serializer = new JsonSerializer();
-                                using (StreamWriter file = File.CreateText(Config.BotPath + $"Twitch\\user-{Item.User}-{Item.Twitch.ToLower()}.json"))
+                                using (StreamWriter file = File.CreateText(_Config.BotPath + $"Twitch\\user-{Item.User}-{Item.Twitch.ToLower()}.json"))
                                 {
                                     serializer.Serialize(file, Item);
                                 }
@@ -88,17 +90,17 @@ namespace Bot.Services
                                 var embed = new EmbedBuilder()
                                 {
                                     Title = $"TWITCH - {TwitchChannel.DisplayName} is live playing {TwitchChannel.Game}",
-                                    Url = new Uri("https://www.twitch.tv/" + TwitchChannel.Name),
+                                    Url = "https://www.twitch.tv/" + TwitchChannel.Name,
                                     Description = TwitchChannel.Status,
                                     Footer = new EmbedFooterBuilder()
                                     {
                                         Text = $"To remove this notification do p/tw remove here {TwitchChannel.Name}"
                                     },
-                                    ThumbnailUrl = new Uri(TwitchChannel.Logo)
+                                    ThumbnailUrl = TwitchChannel.Logo
                                 };
                                 Channel.SendMessageAsync("", false, embed).GetAwaiter();
                                 JsonSerializer serializer = new JsonSerializer();
-                                using (StreamWriter file = File.CreateText(Config.BotPath + $"Twitch\\channel-{Item.Guild.ToString()}-{Item.Channel}-{Item.Twitch}.json"))
+                                using (StreamWriter file = File.CreateText(_Config.BotPath + $"Twitch\\channel-{Item.Guild.ToString()}-{Item.Channel}-{Item.Twitch}.json"))
                                 {
                                     serializer.Serialize(file, Item);
                                 }
@@ -119,7 +121,7 @@ namespace Bot.Services
                     Console.WriteLine(ex);
                 }
             }
-        } 
+        }
     }
     public class Stats
     {
@@ -139,7 +141,7 @@ namespace Bot.Services
             {
                 var request = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/277933222015401985/stats");
                 request.ContentType = "application/json";
-                request.Headers.Add("Authorization", Config._Configs.Dbots);
+                request.Headers.Add("Authorization", _Config.Tokens.Dbots);
                 request.Method = "POST";
                 using (var streamWriter = new StreamWriter(request.GetRequestStream()))
                 {
@@ -156,7 +158,7 @@ namespace Bot.Services
             {
                 var request = (HttpWebRequest)WebRequest.Create("https://discordbots.org/api/bots/277933222015401985/stats");
                 request.ContentType = "application/json";
-                request.Headers.Add("Authorization", Config._Configs.DbotsV2);
+                request.Headers.Add("Authorization", _Config.Tokens.DbotsV2);
                 request.Method = "POST";
                 using (var streamWriter = new StreamWriter(request.GetRequestStream()))
                 {
@@ -176,7 +178,7 @@ namespace Bot.Services
         {
             var youtubeService = new YouTubeService(new BaseClientService.Initializer()
             {
-                ApiKey = Config._Configs.Youtube
+                ApiKey = _Config.Tokens.Youtube
             });
         }
     }

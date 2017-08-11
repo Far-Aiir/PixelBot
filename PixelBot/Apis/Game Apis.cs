@@ -1,5 +1,4 @@
-﻿using Discord.Commands;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,7 +7,6 @@ using System.Text;
 using RiotApi.Net.RestClient.Configuration;
 using System.Data;
 using Newtonsoft.Json.Linq;
-using Newtonsoft.Json;
 using OverwatchAPI;
 
 namespace Bot.Apis
@@ -38,20 +36,22 @@ namespace Bot.Apis
         }
         public static Player GetUserStats(string Region, string User)
         {
-            Player Player = new Player();
-                Player.Region = Region.ToUpper();
-                Player.User = User;
-                string RegionUrl = GetRegionUrl(Player, Region);
-                if (Player.Status == RequestStatus.UnknownRegion)
-                {
-                    return Player;
-                }
-                dynamic GetID = Utils.HttpRequest.GetJsonObject(RegionUrl + "/wot/account/list/?application_id=" + Config._Configs.Wargaming + "&search=" + User + "&limit=1");
-                if (GetID == null)
-                {
-                    Player.Status = RequestStatus.UnknownPlayer;
-                    return Player;
-                }
+            Player Player = new Player()
+            {
+                Region = Region.ToUpper(),
+                User = User
+            };
+            string RegionUrl = GetRegionUrl(Player, Region);
+            if (Player.Status == RequestStatus.UnknownRegion)
+            {
+                return Player;
+            }
+            dynamic GetID = Utils.HttpRequest.GetJsonObject(RegionUrl + "/wot/account/list/?application_id=" + _Config.Tokens.Wargaming + "&search=" + User + "&limit=1");
+            if (GetID == null)
+            {
+                Player.Status = RequestStatus.UnknownPlayer;
+                return Player;
+            }
             int Count = GetID.meta.count;
             if (Count == 0)
             {
@@ -59,16 +59,16 @@ namespace Bot.Apis
                 return Player;
             }
 
-                Player.ID = GetID.data[0].account_id;
-                dynamic GetInfo = Utils.HttpRequest.GetJsonObject(RegionUrl + "/wot/account/info/?application_id=" + Config._Configs.Wargaming + "&account_id=" + Player.ID);
+            Player.ID = GetID.data[0].account_id;
+            dynamic GetInfo = Utils.HttpRequest.GetJsonObject(RegionUrl + "/wot/account/info/?application_id=" + _Config.Tokens.Wargaming + "&account_id=" + Player.ID);
             JObject ConvertInfo = (JObject)GetInfo;
             dynamic Info = ConvertInfo.Last.First.First.First;
             if (Info == null)
-                {
-                    Player.Status = RequestStatus.Other;
-                    return Player;
-                }
-                Player.Region = Info.Raiting;
+            {
+                Player.Status = RequestStatus.Other;
+                return Player;
+            }
+            Player.Region = Info.Raiting;
             long Last = Info.last_battle_time;
             long Created = Info.created_at;
             Player.LastBattle = Utils.OtherUtils.UnixToDateTime(Last);
@@ -83,7 +83,7 @@ namespace Bot.Apis
             Player.Status = RequestStatus.OK;
             return Player;
         }
-        
+
         private static string GetRegionUrl(Player Player, string Region)
         {
             string ThisRegion = "null";
@@ -192,28 +192,28 @@ namespace Bot.Apis
         }
         public static Player GetPlayerStats(string Region, string User)
         {
-            Player Player = new Player(); 
-                dynamic Request = Utils.HttpRequest.GetJsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerNames]=" + User, Config._Configs.Vainglory, "X-TITLE-ID", "semc-vainglory");
-                
-                Player.ID = Request.data[0].id;
-                Player.User = User;
-                Player.Region = Region;
-                Player.Created = Request.data[0].attributes.createdAt;
-                Player.KarmaLevel = Request.data[0].attributes.stats.karmaLevel;
-                Player.Level = Request.data[0].attributes.stats.level;
-                Player.LifetimeGold = Request.data[0].attributes.stats.lifetimeGold;
-                Player.XP = Request.data[0].attributes.stats.xp;
-                Player.Wins = Request.data[0].attributes.stats.wins;
-                Player.Played = Request.data[0].attributes.stats.played;
-                Player.Loss = Player.Wins = Player.Played;
-                Player.SkillTier = Request.data[0].attributes.stats.skillTier;
-                Player.PlayedRanked = Request.data[0].attributes.stats.played_ranked;
+            Player Player = new Player();
+            dynamic Request = Utils.HttpRequest.GetJsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerNames]=" + User, _Config.Tokens.Vainglory, "X-TITLE-ID", "semc-vainglory");
+
+            Player.ID = Request.data[0].id;
+            Player.User = User;
+            Player.Region = Region;
+            Player.Created = Request.data[0].attributes.createdAt;
+            Player.KarmaLevel = Request.data[0].attributes.stats.karmaLevel;
+            Player.Level = Request.data[0].attributes.stats.level;
+            Player.LifetimeGold = Request.data[0].attributes.stats.lifetimeGold;
+            Player.XP = Request.data[0].attributes.stats.xp;
+            Player.Wins = Request.data[0].attributes.stats.wins;
+            Player.Played = Request.data[0].attributes.stats.played;
+            Player.Loss = Player.Wins = Player.Played;
+            Player.SkillTier = Request.data[0].attributes.stats.skillTier;
+            Player.PlayedRanked = Request.data[0].attributes.stats.played_ranked;
             return Player;
         }
         public static dynamic GetPlayerMatch(string Region, string User)
         {
             Match Match = new Match();
-            dynamic Dynamic = Utils.HttpRequest.GetJsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/matches?sort=createdAt&page[limit]=3&filter[playerNames]=" + User, Config._Configs.Vainglory, "X-TITLE-ID", "semc-vainglory");
+            dynamic Dynamic = Utils.HttpRequest.GetJsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/matches?sort=createdAt&page[limit]=3&filter[playerNames]=" + User, _Config.Tokens.Vainglory, "X-TITLE-ID", "semc-vainglory");
             return Match;
         }
         #endregion
@@ -346,7 +346,7 @@ namespace Bot.Apis
                 return Player;
             }
             OverwatchPlayer OWplayer = new OverwatchPlayer(User);
-             OWplayer.DetectPlatform().GetAwaiter();
+            OWplayer.DetectPlatform().GetAwaiter();
             OWplayer.DetectRegionPC().GetAwaiter();
             OWplayer.UpdateStats().GetAwaiter();
             if (OWplayer == null)
@@ -362,7 +362,7 @@ namespace Bot.Apis
             {
                 foreach (var B in A)
                 {
-                    
+
                     if (B.IsUnlocked)
                     {
                         Achievements++;
@@ -378,7 +378,7 @@ namespace Bot.Apis
             Player.CasualPlaytime = CasualStats.GetCategory("Game").GetStat("Time Played").Value;
             Player.RankPlayed = RankedStats.GetCategory("Game").GetStat("Games Won").Value;
             Player.RankPlaytime = RankedStats.GetCategory("Game").GetStat("Time Played").Value;
-            
+
             return Player;
         }
     }

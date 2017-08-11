@@ -5,17 +5,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
-public static class Extensions
-{
-    public static void ThrowIfNull<T>(this T obj, string name) where T : class
-    {
-        if (obj == null)
-            throw new ArgumentNullException(nameof(name));
-    }
-}
 namespace Bot.Services
 {
+    public static class Extensions
+    {
+        public static void ThrowIfNull<T>(this T obj, string name) where T : class
+        {
+            if (obj == null)
+                throw new ArgumentNullException(nameof(name));
+        }
+    }
+
     public class PruneService
     {
         private ConcurrentHashSet<ulong> _pruningChannels = new ConcurrentHashSet<ulong>();

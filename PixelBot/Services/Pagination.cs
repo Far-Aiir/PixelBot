@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using PixelBot;
 
 namespace Bot.Services
 {
@@ -73,7 +72,7 @@ namespace Bot.Services
                 {
                     await message.RemoveReactionAsync(reaction.Emote, reaction.User.Value);
                 }
-                switch(reaction.Emote.Name)
+                switch (reaction.Emote.Name)
                 {
                     case BACK:
                         if (page.CurrentPage != 1)
@@ -162,11 +161,11 @@ namespace Bot.Services
                         });
                     if (page.ImageUrl != null)
                     {
-                        builder.ImageUrl = new Uri(page.ImageUrl);
+                        builder.ImageUrl = page.ImageUrl;
                     }
                     if (page.ThumbnailUrl != null)
                     {
-                        builder.ThumbnailUrl = new Uri(page.ThumbnailUrl);
+                        builder.ThumbnailUrl = page.ThumbnailUrl;
                     }
                     if (page.Author != null)
                     {
