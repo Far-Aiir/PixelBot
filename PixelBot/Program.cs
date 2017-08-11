@@ -222,7 +222,7 @@ namespace Bot
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 _Log.Bot($"Ready in {_Client.Guilds.Count} guilds");
-                if (!_Client.CurrentUser.Game.ToString().Contains("[!!!]"))
+                if (!_Client.CurrentUser.Game.ToString().Contains("[!Discord Issue!]"))
                 {
                     _Client.SetGameAsync($"{_Config.Prefix}help [{_Client.Guilds.Count}] www.blaze.ml").GetAwaiter();
                 }
@@ -270,7 +270,7 @@ namespace Bot
                             }
                         }
                     }
-                    if (!_Client.CurrentUser.Game.ToString().Contains("[!!!]"))
+                    if (!_Client.CurrentUser.Game.ToString().Contains("[!Discord Issue!]"))
                     {
                         _Client.SetGameAsync($"{_Config.Prefix}help [{_Client.Guilds.Count}] www.blaze.ml").GetAwaiter();
                     }
@@ -288,7 +288,7 @@ namespace Bot
                 }
                 if (_Config.DevMode == false)
                 {
-                    if (!_Client.CurrentUser.Game.ToString().Contains("[!!!]"))
+                    if (!_Client.CurrentUser.Game.ToString().Contains("[!Discord Issue!]"))
                     {
                         _Client.SetGameAsync($"{_Config.Prefix}help [{_Client.Guilds.Count}] www.blaze.ml").GetAwaiter();
                     }

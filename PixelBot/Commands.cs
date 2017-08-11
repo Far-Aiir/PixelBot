@@ -718,82 +718,81 @@ namespace Bot.Commands
         {
             BotInfo.GetOwner(Context.Channel as ITextChannel, User, Api);
         }
-        [Command("status")]
-        public async Task Status(string ALL = "")
+        [Command("discord"), Remarks("discord"), Summary("Get discord status")]
+        public async Task Status(string Option = "")
         {
-            if (ALL == "all")
+            string Status = "";
+            string Time = "";
+            WebClient WC = new WebClient();
+            string Page = WC.DownloadString("https://status.discordapp.com/");
+            HtmlAgilityPack.HtmlDocument HtmlDoc = new HtmlAgilityPack.HtmlDocument();
+            HtmlDoc.LoadHtml(Page);
+            var Root = HtmlDoc.DocumentNode;
+            var embed = new EmbedBuilder()
             {
-                string Status = "";
-                string Time = "";
-                WebClient webClient = new WebClient();
-                string page = webClient.DownloadString("https://status.discordapp.com/");
-                HtmlAgilityPack.HtmlDocument doc = new HtmlAgilityPack.HtmlDocument();
-                doc.LoadHtml(page);
-                var root = doc.DocumentNode;
-                foreach (var i in root.SelectNodes("//div[@class='update']"))
+                Title = "<:discord:314003252830011395> Discord Status",
+                Footer = new EmbedFooterBuilder()
                 {
-                    var content = i.InnerText;
-                    string[] words = content.Split('.');
-                    Status = Status + words.First().Trim() + Environment.NewLine + Environment.NewLine;
-                    if (Time == "")
-                    {
-                        Time = words.Last().Trim();
-                    }
+                    Text = ""
                 }
-                var embed = new EmbedBuilder()
-                {
-                    Title = "Discord Status Full",
-                    Description = Status,
-                    Footer = new EmbedFooterBuilder()
+            };
+            switch (Option)
+            {
+                case "status":
+                    try
                     {
-                        Text = Time
+                        foreach (var i in Root.SelectNodes("//div[@class='update']"))
+                        {
+                            var content = i.InnerText;
+                            string[] words = content.Split('.');
+                            Status = Status + words.First().Trim() + Environment.NewLine + Environment.NewLine;
+                            if (Time == "")
+                            {
+                                Time = words.Last().Trim();
+                            }
+                        }
                     }
-                };
-                await ReplyAsync("", false, embed);
+                    catch
+                    {
+                        Status = "<:online:313956277808005120> All Systems Operational!";
+                    }
+                    break;
+                default:
+                    try
+                    {
+                        var Nodes = Root.SelectNodes("//div[@class='update']");
+                        if (Nodes != null)
+                        {
+                            var NodeItem = Nodes.First();
+                            var NodeText = NodeItem.InnerText;
+                            string[] NodeSplit = NodeText.Split('.');
+                            Status = NodeSplit.First().Trim();
+                            Time = NodeSplit.Last().Trim() + " | To get full status do > p/discord status";
+                        }
+                        else
+                        {
+                            Status = "All Systems Operational!";
+                        }
+                    }
+                    catch
+                    {
+                        Status = "All Systems Operational!";
+                    }
+                        embed.AddField("Links", "[Website](https://discordapp.com/) | [Status](https://status.discordapp.com/) | [Twitter](https://twitter.com/discordapp)");
+                    break;
+            }
+            if (Status == "All Systems Operational!")
+            {
+                embed.Color = new Color(0,200,0);
             }
             else
             {
-                string Status = "";
-                string Time = "";
-                WebClient webClient = new WebClient();
-                string page = webClient.DownloadString("https://status.discordapp.com/");
-                HtmlAgilityPack.HtmlDocument doc = new HtmlAgilityPack.HtmlDocument();
-                doc.LoadHtml(page);
-                var root = doc.DocumentNode;
-                HtmlAgilityPack.HtmlNode p = null;
-                try
-                {
-                    var l = root.SelectNodes("//div[@class='update']");
-                    if (l.Count != 0)
-                    {
-                        p = l.First();
-                    }
-                }
-                catch { }
-                if (p == null)
-                {
-                    Status = "All Systems Operational!";
-                }
-                else
-                {
-                    var content = p.InnerText;
-                    string[] words = content.Split('.');
-                    Status = words.First().Trim();
-                    Time = words.Last().Trim();
-                }
-                var embed = new EmbedBuilder()
-                {
-                    Title = "Discord Status",
-                    Description = Status,
-                    Footer = new EmbedFooterBuilder()
-                    {
-                        Text = Time
-                    }
-
-                };
-
-                await ReplyAsync("", false, embed);
+                embed.Color = new Color(200, 0, 0);
             }
+            embed.Description = Status;
+            embed.Footer.Text = Time;
+                await ReplyAsync("", false, embed);
+            
         }
     }
     public class Game : ModuleBase

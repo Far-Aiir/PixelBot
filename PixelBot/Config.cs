@@ -121,6 +121,7 @@ namespace Bot
                    .AddSingleton(Commands)
                    .AddSingleton(new Stats(Client))
                    .AddSingleton(new Twitch(Client))
+                   .AddSingleton(new DiscordStatus(Client))
                    .BuildServiceProvider();
             var commandHandler = Services.GetService<CommandHandler>();
             commandHandler.Setup(Services);
