@@ -18,13 +18,10 @@ namespace Bot
         public static string BotName = "PixelBot";
         public static string Prefix = "p/";
         public static string DevPrefix = "tp/";
-        public static string ClientID = "";
+        public static string Github = "https://github.com/ArchboxDev/PixelBot";
         public static string BotPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/PixelBot/";
-        public static string PathBlacklist = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/Blacklist/";
-        public static string BlacklistPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "/Blacklist/";
         public static Class Tokens = new Class();
         public static bool Ready = false;
-        public static ulong ChatlogGuild = 0;
 
         public static string MiscHelp;
         public static string GameHelp;
@@ -127,27 +124,6 @@ namespace Bot
             commandHandler.Setup(Services);
             SetupHelpMenu();
         }
-        
-        #region Functions
-        public static void CreateTemplate()
-        {
-            Class NewConfig = new Class();
-            using (StreamWriter file = File.CreateText(BotPath + "Config-Example" + ".json"))
-            {
-                JsonSerializer serializer = new JsonSerializer();
-                serializer.Serialize(file, NewConfig);
-
-            }
-        }
-        public static void LoadFile()
-        {
-            using (StreamReader reader = new StreamReader(BotPath + "Config.json"))
-            {
-                JsonSerializer serializer = new JsonSerializer();
-                Tokens = (Class)serializer.Deserialize(reader, typeof(Class));
-            }
-        }
-        #endregion
     }
 
 }

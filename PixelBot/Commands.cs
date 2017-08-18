@@ -286,6 +286,7 @@ namespace Bot.Commands
             }
         }
     }
+
     public class Misc : ModuleBase
     {
         private readonly DiscordSocketClient _Client;
@@ -795,6 +796,7 @@ namespace Bot.Commands
             
         }
     }
+
     public class Game : ModuleBase
     {
         private readonly PaginationFull _PagFull;
@@ -2054,9 +2056,6 @@ namespace Bot.Commands
         [Alias("commands")]
         public async Task Pag(string Option = "")
         {
-            
-            
-
             if (Context.Channel is IPrivateChannel || Option == "all")
             {
                 if (Option == "all")
@@ -2092,7 +2091,7 @@ namespace Bot.Commands
             else
             {
                 IGuildUser BotUser = null;
-                _Bot.GuildCache.TryGetValue(Context.Guild, out BotUser);
+                _Bot.BotCache.TryGetValue(Context.Guild.Id, out BotUser);
                 string HelpText = "```md" + Environment.NewLine + "[ p/misc ]( Info/Dice Roll )" + Environment.NewLine + "[ p/game ]( Steam/Minecraft )" + Environment.NewLine + "[ p/media ]( Twitch )" + Environment.NewLine + "[ p/prune ]( Prune Messages )```";
                 if (!BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
                 {
