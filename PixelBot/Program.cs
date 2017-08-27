@@ -199,7 +199,7 @@ namespace Bot
             if (Message == "")
             {
                 Status = "";
-                _Client.SetGameAsync($"{_Config.Prefix}help [{_Client.Guilds.Count}] www.blaze.ml").GetAwaiter();
+                _Client.SetGameAsync($"{_Config.Prefix}help [{_Client.Guilds.Count}] blazeweb.ml").GetAwaiter();
             }
             else
             {

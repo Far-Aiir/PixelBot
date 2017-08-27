@@ -979,7 +979,7 @@ namespace Bot.Commands
                     ThumbnailUrl = stuff.avatarBodyImagePath,
                     Footer = new EmbedFooterBuilder()
                     {
-                        Text = Status
+                        Text = Status + " | More commands coming soon"
                     }
                 };
                 await PWM.DeleteAsync();
