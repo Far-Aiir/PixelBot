@@ -40,13 +40,14 @@ namespace Bot.Services
             }
             if (HasError == true)
             {
-                _Client.SetGameAsync($"{_Config.Prefix}help [!Discord Issue!] p/discord").GetAwaiter();
+                _Bot.SetStatus($"{_Config.Prefix}help [!Discord Issue!] p/discord");
             }
             else
             {
                 if (_Client.CurrentUser.Game.ToString().Contains("[!Discord Issue!]"))
                 {
-                    _Client.SetGameAsync($"{_Config.Prefix}help [{_Client.Guilds.Count}] www.blaze.ml");
+
+                    _Bot.SetStatus("");
                 }
             }
         }

@@ -22,6 +22,7 @@ using System.Threading.Tasks;
 using TwitchCSharp.Clients;
 using Bot;
 using Bot.Services;
+using Newtonsoft.Json.Linq;
 
 namespace Bot.Commands
 {
@@ -295,10 +296,7 @@ namespace Bot.Commands
             _Client = client;
         }
 
-        [Command("math")]
-        [Remarks("math (1 + 1 * 9 / 5 - 3)")]
-        [Summary("Do some maths calculations")]
-        [Alias("calc")]
+        [Command("math"), Remarks("math (1 + 1 * 9"), Summary("Do some maths calculations"), Alias("calc")]
         public async Task Math([Remainder] string Math)
         {
             var interpreter = new DynamicExpresso.Interpreter();
@@ -306,9 +304,7 @@ namespace Bot.Commands
             await Context.Channel.SendMessageAsync($"`{Math} = {result.ToString()}`");
         }
 
-        [Command("discrim")]
-        [Remarks("discrim (0000)")]
-        [Summary("list of guild and global user with a discrim")]
+        [Command("discrim"), Remarks("discrim (0000)"), Summary("list of guild and global user with a discrim")]
         public async Task Discrim(int Discrim = 0, string Option = "")
         {
             if (Discrim == 0)
@@ -406,9 +402,8 @@ namespace Bot.Commands
             }
         }
 
-        [Command("guild")]
-        [Remarks("guild")]
-        [Summary("Info about the guild | Owner/Roles")]
+        [Command("guild"), Remarks("guild"), Summary("Info about the guild | Owner/Roles")]
+        
         public async Task Guild(string arg = "guild")
         {
             if (arg.ToLower() == "role" || arg.ToLower() == "roles")
@@ -490,9 +485,7 @@ namespace Bot.Commands
             await Context.Channel.SendMessageAsync("", false, embed);
         }
 
-        [Command("user")]
-        [Remarks("user (@Mention/User ID)")]
-        [Summary("Info about a user")]
+        [Command("user"),Remarks("user (@Mention/User ID)"),Summary("Info about a user")]
         public async Task User(string User = "")
         {
             IGuildUser GuildUser = null;
@@ -551,9 +544,7 @@ namespace Bot.Commands
             await Context.Channel.SendMessageAsync("", false, embed).ConfigureAwait(false);
         }
 
-        [Command("bot")]
-        [Remarks("bot")]
-        [Summary("Info about this bot | Owner/Websites/Stats")]
+        [Command("bot"), Remarks("bot"), Summary("Info about this bot | Owner/Websites/Stats")]
         public async Task Info()
         {
             try
@@ -577,7 +568,7 @@ namespace Bot.Commands
                 });
                 embed.AddField(x =>
                 {
-                    x.Name = ":globe_with_meridians: Links"; x.Value = $"" + Environment.NewLine + "[Website](https://blaze.ml)" + Environment.NewLine + "[Invite Bot](https://goo.gl/GsnmZP)" + Environment.NewLine + "[My Anime List](https://goo.gl/PtGU7C)" + Environment.NewLine + "[Monstercat](https://goo.gl/FgW5sT)" + Environment.NewLine + "[PixelBot Github](https://goo.gl/ORjWNh)" + Environment.NewLine + "[Selfbot Windows](https://goo.gl/c9T9oG)" + Environment.NewLine + "[Selfbot Linux](https://goo.gl/6sotGS)"; x.IsInline = true;
+                    x.Name = ":globe_with_meridians: Links"; x.Value = $"" + Environment.NewLine + "[Website](https://blazeweb.ml)" + Environment.NewLine + "[Invite Bot](https://goo.gl/GsnmZP)" + Environment.NewLine + "[My Anime List](https://goo.gl/PtGU7C)" + Environment.NewLine + "[Monstercat](https://goo.gl/FgW5sT)" + Environment.NewLine + "[PixelBot Github](https://goo.gl/ORjWNh)" + Environment.NewLine + "[Selfbot Windows](https://goo.gl/c9T9oG)" + Environment.NewLine + "[Selfbot Linux](https://goo.gl/6sotGS)"; x.IsInline = true;
                 });
                 await Context.Channel.SendMessageAsync("", false, embed.Build()).ConfigureAwait(false);
             }
@@ -587,49 +578,14 @@ namespace Bot.Commands
             }
         }
 
-        [Command("roll")]
-        [Alias("dice")]
-        [Remarks("roll")]
-        [Summary("Roll the dice!")]
+        [Command("roll"), Remarks("roll"), Summary("Roll the dice!"), Alias("dice")]
         public async Task Roll()
         {
             var random = new Random((int)DateTime.Now.Ticks); var randomValue = random.Next(1, 7);
             await Context.Channel.SendMessageAsync($":game_die: {Context.User.Username} Rolled a {randomValue}");
         }
 
-        [Command("invite")]
-        [Remarks("invite")]
-        [Summary("Invite this bot to your guild")]
-        public async Task Invite()
-        {
-            if (Context.Channel is IPrivateChannel)
-            {
-                await Context.Channel.SendMessageAsync("**Invite this bot to your guild**" + Environment.NewLine + "https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0");
-            }
-            else
-            {
-                IGuildUser BotUser = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-                if (BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
-                {
-                    var embed = new EmbedBuilder()
-                    {
-                        Title = "",
-                        Description = "[Invite this bot to your guild](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0)",
-                        Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel)
-                    };
-                    await Context.Channel.SendMessageAsync("", false, embed);
-                }
-                else
-                {
-                    await Context.Channel.SendMessageAsync("**Invite this bot to your guild**" + Environment.NewLine + "https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0");
-                }
-            }
-        }
-
-        [Command("flip")]
-        [Alias("coin")]
-        [Remarks("flip")]
-        [Summary("Flip a coin!")]
+        [Command("flip"), Remarks("flip"), Summary("Flip a coin!"), Alias("coin")]
         public async Task Flip()
         {
             var random = new Random((int)DateTime.Now.Ticks); var randomValue = random.Next(1, 3);
@@ -639,9 +595,7 @@ namespace Bot.Commands
             { await Context.Channel.SendMessageAsync($"{Context.User.Username} Flipped Tails"); }
         }
 
-        [Command("cat")]
-        [Remarks("cat")]
-        [Summary("Random cat pic/gif")]
+        [Command("cat"), Remarks("cat"), Summary("Random cat pic/gif")]
         public async Task Cat()
         {
             Console.WriteLine(DateTime.Now.Second);
@@ -664,9 +618,7 @@ namespace Bot.Commands
             Console.WriteLine(DateTime.Now.Second);
         }
 
-        [Command("dog")]
-        [Remarks("dog")]
-        [Summary("Random dog pic/gif")]
+        [Command("dog"), Remarks("dog"), Summary("Random dog pic/gif")]
         public async Task Dog()
         {
             string Item = "Item";
@@ -698,27 +650,45 @@ namespace Bot.Commands
             await Context.Channel.SendMessageAsync("", false, embed);
         }
 
-        [Command("getbot")]
-        [Remarks("getbot (@Mention/User ID)")]
-        [Summary("Get info about any bot")]
-        public async Task Getinvite(string User = "", string Api = "")
+        [Command("getbot"), Remarks("getbot (@Mention/User ID)"), Summary("Get info about any bot")]
+        public async Task GetBotInfo(string User = "", string Api = "")
         {
-            await BotInfo.GetInfo(Context.Channel as ITextChannel, User, Api);
+            await _BotApi.GetInfo(Context.Channel as ITextChannel, User, Api);
         }
 
-        [Command("getinvite")]
-        [Remarks("getinvite (@Mention/User ID)")]
-        [Summary("Get invite of a bot")]
-        public void GetInvite(string User = "", string Api = "")
+        [Command("getinvite"), Remarks("getinvite (@Mention/User ID)"), Summary("Get invite of a bot")]
+        public async Task GetBotInvite(string User = "", string Api = "")
         {
-            BotInfo.GetInvite(Context.Channel as ITextChannel, DiscordUtils.StringToUserID(User), Api);
+            _BotApi.GetInvite(Context.Channel as ITextChannel, DiscordUtils.StringToUserID(User), Api);
         }
 
         [Command("getowner"), Remarks("getowner (@Mention/User ID)"), Summary("Get the owner of a bot"), Alias("getowners")]
-        public void GetOwner(string User = "", string Api = "")
+        public async Task GetBotOwner(string User = "", string Api = "")
         {
-            BotInfo.GetOwner(Context.Channel as ITextChannel, User, Api);
+            _BotApi.GetOwner(Context.Channel as ITextChannel, User, Api);
         }
+
+        [Command("getbots"), Remarks("getbots (@Mention/User ID)"), Summary("Get a list of a users bots")]
+        public async Task GetBots(string ID = "")
+        {
+            if (ID == "")
+            {
+                ID = Context.Message.Author.Id.ToString();
+            }
+            _BotApi.GetBots(Context.Channel as ITextChannel, ID);
+        }
+
+        [Command("upvotes")]
+        public async Task Upvotes(string ID = "")
+        {
+            if (ID == "")
+            {
+                ID = Context.Client.CurrentUser.Id.ToString();
+            }
+            _BotApi.GetUpvotes(Context.Channel as ITextChannel, ID);
+            
+        }
+
         [Command("discord"), Remarks("discord"), Summary("Get discord status")]
         public async Task Status(string Option = "")
         {
@@ -804,17 +774,27 @@ namespace Bot.Commands
         {
             _PagFull = pagfull;
         }
-        [Command("lol")]
+        [Command("lol"), Remarks("lol"), Summary("Currently broken")]
         public async Task Lol()
         {
+            await ReplyAsync("Feature is currently broken");
+            return;
             IRiotClient riotClient = new RiotClient(_Config.Tokens.Riot);
-            var c = riotClient.Summoner.GetSummonersByName(RiotApiConfig.Regions.EUNE, "xxbuilderbxx");
-            if (c.Count == 0)
+            try
             {
-                await ReplyAsync("Unknown User");
-                return;
+                var c = riotClient.Summoner.GetSummonersByName(RiotApiConfig.Regions.EUNE, "xxbuilderbxx");
+                Console.Write(c);
+                if (c.Count == 0)
+                {
+                    await ReplyAsync("Unknown User");
+                    return;
+                }
+                Console.WriteLine(c.First().Value.Id);
             }
-            Console.WriteLine(c.First().Value.Id);
+            catch(Exception ex)
+            {
+                _Log.Custom(ex.ToString());
+            }
         }
 
         [Command("vainglory")]
@@ -899,14 +879,18 @@ namespace Bot.Commands
             {
                 Author = new EmbedAuthorBuilder()
                 {
-                    Name = $"{User} | {Player.Region} | (Level: {Player.Level}) | (Rank: {Player.CompetitiveRank})",
-                    IconUrl = "https://cdn2.iconfinder.com/data/icons/overwatch-players-icons/512/Overwatch-512.png",
+                    Name = $"{User}",
+                    IconUrl = Player.RankIcon,
                     Url = Player.ProfileUrl
                 },
                 ThumbnailUrl = Player.ProfileUrl,
-                Color = Utils.DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
+                Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
                 Timestamp = Player.LastPlayed.Date,
-                Description = "```md" + Environment.NewLine + $"<Achievements {Player.Achievements}>" + Environment.NewLine + $"<Casual Games won {Player.CasualPlayed} | Time {Player.CasualPlaytime} Seconds>" + Environment.NewLine + $"<Ranked Games played {Player.RankPlayed} | Time {Player.RankPlaytime} Seconds>```More stats coming soon"
+                Description = "```md" + Environment.NewLine + $"<Achievements Broken Atm>" + Environment.NewLine + $"<Level {Player.Level}> <Rank {Player.CompetitiveRank}>" + Environment.NewLine + $"<Casual Games won {Player.CasualPlayed} | Time {Player.CasualPlaytime / 60} Mins>" + Environment.NewLine + $"<Ranked Games played {Player.RankPlayed} | Time {Player.RankPlaytime / 60} Mins>```",
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = $"Platform {Player.Platform} | Region {Player.Region}"
+                }
             };
             await Context.Channel.SendMessageAsync("", false, embed);
         }

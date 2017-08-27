@@ -499,8 +499,8 @@ namespace Bot
 
         public async Task RunBot()
         {
-            _Client.Connected += Client_Connected;
 
+            _Client.Connected += Client_Connected;
             _Client.Disconnected += Client_Disconnected;
 
             _Client.JoinedGuild += (g) => { var _ = Task.Run(() => Client_JoinedGuildAsync(g)); return Task.CompletedTask; };
@@ -519,6 +519,7 @@ namespace Bot
 
             await Task.Delay(-1);
         }
+        
         #region ClientEvents
         private async Task Client_JoinedGuildAsync(SocketGuild g)
         {
@@ -836,6 +837,8 @@ namespace Bot.Commands
         {
             await ReplyAsync($"My prefix is `{_Config.Prefix}` custom prefix option coming soon");
         }
+
+        
 
         [Command("invite")]
         public async Task Invite()

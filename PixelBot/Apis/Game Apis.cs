@@ -326,8 +326,10 @@ namespace Bot.Apis
         {
             public RequestStatus Status = RequestStatus.Other;
             public string Region = "";
+            public string Platform = "";
             public string User = "";
             public string ProfileUrl = "";
+            public string ProfileIcon = "";
             public int Achievements = 0;
             public int Level = 0;
             public int CompetitiveRank = 0;
@@ -336,6 +338,7 @@ namespace Bot.Apis
             public double CasualPlaytime = 0;
             public double RankPlayed = 0;
             public double RankPlaytime = 0;
+            public string RankIcon = "https://cdn2.iconfinder.com/data/icons/overwatch-players-icons/512/Overwatch-512.png";
         }
         public static Player GetPlayerStat(string User)
         {
@@ -346,38 +349,44 @@ namespace Bot.Apis
                 return Player;
             }
             OverwatchPlayer OWplayer = new OverwatchPlayer(User);
-            OWplayer.DetectPlatform().GetAwaiter();
-            OWplayer.DetectRegionPC().GetAwaiter();
-            OWplayer.UpdateStats().GetAwaiter();
+            OWplayer.UpdateStatsAsync().GetAwaiter().GetResult();
             if (OWplayer == null)
             {
                 Player.Status = RequestStatus.UnknownPlayer;
                 return Player;
             }
-            var CasualStats = OWplayer.CasualStats.GetHero("AllHeroes");
-            var RankedStats = OWplayer.CompetitiveStats.GetHero("AllHeroes");
+            var CasualStats = OWplayer.CasualStats["AllHeroes"];
+            var RankedStats = OWplayer.CompetitiveStats["AllHeroes"];
             int Achievements = 0;
 
             foreach (var A in OWplayer.Achievements)
             {
-                foreach (var B in A)
-                {
+                //foreach (var B in A)
+                //{
 
-                    if (B.IsUnlocked)
-                    {
-                        Achievements++;
-                    }
-                }
+                    //if (A.IsUnlocked)
+                    //{
+                        //Achievements++;
+                    //}
+                //}
             }
-            Player.Achievements = Achievements;
+
+            if (OWplayer.CompetitiveRankImg != "")
+            {
+                Player.RankIcon = OWplayer.CompetitiveRankImg;
+            }
+            Player.ProfileIcon = OWplayer.ProfilePortraitURL;
+            Player.Region = OWplayer.Region.ToString();
+            Player.Platform = OWplayer.Platform.ToString();
+            Player.Achievements = 0;
             Player.Level = OWplayer.PlayerLevel;
             Player.CompetitiveRank = OWplayer.CompetitiveRank;
             Player.ProfileUrl = OWplayer.ProfileURL;
             Player.LastPlayed = OWplayer.ProfileLastDownloaded;
-            Player.CasualPlayed = CasualStats.GetCategory("Game").GetStat("Games Won").Value;
-            Player.CasualPlaytime = CasualStats.GetCategory("Game").GetStat("Time Played").Value;
-            Player.RankPlayed = RankedStats.GetCategory("Game").GetStat("Games Won").Value;
-            Player.RankPlaytime = RankedStats.GetCategory("Game").GetStat("Time Played").Value;
+            Player.CasualPlayed = OWplayer.CasualStats["AllHeroes"]["Game"]["Games Won"];
+            Player.CasualPlaytime = OWplayer.CasualStats["AllHeroes"]["Game"]["Time Played"];
+            Player.RankPlayed = OWplayer.CompetitiveStats["AllHeroes"]["Game"]["Games Won"];
+            Player.RankPlaytime = OWplayer.CasualStats["AllHeroes"]["Game"]["Time Played"];
 
             return Player;
         }
