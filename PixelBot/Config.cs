@@ -23,10 +23,10 @@ namespace Bot
         public static Class Tokens = new Class();
         public static bool Ready = false;
 
-        public static string MiscHelp;
-        public static string GameHelp;
-        public static string MediaHelp;
-        public static string PruneHelp;
+        public static string MiscHelp = "";
+        public static string GameHelp = "";
+        public static string MediaHelp = "";
+        public static string PruneHelp = "";
 
         
         public class Class
@@ -47,13 +47,13 @@ namespace Bot
             public string Riot { get; set; } = "";
             public string Wargaming { get; set; } = "";
         }
-        public static void SetupHelpMenu()
+        public static void SetupHelpMenu(CommandService Commands)
         {
-            List<string> MiscList = new List<string>();
+          List<string> MiscList = new List<string>();
         List<string> GameList = new List<string>();
         List<string> MediaList = new List<string>();
         List<string> PruneList = new List<string>();
-            foreach (var CMD in _Bot._Commands.Commands.Where(x => x.Module.Name == "Misc"))
+            foreach (var CMD in Commands.Commands.Where(x => x.Module.Name == "Misc"))
             {
                 try
                 {
@@ -66,7 +66,7 @@ namespace Bot
                 }
 
             }
-            foreach (var CMD in _Bot._Commands.Commands.Where(x => x.Module.Name == "Game"))
+            foreach (var CMD in Commands.Commands.Where(x => x.Module.Name == "Game"))
             {
                 try
                 {
@@ -78,7 +78,7 @@ namespace Bot
 
                 }
             }
-            foreach (var CMD in _Bot._Commands.Commands.Where(x => x.Module.Name == "Media"))
+            foreach (var CMD in Commands.Commands.Where(x => x.Module.Name == "Media"))
             {
                 try
                 {
@@ -90,7 +90,7 @@ namespace Bot
 
                 }
             }
-            foreach (var CMD in _Bot._Commands.Commands.Where(x => x.Module.Name == "prune"))
+            foreach (var CMD in Commands.Commands.Where(x => x.Module.Name == "prune"))
             {
                 try
                 {
@@ -107,22 +107,20 @@ namespace Bot
             MediaHelp = string.Join(Environment.NewLine, MediaList);
             PruneHelp = string.Join(Environment.NewLine, PruneList);
     }
-            public static async Task ConfigureServices(DiscordSocketClient Client, CommandService Commands, IServiceProvider Services)
-            {
-            await Commands.AddModulesAsync(Assembly.GetEntryAssembly());
-            Services = new ServiceCollection()
-                   .AddSingleton(Client)
-                   .AddSingleton(new PruneService())
-                   .AddSingleton(new PaginationFull(Client))
-                   .AddSingleton(new CommandHandler(Client, Commands))
-                   .AddSingleton(Commands)
+            public static IServiceProvider AddServices(_Bot ThisBot, DiscordSocketClient Client, CommandService CommandService)
+        {
+            return new ServiceCollection()
+                   .AddSingleton<DiscordSocketClient>(Client)
+                   .AddSingleton<_Bot>(ThisBot)
+                   .AddSingleton<PruneService>(new PruneService())
+                   .AddSingleton<PaginationFull>(new PaginationFull(Client))
+                   .AddSingleton<CommandHandler>(new CommandHandler(ThisBot, Client))
+                   .AddSingleton<CommandService>(new CommandService())
                    .AddSingleton(new Stats(Client))
                    .AddSingleton(new Twitch(Client))
-                   .AddSingleton(new DiscordStatus(Client))
+                   //.AddSingleton(new DiscordStatus(Client))
                    .BuildServiceProvider();
-            var commandHandler = Services.GetService<CommandHandler>();
-            commandHandler.Setup(Services);
-            SetupHelpMenu();
+            
         }
     }
 

@@ -75,7 +75,7 @@ namespace Bot.Services
                                     ThumbnailUrl = TwitchChannel.Logo
                                 };
                                 var DM = User.GetOrCreateDMChannelAsync().GetAwaiter().GetResult();
-                                DM.SendMessageAsync("", false, embed).GetAwaiter();
+                                DM.SendMessageAsync("", false, embed.Build()).GetAwaiter();
                                 JsonSerializer serializer = new JsonSerializer();
                                 using (StreamWriter file = File.CreateText(_Config.BotPath + $"Twitch\\user-{Item.User}-{Item.Twitch.ToLower()}.json"))
                                 {
@@ -98,7 +98,7 @@ namespace Bot.Services
                                     },
                                     ThumbnailUrl = TwitchChannel.Logo
                                 };
-                                Channel.SendMessageAsync("", false, embed).GetAwaiter();
+                                Channel.SendMessageAsync("", false, embed.Build()).GetAwaiter();
                                 JsonSerializer serializer = new JsonSerializer();
                                 using (StreamWriter file = File.CreateText(_Config.BotPath + $"Twitch\\channel-{Item.Guild.ToString()}-{Item.Channel}-{Item.Twitch}.json"))
                                 {

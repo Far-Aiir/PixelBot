@@ -48,7 +48,7 @@ namespace Bot.Commands
                         Url = "http://leagueoflegends.com"
                     },
 
-                    Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
+                    Color = Utils._Utils_Discord.GetRoleColor(Context.Channel as ITextChannel),
                     Description = "To get player stats do **p/lol (Region) (Summoner Name)** | Use the correct region!",
                 };
 
@@ -84,10 +84,10 @@ namespace Bot.Commands
                         Description = "```md" + Environment.NewLine + $"```",
                         Footer = new EmbedFooterBuilder()
                         {
-                            Text = $"Last Played {(OtherUtils.UnixToDateTime(Summoner.First().Value.RevisionDate))}"
+                            Text = $"Last Played {(Utils._Utils_Other.UlongToDateTime(Summoner.First().Value.RevisionDate))}"
                         }
                     };
-                    embed.AddInlineField("Info", "```md" + Environment.NewLine + $"<Level {Summoner.Values.First().SummonerLevel}>" + Environment.NewLine + $"<ID {ID}>```");
+                    embed.AddField("Info", "```md" + Environment.NewLine + $"<Level {Summoner.Values.First().SummonerLevel}>" + Environment.NewLine + $"<ID {ID}>```", true);
                     await Context.Channel.SendMessageAsync("", false, embed);
                 }
                 catch (Exception ex)
@@ -137,7 +137,7 @@ namespace Bot.Commands
             }
             var embed = new EmbedBuilder()
             {
-                Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
+                Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel),
                 ImageUrl = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/sprites/pokemon/" + Data + ".png"
             };
         }
@@ -403,7 +403,6 @@ namespace Bot.Commands
         }
 
         [Command("guild"), Remarks("guild"), Summary("Info about the guild | Owner/Roles")]
-        
         public async Task Guild(string arg = "guild")
         {
             if (arg.ToLower() == "role" || arg.ToLower() == "roles")
@@ -475,7 +474,7 @@ namespace Bot.Commands
                     Name = $"{Context.Guild.Name}"
                 },
                 ThumbnailUrl = Context.Guild.IconUrl,
-                Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
+                Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel),
                 Description = $"Owner: {Owner.Mention}```md" + Environment.NewLine + $"[Online](Offline)" + Environment.NewLine + $"<Users> [{MembersOnline}]({Members}) <Bots> [{BotsOnline}]({Bots})" + Environment.NewLine + $"Channels <Text {TextChan}> <Voice {VoiceChan}>" + Environment.NewLine + $"<Roles {Context.Guild.Roles.Count}> <Region {Context.Guild.VoiceRegionId}>" + Environment.NewLine + "List of roles | p/guild roles```",
                 Footer = new EmbedFooterBuilder()
                 {
@@ -536,7 +535,7 @@ namespace Bot.Commands
                     Url = GuildUser.GetAvatarUrl()
                 },
                 ThumbnailUrl = GuildUser.GetAvatarUrl(),
-                Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
+                Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel),
                 Description = $"<@{GuildUser.Id}>{NotInGuild}" + Environment.NewLine + "```md" + Environment.NewLine + $"<Discrim {GuildUser.Discriminator}> <ID {GuildUser.Id}>" + Environment.NewLine + $"<Joined_Guild {GuildUser.JoinedAt.Value.Day} {GuildUser.JoinedAt.Value.Date.ToString("MMMM")} {GuildUser.JoinedAt.Value.Year}>" + Environment.NewLine + $"<Created_Account {GuildUser.CreatedAt.Day} {GuildUser.CreatedAt.DateTime.ToString("MMMM")} {GuildUser.CreatedAt.Year}>" + Environment.NewLine + $"Found in {Count} guilds```",
                 Footer = new EmbedFooterBuilder()
                 { Text = "To lookup a discrim use | p/discrim 0000" }
@@ -555,7 +554,7 @@ namespace Bot.Commands
                     {
                         Text = $"For a list of all commands do | p/help all"
                     },
-                    Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel)
+                    Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
                 };
                 int Guilds = (await Context.Client.GetGuildsAsync().ConfigureAwait(false)).Count();
                 embed.AddField(x =>
@@ -610,7 +609,7 @@ namespace Bot.Commands
                 Title = "Random Cat :cat:",
                 Url = Item.file,
                 ImageUrl = Item.file,
-                Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel)
+                Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
             };
             reader.Close();
             response.Close();
@@ -644,7 +643,7 @@ namespace Bot.Commands
                 Title = "Random Dog :dog:",
                 Url = "http://random.dog/" + Item,
                 ImageUrl = "http://random.dog/" + Item,
-                Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel)
+                Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
             };
 
             await Context.Channel.SendMessageAsync("", false, embed);
@@ -659,7 +658,7 @@ namespace Bot.Commands
         [Command("getinvite"), Remarks("getinvite (@Mention/User ID)"), Summary("Get invite of a bot")]
         public async Task GetBotInvite(string User = "", string Api = "")
         {
-            _BotApi.GetInvite(Context.Channel as ITextChannel, DiscordUtils.StringToUserID(User), Api);
+            _BotApi.GetInvite(Context.Channel as ITextChannel, _Utils_Discord.MentionToID(User), Api);
         }
 
         [Command("getowner"), Remarks("getowner (@Mention/User ID)"), Summary("Get the owner of a bot"), Alias("getowners")]
@@ -762,7 +761,7 @@ namespace Bot.Commands
             }
             embed.Description = Status;
             embed.Footer.Text = Time;
-                await ReplyAsync("", false, embed);
+                await ReplyAsync("", false, embed.Build());
             
         }
     }
@@ -884,7 +883,7 @@ namespace Bot.Commands
                     Url = Player.ProfileUrl
                 },
                 ThumbnailUrl = Player.ProfileUrl,
-                Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
+                Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel),
                 Timestamp = Player.LastPlayed.Date,
                 Description = "```md" + Environment.NewLine + $"<Achievements Broken Atm>" + Environment.NewLine + $"<Level {Player.Level}> <Rank {Player.CompetitiveRank}>" + Environment.NewLine + $"<Casual Games won {Player.CasualPlayed} | Time {Player.CasualPlaytime / 60} Mins>" + Environment.NewLine + $"<Ranked Games played {Player.RankPlayed} | Time {Player.RankPlaytime / 60} Mins>```",
                 Footer = new EmbedFooterBuilder()
@@ -898,7 +897,7 @@ namespace Bot.Commands
         [Command("xbox")]
         [Remarks("xbox (User)")]
         [Summary("Xbox live user stats")]
-        public async Task Xboxuser(string User)
+        public async Task Xboxuser([Remainder] string User)
         {
             var PWM = await Context.Channel.SendMessageAsync("`Please wait`");
             HttpWebRequest LiveStatus = (HttpWebRequest)WebRequest.Create("http://support.xbox.com/en-US/LiveStatus/GetHeaderStatusModule");
@@ -1007,10 +1006,10 @@ namespace Bot.Commands
                     {
                         Name = "World Of Tanks"
                     },
-                    Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel)
+                    Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
                 };
-                embed.AddInlineField("Regions", "```md" + Environment.NewLine + "<RU Russia>" + Environment.NewLine + "<EU Europe>" + Environment.NewLine + "<NA America>" + Environment.NewLine + "<AS Asia>```");
-                embed.AddInlineField("Stats", "Player data available" + Environment.NewLine + "New features coming soon");
+                embed.AddField("Regions", "```md" + Environment.NewLine + "<RU Russia>" + Environment.NewLine + "<EU Europe>" + Environment.NewLine + "<NA America>" + Environment.NewLine + "<AS Asia>```", true);
+                embed.AddField("Stats", "Player data available" + Environment.NewLine + "New features coming soon", true);
                 await Context.Channel.SendMessageAsync("", false, embed);
             }
             else
@@ -1043,7 +1042,7 @@ namespace Bot.Commands
                     {
                         Text = $"Created {Player.CreatedAt.ToShortDateString()} | Last Battle {Player.LastBattle.ToShortDateString()}"
                     },
-                    Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel),
+                    Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel),
                     Description = "```md" + Environment.NewLine + $"<Battles {Player.Battles}> <Win {Player.Win}> <Loss {Player.Loss}> <Draw {Player.Draws}>" + Environment.NewLine + $"<Shots {Player.Shots}> <Hits {Player.Hits}> <Miss {Convert.ToUInt32(Player.Shots) - Convert.ToUInt32(Player.Hits)}>```More stats coming soon this is a test"
                 };
                 await Context.Channel.SendMessageAsync("", false, embed);
@@ -1189,9 +1188,9 @@ namespace Bot.Commands
                     Text = "| Non-Ranked =>"
                 }
             };
-            embed1.AddInlineField("Rank | User", $"{List1[0]}. {List1[1]}" + Environment.NewLine + $"{List1[5]}. {List1[6]}" + Environment.NewLine + $"{List1[10]}. {List1[11]}" + Environment.NewLine + $"{List1[15]}. {List1[16]}" + Environment.NewLine + $"{List1[20]}. {List1[21]}" + Environment.NewLine + $"{List1[25]}. {List1[26]}" + Environment.NewLine + $"{List1[30]}. {List1[31]}" + Environment.NewLine + $"{List1[35]}. {List1[36]}" + Environment.NewLine + $"{List1[40]}. {List1[41]}" + Environment.NewLine + $"{List1[45]}. {List1[46]}");
-            embed1.AddInlineField("Win/Loss", $"{List1[3]}/{List1[4]}" + Environment.NewLine + $"{List1[8]}/{List1[9]}" + Environment.NewLine + $"{List1[13]}/{List1[14]}" + Environment.NewLine + $"{List1[18]}/{List1[19]}" + Environment.NewLine + $"{List1[23]}/{List1[24]}" + Environment.NewLine + $"{List1[28]}/{List1[29]}" + Environment.NewLine + $"{List1[33]}/{List1[34]}" + Environment.NewLine + $"{List1[38]}/{List1[39]}" + Environment.NewLine + $"{List1[43]}/{List1[44]}" + Environment.NewLine + $"{List1[48]}/{List1[49]}");
-            embed1.AddInlineField("Rating", $"{List1[2]}" + Environment.NewLine + $"{List1[7]}" + Environment.NewLine + $"{List1[12]}" + Environment.NewLine + $"{List1[17]}" + Environment.NewLine + $"{List1[22]}" + Environment.NewLine + $"{List1[27]}" + Environment.NewLine + $"{List1[32]}" + Environment.NewLine + $"{List1[37]}" + Environment.NewLine + $"{List1[42]}" + Environment.NewLine + $"{List1[47]}");
+            embed1.AddField("Rank | User", $"{List1[0]}. {List1[1]}" + Environment.NewLine + $"{List1[5]}. {List1[6]}" + Environment.NewLine + $"{List1[10]}. {List1[11]}" + Environment.NewLine + $"{List1[15]}. {List1[16]}" + Environment.NewLine + $"{List1[20]}. {List1[21]}" + Environment.NewLine + $"{List1[25]}. {List1[26]}" + Environment.NewLine + $"{List1[30]}. {List1[31]}" + Environment.NewLine + $"{List1[35]}. {List1[36]}" + Environment.NewLine + $"{List1[40]}. {List1[41]}" + Environment.NewLine + $"{List1[45]}. {List1[46]}", true);
+            embed1.AddField("Win/Loss", $"{List1[3]}/{List1[4]}" + Environment.NewLine + $"{List1[8]}/{List1[9]}" + Environment.NewLine + $"{List1[13]}/{List1[14]}" + Environment.NewLine + $"{List1[18]}/{List1[19]}" + Environment.NewLine + $"{List1[23]}/{List1[24]}" + Environment.NewLine + $"{List1[28]}/{List1[29]}" + Environment.NewLine + $"{List1[33]}/{List1[34]}" + Environment.NewLine + $"{List1[38]}/{List1[39]}" + Environment.NewLine + $"{List1[43]}/{List1[44]}" + Environment.NewLine + $"{List1[48]}/{List1[49]}", true);
+            embed1.AddField("Rating", $"{List1[2]}" + Environment.NewLine + $"{List1[7]}" + Environment.NewLine + $"{List1[12]}" + Environment.NewLine + $"{List1[17]}" + Environment.NewLine + $"{List1[22]}" + Environment.NewLine + $"{List1[27]}" + Environment.NewLine + $"{List1[32]}" + Environment.NewLine + $"{List1[37]}" + Environment.NewLine + $"{List1[42]}" + Environment.NewLine + $"{List1[47]}", true);
             List1.Clear();
             List1 = Apis.Poke.PokemonRevolution.GetMainTable("https://pokemon-revolution-online.net/ladder.php", "auto-style2", 2);
             var embed2 = new EmbedBuilder()
@@ -1207,8 +1206,8 @@ namespace Bot.Commands
                     Text = "<= Non-Ranked | Playtime =>"
                 }
             };
-            embed2.AddInlineField("Rank | User", $"{List1[0]}. {List1[1]}" + Environment.NewLine + $"{List1[5]}. {List1[6]}" + Environment.NewLine + $"{List1[10]}. {List1[11]}" + Environment.NewLine + $"{List1[15]}. {List1[16]}" + Environment.NewLine + $"{List1[20]}. {List1[21]}" + Environment.NewLine + $"{List1[25]}. {List1[26]}" + Environment.NewLine + $"{List1[30]}. {List1[31]}" + Environment.NewLine + $"{List1[35]}. {List1[36]}" + Environment.NewLine + $"{List1[40]}. {List1[41]}" + Environment.NewLine + $"{List1[45]}. {List1[46]}");
-            embed2.AddInlineField("Win/Loss", $"{List1[2]}/{List1[3]}" + Environment.NewLine + $"{List1[7]}/{List1[8]}" + Environment.NewLine + $"{List1[12]}/{List1[13]}" + Environment.NewLine + $"{List1[17]}/{List1[18]}" + Environment.NewLine + $"{List1[22]}/{List1[23]}" + Environment.NewLine + $"{List1[27]}/{List1[28]}" + Environment.NewLine + $"{List1[32]}/{List1[33]}" + Environment.NewLine + $"{List1[37]}/{List1[38]}" + Environment.NewLine + $"{List1[42]}/{List1[43]}" + Environment.NewLine + $"{List1[47]}/{List1[48]}");
+            embed2.AddField("Rank | User", $"{List1[0]}. {List1[1]}" + Environment.NewLine + $"{List1[5]}. {List1[6]}" + Environment.NewLine + $"{List1[10]}. {List1[11]}" + Environment.NewLine + $"{List1[15]}. {List1[16]}" + Environment.NewLine + $"{List1[20]}. {List1[21]}" + Environment.NewLine + $"{List1[25]}. {List1[26]}" + Environment.NewLine + $"{List1[30]}. {List1[31]}" + Environment.NewLine + $"{List1[35]}. {List1[36]}" + Environment.NewLine + $"{List1[40]}. {List1[41]}" + Environment.NewLine + $"{List1[45]}. {List1[46]}", true);
+            embed2.AddField("Win/Loss", $"{List1[2]}/{List1[3]}" + Environment.NewLine + $"{List1[7]}/{List1[8]}" + Environment.NewLine + $"{List1[12]}/{List1[13]}" + Environment.NewLine + $"{List1[17]}/{List1[18]}" + Environment.NewLine + $"{List1[22]}/{List1[23]}" + Environment.NewLine + $"{List1[27]}/{List1[28]}" + Environment.NewLine + $"{List1[32]}/{List1[33]}" + Environment.NewLine + $"{List1[37]}/{List1[38]}" + Environment.NewLine + $"{List1[42]}/{List1[43]}" + Environment.NewLine + $"{List1[47]}/{List1[48]}", true);
             List1.Clear();
             List1 = Apis.Poke.PokemonRevolution.GetPlaytimeTable("https://pokemon-revolution-online.net/ladder.php", "auto-style2", 3);
             var embed3 = new EmbedBuilder()
@@ -1224,13 +1223,13 @@ namespace Bot.Commands
                     Text = "<= Non-Ranked |"
                 }
             };
-            embed3.AddInlineField("Rank | User", $"{List1[0]}. {List1[1]}" + Environment.NewLine + $"{List1[3]}. {List1[4]}" + Environment.NewLine + $"{List1[6]}. {List1[7]}" + Environment.NewLine + $"{List1[9]}. {List1[10]}" + Environment.NewLine + $"{List1[12]}. {List1[13]}" + Environment.NewLine + $"{List1[15]}. {List1[16]}" + Environment.NewLine + $"{List1[18]}. {List1[19]}" + Environment.NewLine + $"{List1[21]}. {List1[22]}" + Environment.NewLine + $"{List1[24]}. {List1[25]}" + Environment.NewLine + $"{List1[27]}. {List1[28]}");
-            embed3.AddInlineField("Playtime", $"{List1[2]}" + Environment.NewLine + $"{List1[5]}" + Environment.NewLine + $"{List1[8]}" + Environment.NewLine + $"{List1[11]}" + Environment.NewLine + $"{List1[14]}" + Environment.NewLine + $"{List1[17]}" + Environment.NewLine + $"{List1[20]}" + Environment.NewLine + $"{List1[23]}" + Environment.NewLine + $"{List1[26]}" + Environment.NewLine + $"{List1[29]}");
+            embed3.AddField("Rank | User", $"{List1[0]}. {List1[1]}" + Environment.NewLine + $"{List1[3]}. {List1[4]}" + Environment.NewLine + $"{List1[6]}. {List1[7]}" + Environment.NewLine + $"{List1[9]}. {List1[10]}" + Environment.NewLine + $"{List1[12]}. {List1[13]}" + Environment.NewLine + $"{List1[15]}. {List1[16]}" + Environment.NewLine + $"{List1[18]}. {List1[19]}" + Environment.NewLine + $"{List1[21]}. {List1[22]}" + Environment.NewLine + $"{List1[24]}. {List1[25]}" + Environment.NewLine + $"{List1[27]}. {List1[28]}", true);
+            embed3.AddField("Playtime", $"{List1[2]}" + Environment.NewLine + $"{List1[5]}" + Environment.NewLine + $"{List1[8]}" + Environment.NewLine + $"{List1[11]}" + Environment.NewLine + $"{List1[14]}" + Environment.NewLine + $"{List1[17]}" + Environment.NewLine + $"{List1[20]}" + Environment.NewLine + $"{List1[23]}" + Environment.NewLine + $"{List1[26]}" + Environment.NewLine + $"{List1[29]}", true);
             var Embeds = new List<PaginationFull.Page>
             {
                 new PaginationFull.Page(){Description = embed1.Description, Author = embed1.Author, Fields = embed1.Fields }, new PaginationFull.Page(){Description = embed2.Description, Author = embed2.Author, Fields = embed2.Fields }, new PaginationFull.Page(){Description = embed3.Description, Author = embed3.Author, Fields = embed3.Fields }
             };
-            PaginationFull.PaginatedMessage message = new PaginationFull.PaginatedMessage(Embeds, "", DiscordUtils.GetRoleColor(Context.Channel as ITextChannel), Context.User);
+            PaginationFull.PaginatedMessage message = new PaginationFull.PaginatedMessage(Embeds, "", _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel), Context.User);
             await _PagFull.SendPaginatedMessageAsync(Context.Channel, message);
 
         }
@@ -1456,7 +1455,7 @@ namespace Bot.Commands
                     }
                     Count++;
                 }
-                Embed embed = new EmbedBuilder()
+                var embed = new EmbedBuilder()
                 {
                     Title = $"{OsuUser} | (Level: {OsuLevel.Split('.').First()})",
                     Description = "```md" + Environment.NewLine + $"<Played {OsuPlaycount}> <Accuracy {OsuAccuracy.Split('.').First()}>" + Environment.NewLine + $"[ A: {OsuRankA} S: {OsuRankS} SS: {OsuRankSS} ](Rank)" + Environment.NewLine + $"[ Total: {OsuTotal} Ranked: {OsuRanked} ](Score)```",
@@ -1464,7 +1463,7 @@ namespace Bot.Commands
                     Url = "https://osu.ppy.sh/u/" + OsuUser,
                     Color = new Color(255, 105, 180)
                 };
-                await Context.Channel.SendMessageAsync("", false, embed);
+                await Context.Channel.SendMessageAsync("", false, embed.Build());
             }
             catch
             {
@@ -1497,7 +1496,7 @@ namespace Bot.Commands
             {
                 Title = "Twitch Channels",
                 Description = $"{Usearch[0].Name} | {Usearch[1].Name} | {Usearch[2].Name}",
-                Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel)
+                Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
             };
             if (Context.Channel is IPrivateChannel)
             {
@@ -1535,7 +1534,7 @@ namespace Bot.Commands
                 {
                     Text = "Options > ME (User DM) | HERE (Guild Channel)"
                 },
-                Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel)
+                Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
             };
             if (Context.Channel is IPrivateChannel)
             {
@@ -1705,14 +1704,14 @@ namespace Bot.Commands
             {
                 List<string> TWList = _Twitch.NotificationList.Where(x => x.User == Context.User.Id & x.Type == "user").Select(x => x.Twitch).ToList();
                 var embed = new EmbedBuilder()
-                { Title = "Twitch Notifications For You", Description = string.Join(", ", TWList), Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel) };
+                { Title = "Twitch Notifications For You", Description = string.Join(", ", TWList), Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel) };
                 await Context.Channel.SendMessageAsync("", false, embed);
             }
             if (Option == "guild")
             {
                 List<string> TWList = _Twitch.NotificationList.Where(x => x.Guild == Context.Guild.Id & x.Type == "channel").Select(x => x.Twitch).ToList();
                 var embed = new EmbedBuilder()
-                { Title = "Twitch Notifications For This Guild", Description = string.Join(", ", TWList), Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel) };
+                { Title = "Twitch Notifications For This Guild", Description = string.Join(", ", TWList), Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel) };
                 await Context.Channel.SendMessageAsync("", false, embed);
             }
             if (Option == "here")
@@ -1722,7 +1721,7 @@ namespace Bot.Commands
                 {
                     Title = $"Twitch Notifications For #{Context.Channel.Name}",
                     Description = string.Join(", ", TWList),
-                    Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel)
+                    Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
                 };
                 await Context.Channel.SendMessageAsync("", false, embed);
             }
@@ -1862,7 +1861,7 @@ namespace Bot.Commands
                     await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                     return;
                 }
-                var user = await Context.Guild.GetUserAsync(Convert.ToUInt64(Utils.DiscordUtils.StringToUserID(User))).ConfigureAwait(false);
+                var user = await Context.Guild.GetUserAsync(Convert.ToUInt64(Utils._Utils_Discord.MentionToID(User))).ConfigureAwait(false);
                 await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Author.Id == user.Id).ConfigureAwait(false);
                 await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted user {user.Username} messages`");
             }
@@ -2040,69 +2039,74 @@ namespace Bot.Commands
         [Alias("commands")]
         public async Task Pag(string Option = "")
         {
-            if (Context.Channel is IPrivateChannel || Option == "all")
+            try
             {
-                if (Option == "all")
+                if (_Config.MiscHelp == "")
                 {
-                    await Context.Channel.SendMessageAsync($"{Context.User.Username} I have sent you a full list of commands");
+                    _Config.SetupHelpMenu(_CommandService);
                 }
-                var allemebed = new EmbedBuilder()
+                if (Context.Channel is IPrivateChannel || Option == "all")
                 {
-                    Title = "Commands List",
-                    Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel)
-                };
-                allemebed.AddField(x =>
-                {
-                    x.Name = "Misc"; x.Value = "```md" + Environment.NewLine + _Config.MiscHelp + "```";
-                });
-                allemebed.AddField(x =>
-                {
-                    x.Name = "Game"; x.Value = "```md" + Environment.NewLine + _Config.GameHelp + "```";
-                });
-                allemebed.AddField(x =>
-                {
-                    x.Name = "Media"; x.Value = "```md" + Environment.NewLine + _Config.MediaHelp + "```";
-                });
-                allemebed.AddField(x =>
-                {
-                    x.Name = "Prune"; x.Value = "```md" + Environment.NewLine + _Config.PruneHelp + "```";
-                });
-                allemebed.Color = new Color(0, 191, 255);
-                var DM = await Context.User.GetOrCreateDMChannelAsync().ConfigureAwait(false);
-                await DM.SendMessageAsync("", false, allemebed).ConfigureAwait(false);
-                return;
-            }
-            else
-            {
-                IGuildUser BotUser = null;
-                _Bot.BotCache.TryGetValue(Context.Guild.Id, out BotUser);
-                string HelpText = "```md" + Environment.NewLine + "[ p/misc ]( Info/Dice Roll )" + Environment.NewLine + "[ p/game ]( Steam/Minecraft )" + Environment.NewLine + "[ p/media ]( Twitch )" + Environment.NewLine + "[ p/prune ]( Prune Messages )```";
-                if (!BotUser.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
-                {
-                    await Context.Channel.SendMessageAsync(HelpText);
+                    if (Option == "all")
+                    {
+                        await Context.Channel.SendMessageAsync($"{Context.User.Username} I have sent you a full list of commands");
+                    }
+                    var allemebed = new EmbedBuilder()
+                    {
+                        Title = "Commands List",
+                        Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
+                    };
+                    allemebed.AddField(x =>
+                    {
+                        x.Name = "Misc"; x.Value = "```md" + Environment.NewLine + _Config.MiscHelp + "```";
+                    });
+                    allemebed.AddField(x =>
+                    {
+                        x.Name = "Game"; x.Value = "```md" + Environment.NewLine + _Config.GameHelp + "```";
+                    });
+                    allemebed.AddField(x =>
+                    {
+                        x.Name = "Media"; x.Value = "```md" + Environment.NewLine + _Config.MediaHelp + "```";
+                    });
+                    allemebed.AddField(x =>
+                    {
+                        x.Name = "Prune"; x.Value = "```md" + Environment.NewLine + _Config.PruneHelp + "```";
+                    });
+                    allemebed.Color = new Color(0, 191, 255);
+                    var DM = await Context.User.GetOrCreateDMChannelAsync().ConfigureAwait(false);
+                    await DM.SendMessageAsync("", false, allemebed).ConfigureAwait(false);
                     return;
                 }
-                string PermReact = "Add Reactions :x:";
-                string PermManage = "Manage Messages :x:";
-                var embed = new EmbedBuilder()
+                else
                 {
-                };
-                embed.AddInlineField("Commands list", HelpText + Environment.NewLine + "For a list of all the bot commands do **p/help all** | " + Environment.NewLine + "or visit the website **p/website**");
-                embed.AddInlineField("Interactive Help", "For an interactive help menu" + Environment.NewLine + "Add these permissions" + Environment.NewLine + Environment.NewLine + PermReact + Environment.NewLine + Environment.NewLine + "(Optional)" + Environment.NewLine + PermManage);
-                if (!BotUser.GetPermissions(Context.Channel as ITextChannel).AddReactions || !BotUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
+                    _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
+                    string HelpText = "```md" + Environment.NewLine + "[ p/misc ]( Info/Dice Roll )" + Environment.NewLine + "[ p/game ]( Steam/Minecraft )" + Environment.NewLine + "[ p/media ]( Twitch )" + Environment.NewLine + "[ p/prune ]( Prune Messages )```";
+                    if (!CI.Bot.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
+                    {
+                        await Context.Channel.SendMessageAsync(HelpText);
+                        return;
+                    }
+                    string PermReact = "Add Reactions :x:";
+                    string PermManage = "Manage Messages :x:";
+                    var embed = new EmbedBuilder()
+                    {
+                    };
+                    embed.AddField("Commands list", HelpText + Environment.NewLine + "For a list of all the bot commands do **p/help all** | " + Environment.NewLine + "or visit the website **p/website**", true);
+                    embed.AddField("Interactive Help", "For an interactive help menu" + Environment.NewLine + "Add these permissions" + Environment.NewLine + Environment.NewLine + PermReact + Environment.NewLine + Environment.NewLine + "(Optional)" + Environment.NewLine + PermManage, true);
+                    if (!CI.Bot.GetPermissions(Context.Channel as ITextChannel).AddReactions || !CI.Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                    {
 
-                    if (BotUser.GetPermissions(Context.Channel as ITextChannel).AddReactions)
-                    {
-                        PermReact = "Add Reactions :white_check_mark: ";
+                        if (CI.Bot.GetPermissions(Context.Channel as ITextChannel).AddReactions)
+                        {
+                            PermReact = "Add Reactions :white_check_mark: ";
+                        }
+                        if (CI.Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                        {
+                            PermManage = "Manage Messages :white_check_mark: ";
+                        }
                     }
-                    if (BotUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                    {
-                        PermManage = "Manage Messages :white_check_mark: ";
-                    }
-                }
-                var Guilds = await Context.Client.GetGuildsAsync();
-                var EmbedPages = new List<PaginationFull.Page>
+                    var Guilds = await Context.Client.GetGuildsAsync();
+                    var EmbedPages = new List<PaginationFull.Page>
                 {
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< | Info     | Commands ► >" + Environment.NewLine + "<Language C#> <Library .net 1.0>" + Environment.NewLine + $"<Guilds {Guilds.Count}>``` For a full list of commands do **p/help all** or visit the website" + Environment.NewLine + "[Website](https://blaze.ml) | [Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=277933222015401985&scope=bot&permissions=0) | [Github](https://github.com/ArchboxDev/PixelBot) | [My Guild](http://discord.gg/WJTYdNb)"},
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Info |     Misc     | Games ► >" + Environment.NewLine + _Config.MiscHelp + "```"},
@@ -2110,17 +2114,22 @@ namespace Bot.Commands
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Games |     Media     | Prune ► >" + Environment.NewLine + _Config.MediaHelp + "```"},
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Games |     Prune | >" + Environment.NewLine + _Config.PruneHelp + "```"}
                 };
-                var message = new PaginationFull.PaginatedMessage(EmbedPages, "Commands", Utils.DiscordUtils.GetRoleColor(Context.Channel as ITextChannel), Context.User);
-                if (BotUser.GuildPermissions.ManageMessages)
-                {
-                    await _PagFull.SendPaginatedMessageAsync(Context.Channel, message, false);
+                    var message = new PaginationFull.PaginatedMessage(EmbedPages, "Commands", _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel), Context.User);
+                    if (CI.Bot.GuildPermissions.ManageMessages)
+                    {
+                        await _PagFull.SendPaginatedMessageAsync(Context.Channel, message, false);
+                    }
+                    else
+                    {
+                        await _PagFull.SendPaginatedMessageAsync(Context.Channel, message, true);
+                    }
                 }
-                else
-                {
-                    await _PagFull.SendPaginatedMessageAsync(Context.Channel, message, true);
-                }
-                
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+            
         }
 
         [Command("misc")]
@@ -2170,23 +2179,6 @@ namespace Bot.Commands
                 string Commands = string.Join(Environment.NewLine, CommandList);
                 await Context.Channel.SendMessageAsync("Prune Commands```md" + Environment.NewLine + Commands + "```");
             }
-        }
-
-        [Command("prefix")]
-        public async Task Prefix()
-        {
-            await Context.Channel.SendMessageAsync("Prefix is `p/` e.g **p/help**");
-        }
-
-        [Command("website")]
-        public async Task Website()
-        {
-            var embed = new EmbedBuilder()
-            {
-                Description = ":globe_with_meridians: [Website](https://blaze.ml)" + Environment.NewLine + "For more info/links do **p/bot**",
-                Color = DiscordUtils.GetRoleColor(Context.Channel as ITextChannel)
-            };
-            await Context.Channel.SendMessageAsync("", false, embed);
         }
     }
 

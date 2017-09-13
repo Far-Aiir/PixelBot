@@ -7,11 +7,13 @@ namespace Bot.Services
     public class DiscordStatus
     {
         private DiscordSocketClient _Client;
-        public DiscordStatus(DiscordSocketClient Client)
+        private _Bot _Bot;
+        public DiscordStatus(DiscordSocketClient Client, _Bot Bot)
         {
             if (_Config.DevMode == false)
             {
                 _Client = Client;
+                _Bot = Bot;
                 Timer StatusTimer = new Timer()
                 { Interval = 60000 };
                 StatusTimer.Elapsed += StatusTimer_Elapsed;
@@ -40,14 +42,14 @@ namespace Bot.Services
             }
             if (HasError == true)
             {
-                _Bot.SetStatus($"{_Config.Prefix}help [!Discord Issue!] p/discord");
+                _Bot.SetStatusAsync($"{_Config.Prefix}help [!Discord Issue!] p/discord").GetAwaiter();
             }
             else
             {
                 if (_Client.CurrentUser.Game.ToString().Contains("[!Discord Issue!]"))
                 {
 
-                    _Bot.SetStatus("");
+                    _Bot.SetStatusAsync("").GetAwaiter();
                 }
             }
         }
