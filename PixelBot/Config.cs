@@ -64,9 +64,19 @@ namespace Bot
                     i.Summary.Trim();
                     switch (i.Parent.Name)
                     {
+                        case "Main":
+                            MainList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
+                            break;
                         case "Game":
                         GameList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
                             break;
+                        case "tw":
+                            MediaList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
+                            break;
+                        case "Mod":
+                            ModList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
+                            break;
+
                     }
                 }
                 catch
@@ -81,8 +91,17 @@ namespace Bot
                     i.Summary.Trim();
                     switch (i.Module.Name)
                     {
+                        case "Main":
+                            MainList.Add($"[ p/{i.Remarks} ][ {i.Summary} ]");
+                            break;
                         case "Game":
-                            GameList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
+                            GameList.Add($"[ p/{i.Remarks} ][ {i.Summary} ]");
+                            break;
+                        case "tw":
+                            MediaList.Add($"[ p/{i.Remarks} ][ {i.Summary} ]");
+                            break;
+                        case "Mod":
+                            ModList.Add($"[ p/{i.Remarks} ][ {i.Summary} ]");
                             break;
                     }
                 }

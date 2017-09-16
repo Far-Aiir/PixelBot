@@ -27,10 +27,7 @@ namespace Bot.Game
             public double RankPlaytime = 0;
             public string RankIcon = "https://cdn2.iconfinder.com/data/icons/overwatch-players-icons/512/Overwatch-512.png";
         }
-        public static void CheckApi()
-        {
 
-        }
         public static Player GetPlayerStat(string User)
         {
             Player Player = new Player();
@@ -48,7 +45,7 @@ namespace Bot.Game
             }
             var CasualStats = OWplayer.CasualStats["AllHeroes"];
             var RankedStats = OWplayer.CompetitiveStats["AllHeroes"];
-            int Achievements = 0;
+            //int Achievements = 0;
 
             foreach (var A in OWplayer.Achievements)
             {

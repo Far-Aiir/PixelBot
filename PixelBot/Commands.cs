@@ -457,491 +457,124 @@ namespace Bot.Commands
             }
         }
 
+        [Command("discord"), Remarks("discord"), Summary("Discord status")]
+        public async Task Status(string Option = "")
+        {
+            string Status = "";
+            string Time = "";
+            WebClient WC = new WebClient();
+            string Page = WC.DownloadString("https://status.discordapp.com/");
+            HtmlAgilityPack.HtmlDocument HtmlDoc = new HtmlAgilityPack.HtmlDocument();
+            HtmlDoc.LoadHtml(Page);
+            var Root = HtmlDoc.DocumentNode;
+            var embed = new EmbedBuilder()
+            {
+                Title = "<:discord:314003252830011395> Discord Status",
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = ""
+                }
+            };
+            switch (Option)
+            {
+                case "status":
+                    try
+                    {
+                        foreach (var i in Root.SelectNodes("//div[@class='update']"))
+                        {
+                            var content = i.InnerText;
+                            string[] words = content.Split('.');
+                            Status = Status + words.First().Trim() + Environment.NewLine + Environment.NewLine;
+                            if (Time == "")
+                            {
+                                Time = words.Last().Trim();
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        Status = "<:online:313956277808005120> All Systems Operational!";
+                    }
+                    break;
+                default:
+                    try
+                    {
+                        var Nodes = Root.SelectNodes("//div[@class='update']");
+                        if (Nodes != null)
+                        {
+                            var NodeItem = Nodes.First();
+                            var NodeText = NodeItem.InnerText;
+                            string[] NodeSplit = NodeText.Split('.');
+                            Status = NodeSplit.First().Trim();
+                            Time = NodeSplit.Last().Trim() + " | To get full status do > p/discord status";
+                        }
+                        else
+                        {
+                            Status = "All Systems Operational!";
+                        }
+                    }
+                    catch
+                    {
+                        Status = "All Systems Operational!";
+                    }
+                    embed.AddField("Links", "[Website](https://discordapp.com/) | [Status](https://status.discordapp.com/) | [Twitter](https://twitter.com/discordapp)");
+                    break;
+            }
+            if (Status == "All Systems Operational!")
+            {
+                embed.Color = new Color(0, 200, 0);
+            }
+            else
+            {
+                embed.Color = new Color(200, 0, 0);
+            }
+            embed.Description = Status;
+            embed.Footer.Text = Time;
+            await ReplyAsync("", false, embed.Build());
+
+        }
+
+        [Command("getbot"), Remarks("getbot (@Mention/User ID)"), Summary("Get info about any bot")]
+        public async Task GetBotInfo(string User = "", string Api = "")
+        {
+            await _BotApi.GetInfo(Context.Channel as ITextChannel, User, Api);
+        }
+
+        [Command("getinvite"), Remarks("getinvite (@Mention/User ID)"), Summary("Get invite of a bot")]
+        public void GetBotInvite(string User = "", string Api = "")
+        {
+            _BotApi.GetInvite(Context.Channel as ITextChannel, _Utils_Discord.MentionToID(User), Api);
+        }
+
+        [Command("getowner"), Remarks("getowner (@Mention/User ID)"), Summary("Get the owner of a bot"), Alias("getowners")]
+        public void GetBotOwner(string User = "", string Api = "")
+        {
+            _BotApi.GetOwner(Context.Channel as ITextChannel, User, Api);
+        }
+
+        [Command("getbots"), Remarks("getbots (@Mention/User ID)"), Summary("Get a list of a users bots")]
+        public void GetBots(string ID = "")
+        {
+            if (ID == "")
+            {
+                ID = Context.Message.Author.Id.ToString();
+            }
+            _BotApi.GetBots(Context.Channel as ITextChannel, ID);
+        }
+
+        [Command("upvotes")]
+        public void Upvotes(string ID = "")
+        {
+            if (ID == "")
+            {
+                ID = Context.Client.CurrentUser.Id.ToString();
+            }
+            _BotApi.GetUpvotes(Context.Channel as ITextChannel, ID);
+
+        }
     }
     
-    public class Mod : ModuleBase
-    {
-        [Command("ban")]
-        public async Task Ban(string User = "", string Reason = "")
-        {
-            if (Context.Guild == null)
-            {
-                await ReplyAsync("`Cannot use command in DMs`");
-                return;
-            }
-            if (User == "")
-            {
-                await ReplyAsync("`Kick a user with p/hackban (@Mention/ID)`");
-                return;
-            }
-            _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
-            if (!CI.Bot.GuildPermissions.BanMembers)
-            {
-                await ReplyAsync("`Bot does not have permission to ban user`");
-                return;
-            }
-            IGuildUser GuildUser = await _Utils_Discord.MentionGetUser(Context.Guild, User);
-            if (GuildUser == null)
-            {
-                await ReplyAsync("`Could not find user`");
-                return;
-            }
-            if (GuildUser.Id == Context.Guild.OwnerId)
-            {
-                await ReplyAsync("`Cannot ban the guild owner silly :/`");
-                return;
-            }
-            IEnumerable<IRole> GuildRoles = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id);
-            if (GuildRoles.Count() == 0)
-            {
-                await ReplyAsync("`This guild has no roles`");
-                return;
-            }
-            if (CI.Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
-            {
-                await ReplyAsync("`Bot does not have any roles`");
-                return;
-            }
-
-            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && CI.Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
-            IRole UserRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildUser.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
-            if (BotRole.Position < UserRole.Position + 1)
-            {
-                await ReplyAsync("`Bot cannot ban user with same or lower role`");
-                return;
-            }
-            if (Context.User.Id == Context.Guild.OwnerId)
-            {
-                await Context.Guild.AddBanAsync(GuildUser.Id, 0, $"[{Context.User.Username}]" + Reason);
-                if (CI.Bot.GuildPermissions.ManageMessages)
-                {
-                    await Context.Message.DeleteAsync();
-                }
-                await ReplyAsync($"`{Context.User.Username} has banned {GuildUser.Username}#{GuildUser.Discriminator}`");
-                return;
-            }
-            IGuildUser GuildStaff = Context.User as IGuildUser;
-            if (!GuildStaff.GuildPermissions.KickMembers)
-            {
-                await ReplyAsync("`You do not have permission to ban user`");
-                return;
-            }
-            
-            if (GuildStaff.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
-            {
-                await ReplyAsync("`You do not have any roles`");
-                return;
-            }
-
-            IRole StaffRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildStaff.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
-            if (StaffRole.Position < UserRole.Position + 1)
-            {
-                await ReplyAsync("`You cannot kick user with same or lower role than you`");
-                return;
-            }
-            await Context.Guild.AddBanAsync(GuildUser.Id, 0, $"[{Context.User.Username}]" + Reason);
-            if (CI.Bot.GuildPermissions.ManageMessages)
-            {
-                await Context.Message.DeleteAsync();
-            }
-            await ReplyAsync($"`{Context.User.Username} has banned {GuildUser.Username}#{GuildUser.Discriminator}`");
-        }
-
-        [Command("kick")]
-        public async Task Kick(string User = "", string Reason = "")
-        {
-            if (Context.Guild == null)
-            {
-                await ReplyAsync("`Cannot use command in DMs`");
-                return;
-            }
-            if (User == "")
-            {
-                await ReplyAsync("`Kick a user with p/hackban (@Mention/ID)`");
-                return;
-            }
-            _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
-            if (!CI.Bot.GuildPermissions.KickMembers)
-            {
-                await ReplyAsync("`Bot does not have permission to kick user`");
-                return;
-            }
-            IGuildUser GuildUser = await _Utils_Discord.MentionGetUser(Context.Guild, User);
-            if (GuildUser == null)
-            {
-                await ReplyAsync("`Could not find user`");
-                return;
-            }
-            if (GuildUser.Id == Context.Guild.OwnerId)
-            {
-                await ReplyAsync("`Cannot ban the guild owner silly :/`");
-                return;
-            }
-            IEnumerable<IRole> GuildRoles = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id);
-            if (GuildRoles.Count() == 0)
-            {
-                await ReplyAsync("`This guild has no roles`");
-                return;
-            }
-            if (CI.Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
-            {
-                await ReplyAsync("`Bot does not have any roles`");
-                return;
-            }
-            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && CI.Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
-            IRole UserRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildUser.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
-            if (BotRole.Position < UserRole.Position + 1)
-            {
-                await ReplyAsync("`Bot cannot kick user with same or lower role`");
-                return;
-            }
-            if (Context.User.Id == Context.Guild.OwnerId)
-            {
-                await GuildUser.KickAsync($"[{Context.User.Username}]" + Reason);
-                if (CI.Bot.GuildPermissions.ManageMessages)
-                {
-                    await Context.Message.DeleteAsync();
-                }
-                await ReplyAsync($"`{Context.User.Username} has kicked {GuildUser.Username}#{GuildUser.Discriminator}`");
-                return;
-            }
-            IGuildUser GuildStaff = Context.User as IGuildUser;
-            if (!GuildStaff.GuildPermissions.KickMembers)
-            {
-                await ReplyAsync("`You do not have permission to kick user`");
-                return;
-            }
-            if (GuildStaff.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
-            {
-                await ReplyAsync("`You do not have any roles`");
-                return;
-            }
-            IRole StaffRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildStaff.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
-            if (StaffRole.Position < UserRole.Position + 1)
-            {
-                await ReplyAsync("`You cannot kick user with same or lower role than you`");
-                return;
-            }
-            if (CI.Bot.GuildPermissions.ManageMessages)
-            {
-                await Context.Message.DeleteAsync();
-            }
-            await GuildUser.KickAsync($"[{Context.User.Username}]" + Reason);
-            await ReplyAsync($"`{Context.User.Username} has kicked {GuildUser.Username}#{GuildUser.Discriminator}`");
-        }
-
-        [Command("hackban")]
-        public async Task Hackban(ulong User = 0, string Reason = "")
-        {
-            if (Context.Guild == null)
-            {
-                await ReplyAsync("`Cannot use command in DMs`");
-                return;
-            }
-            if (User == 0)
-            {
-                await ReplyAsync("`Hackban a user id with p/hackban (ID)`");
-                return;
-            }
-            _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
-            if (!CI.Bot.GuildPermissions.BanMembers)
-            {
-                await ReplyAsync("`Bot does not have permission to ban user`");
-                return;
-            }
-            IGuildUser GuildUser = await _Utils_Discord.MentionGetUser(Context.Guild, User.ToString());
-            if (GuildUser != null)
-            {
-                await ReplyAsync("`This user is in the guild please user p/ban (User) (Reason)`");
-                return;
-            }
-            if (GuildUser.Id == Context.Guild.OwnerId)
-            {
-                await ReplyAsync("`Cannot ban the guild owner silly :/`");
-                return;
-            }
-            IEnumerable<IRole> GuildRoles = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id);
-            if (GuildRoles.Count() == 0)
-            {
-                await ReplyAsync("`This guild has no roles`");
-                return;
-            }
-            if (CI.Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
-            {
-                await ReplyAsync("`Bot does not have any roles`");
-                return;
-            }
-
-            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && CI.Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
-
-            if (Context.User.Id == Context.Guild.OwnerId)
-            {
-                await Context.Guild.AddBanAsync(User, 0, $"[{Context.User.Username}]" + Reason);
-                if (CI.Bot.GuildPermissions.ManageMessages)
-                {
-                    await Context.Message.DeleteAsync();
-                }
-                await ReplyAsync($"`{Context.User.Username} has banned id {User}`");
-                return;
-            }
-            IGuildUser GuildStaff = Context.User as IGuildUser;
-            if (!GuildStaff.GuildPermissions.KickMembers)
-            {
-                await ReplyAsync("`You do not have permission to ban user`");
-                return;
-            }
-
-            if (GuildStaff.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
-            {
-                await ReplyAsync("`You do not have any roles`");
-                return;
-            }
-
-            IRole StaffRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildStaff.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
-            
-            await Context.Guild.AddBanAsync(User, 0, $"[{Context.User.Username}]" + Reason);
-            if (CI.Bot.GuildPermissions.ManageMessages)
-            {
-                await Context.Message.DeleteAsync();
-            }
-            await ReplyAsync($"`{Context.User.Username} has banned id {User}`");
-        }
-
-        [Group("prune")]
-        [Alias("purge", "tidy", "clean")]
-        public class PruneGroup : ModuleBase
-        {
-            private readonly TimeSpan twoWeeks = TimeSpan.FromDays(14);
-            private readonly PruneService _prune;
-            private CommandService _Commands;
-            public PruneGroup(PruneService prune, CommandService Commands)
-            {
-                _prune = prune;
-                _Commands = Commands;
-            }
-            [Command]
-            public async Task Prune()
-            {
-                List<string> CommandList = new List<string>();
-                foreach (var CMD in _Commands.Commands.Where(x => x.Module.Name == "prune"))
-                {
-                    CommandList.Add($"[ p/{CMD.Remarks} ][ {CMD.Summary} ]");
-                }
-                string Commands = string.Join(Environment.NewLine, CommandList);
-                await Context.Channel.SendMessageAsync("Prune Commands```md" + Environment.NewLine + Commands + "```");
-            }
-
-            [Command("all"),Remarks("prune all (Ammount)"),Summary("Prune all messages | Not pinned")]
-            public async Task Pruneall(int Ammount = 100)
-            {
-                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id).ConfigureAwait(false);
-                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages");
-                    return;
-                }
-                await Context.Message.DeleteAsync().ConfigureAwait(false);
-                var GuildUser = Context.User as IGuildUser;
-                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
-                    return;
-                }
-                if (Ammount < 0)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
-                    return;
-                }
-                if (Ammount > 100)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
-                    return;
-                }
-                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => !x.IsPinned).ConfigureAwait(false);
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted all messages (Not Pinned)`").ConfigureAwait(false);
-            }
-
-            [Command("user"),[Remarks("prune user (@Mention/User ID) (Ammount)"),Summary("Prune messages made by thi user")]
-            public async Task Pruneuser(string User = "", int Ammount = 30)
-            {
-                if (User == null)
-                {
-                    await Context.Channel.SendMessageAsync("`You need to select a user p/prune user @User`");
-                    return;
-                }
-                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
-                    return;
-                }
-                await Context.Message.DeleteAsync();
-                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
-                    return;
-                }
-                if (Ammount < 0)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
-                    return;
-                }
-                if (Ammount > 30)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
-                    return;
-                }
-                var user = await Context.Guild.GetUserAsync(Convert.ToUInt64(Utils._Utils_Discord.MentionToID(User))).ConfigureAwait(false);
-                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Author.Id == user.Id).ConfigureAwait(false);
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted user {user.Username} messages`");
-            }
-
-            [Command("bot"),Alias("bots"),Remarks("prune bot (Ammount)"),Summary("Prune messages made by bots")]
-            public async Task Prunebot(int Ammount = 30)
-            {
-                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
-                    return;
-                }
-                await Context.Message.DeleteAsync();
-                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
-                    return;
-                }
-                if (Ammount < 0)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
-                    return;
-                }
-                if (Ammount > 30)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
-                    return;
-                }
-                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Author.IsBot).ConfigureAwait(false);
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted bot messages`");
-            }
-
-            [Command("image"),Alias("images"),Remarks("prune image (Ammount)"),Summary("Prune messages that have an attachment")]
-            public async Task Pruneimage(int Ammount = 30)
-            {
-                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
-                    return;
-                }
-                await Context.Message.DeleteAsync();
-                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
-                    return;
-                }
-                if (Ammount < 0)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
-                    return;
-                }
-                if (Ammount > 30)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
-                    return;
-                }
-                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Attachments.Count != 0).ConfigureAwait(false);
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted images`");
-            }
-
-            [Command("embed"),Alias("embeds"),Remarks("prune embed (Ammount)"),Summary("Prune messages that have an embed")]
-            public async Task Pruneembed(int Ammount = 30)
-            {
-                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
-                    return;
-                }
-                await Context.Message.DeleteAsync();
-                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
-                    return;
-                }
-                if (Ammount < 0)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
-                    return;
-                }
-                if (Ammount > 30)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
-                    return;
-                }
-                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Embeds.Count != 0).ConfigureAwait(false);
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted embeds`");
-            }
-
-            [Command("link"),Alias("links"),Remarks("prune link (Ammount)"),Summary("Prune messages that have a link")]
-            public async Task Prunelinks(int Ammount = 30)
-            {
-                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
-                    return;
-                }
-                await Context.Message.DeleteAsync();
-                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
-                    return;
-                }
-                if (Ammount < 0)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
-                    return;
-                }
-                if (Ammount > 30)
-                {
-                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
-                    return;
-                }
-                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Content.Contains("http://") | x.Content.Contains("https://")).ConfigureAwait(false);
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted links`");
-            }
-
-            [Command("text"),Remarks("prune (Text Here)"),Summary("Prune messages that contain this text")]
-            public async Task Prunetext([Remainder] string Text = null)
-            {
-                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
-                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
-                    return;
-                }
-                await Context.Message.DeleteAsync();
-                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
-                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
-                {
-                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
-                    return;
-                }
-                if (Text == null)
-                {
-                    await Context.Channel.SendMessageAsync("`You need to specify text | p/prune text (Text) | Replace (Text) with anything`");
-                }
-                await _prune.PruneWhere((ITextChannel)Context.Channel, 100, (x) => x.Content.Contains(Text)).ConfigureAwait(false);
-                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted messages that contain ({Text})`");
-            }
-        }
-    }
+   
 
     public class Game : ModuleBase
     {
@@ -1053,7 +686,7 @@ namespace Bot.Commands
             [Command]
             public async Task LolHelp()
             {
-
+                await ReplyAsync("Test");
             }
 
             [Command("test")]
@@ -1781,136 +1414,17 @@ namespace Bot.Commands
         }
     }
 
-    public class Discord : ModuleBase
-    {
-        [Command("discord"), Remarks("discord"), Summary("Discord status")]
-        public async Task Status(string Option = "")
-        {
-            string Status = "";
-            string Time = "";
-            WebClient WC = new WebClient();
-            string Page = WC.DownloadString("https://status.discordapp.com/");
-            HtmlAgilityPack.HtmlDocument HtmlDoc = new HtmlAgilityPack.HtmlDocument();
-            HtmlDoc.LoadHtml(Page);
-            var Root = HtmlDoc.DocumentNode;
-            var embed = new EmbedBuilder()
-            {
-                Title = "<:discord:314003252830011395> Discord Status",
-                Footer = new EmbedFooterBuilder()
-                {
-                    Text = ""
-                }
-            };
-            switch (Option)
-            {
-                case "status":
-                    try
-                    {
-                        foreach (var i in Root.SelectNodes("//div[@class='update']"))
-                        {
-                            var content = i.InnerText;
-                            string[] words = content.Split('.');
-                            Status = Status + words.First().Trim() + Environment.NewLine + Environment.NewLine;
-                            if (Time == "")
-                            {
-                                Time = words.Last().Trim();
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        Status = "<:online:313956277808005120> All Systems Operational!";
-                    }
-                    break;
-                default:
-                    try
-                    {
-                        var Nodes = Root.SelectNodes("//div[@class='update']");
-                        if (Nodes != null)
-                        {
-                            var NodeItem = Nodes.First();
-                            var NodeText = NodeItem.InnerText;
-                            string[] NodeSplit = NodeText.Split('.');
-                            Status = NodeSplit.First().Trim();
-                            Time = NodeSplit.Last().Trim() + " | To get full status do > p/discord status";
-                        }
-                        else
-                        {
-                            Status = "All Systems Operational!";
-                        }
-                    }
-                    catch
-                    {
-                        Status = "All Systems Operational!";
-                    }
-                    embed.AddField("Links", "[Website](https://discordapp.com/) | [Status](https://status.discordapp.com/) | [Twitter](https://twitter.com/discordapp)");
-                    break;
-            }
-            if (Status == "All Systems Operational!")
-            {
-                embed.Color = new Color(0, 200, 0);
-            }
-            else
-            {
-                embed.Color = new Color(200, 0, 0);
-            }
-            embed.Description = Status;
-            embed.Footer.Text = Time;
-            await ReplyAsync("", false, embed.Build());
-
-        }
-
-        [Command("getbot"), Remarks("getbot (@Mention/User ID)"), Summary("Get info about any bot")]
-        public async Task GetBotInfo(string User = "", string Api = "")
-        {
-            await _BotApi.GetInfo(Context.Channel as ITextChannel, User, Api);
-        }
-
-        [Command("getinvite"), Remarks("getinvite (@Mention/User ID)"), Summary("Get invite of a bot")]
-        public async Task GetBotInvite(string User = "", string Api = "")
-        {
-            _BotApi.GetInvite(Context.Channel as ITextChannel, _Utils_Discord.MentionToID(User), Api);
-        }
-
-        [Command("getowner"), Remarks("getowner (@Mention/User ID)"), Summary("Get the owner of a bot"), Alias("getowners")]
-        public async Task GetBotOwner(string User = "", string Api = "")
-        {
-            _BotApi.GetOwner(Context.Channel as ITextChannel, User, Api);
-        }
-
-        [Command("getbots"), Remarks("getbots (@Mention/User ID)"), Summary("Get a list of a users bots")]
-        public async Task GetBots(string ID = "")
-        {
-            if (ID == "")
-            {
-                ID = Context.Message.Author.Id.ToString();
-            }
-            _BotApi.GetBots(Context.Channel as ITextChannel, ID);
-        }
-
-        [Command("upvotes")]
-        public async Task Upvotes(string ID = "")
-        {
-            if (ID == "")
-            {
-                ID = Context.Client.CurrentUser.Id.ToString();
-            }
-            _BotApi.GetUpvotes(Context.Channel as ITextChannel, ID);
-
-        }
-    }
-
-
     public class Media : ModuleBase
     {
-        [Group("yt"), Summary("Youtube Commands")]
+        [Group("yt")]
         public class YoutubeGroup : ModuleBase
         {
             [Command]
             public async Task YoutubeHelp()
             {
-
+                await ReplyAsync("Test");
             }
+
             [Command("user")]
             public async Task YoutubeUser(string User)
             {
@@ -1974,7 +1488,7 @@ namespace Bot.Commands
                 }
             }
 
-            [Command("user")]
+            [Command("tw user"), Alias("channel"), Remarks("tw user (User/Channel)"), Summary("Twitch user/channel info")]
             public async Task TwitchChannel(string User)
             {
                 if (User == "")
@@ -2039,10 +1553,7 @@ namespace Bot.Commands
                 await Context.Channel.SendMessageAsync("", false, embed.Build());
             }
 
-            [Command("notify")]
-            [Alias("n")]
-            [Remarks("tw n (Option) (Channel)")]
-            [Summary("Recieve notifications from a twitch channel")]
+            [Command("tw notify"),Alias("n"),Remarks("tw n (Option) (Channel)"),Summary("Recieve notifications from a twitch channel")]
             public async Task TwitchNotify(string Option = null, string Channel = null)
             {
                 if (Context.Channel is IPrivateChannel)
@@ -2124,10 +1635,7 @@ namespace Bot.Commands
                 }
             }
 
-            [Command("list")]
-            [Alias("l")]
-            [Remarks("tw list (Option)")]
-            [Summary("List your twitch notification settings")]
+            [Command("tw list"),Alias("l"),Remarks("tw list (Option)"),Summary("List your twitch notification settings")]
             public async Task TwitchList(string Option = null)
             {
                 if (Context.Channel is IPrivateChannel)
@@ -2167,10 +1675,7 @@ namespace Bot.Commands
                 }
             }
 
-            [Command("remove")]
-            [Alias("r")]
-            [Remarks("tw r (Option) (Channel)")]
-            [Summary("Remove notifications from a twitch channel")]
+            [Command("tw remove"),Alias("r"),Remarks("tw r (Option) (Channel)"),Summary("Remove notifications from a twitch channel")]
             public async Task TwitchRemove(string Option = null, string Channel = null)
             {
                 if (Context.Channel is IPrivateChannel)
@@ -2224,7 +1729,489 @@ namespace Bot.Commands
         }
     }
 
-    
+    public class Mod : ModuleBase
+    {
+        [Command("ban"), Alias("banne"), Remarks("ban (@Mention/UserID) (Reason)"), Summary("Ban a user in this guild")]
+        public async Task Ban(string User = "", string Reason = "")
+        {
+            if (Context.Guild == null)
+            {
+                await ReplyAsync("`Cannot use command in DMs`");
+                return;
+            }
+            if (User == "")
+            {
+                await ReplyAsync("`Kick a user with p/hackban (@Mention/ID)`");
+                return;
+            }
+            _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
+            if (!CI.Bot.GuildPermissions.BanMembers)
+            {
+                await ReplyAsync("`Bot does not have permission to ban user`");
+                return;
+            }
+            IGuildUser GuildUser = await _Utils_Discord.MentionGetUser(Context.Guild, User);
+            if (GuildUser == null)
+            {
+                await ReplyAsync("`Could not find user`");
+                return;
+            }
+            if (GuildUser.Id == Context.Guild.OwnerId)
+            {
+                await ReplyAsync("`Cannot ban the guild owner silly :/`");
+                return;
+            }
+            IEnumerable<IRole> GuildRoles = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id);
+            if (GuildRoles.Count() == 0)
+            {
+                await ReplyAsync("`This guild has no roles`");
+                return;
+            }
+            if (CI.Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
+            {
+                await ReplyAsync("`Bot does not have any roles`");
+                return;
+            }
+
+            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && CI.Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
+            IRole UserRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildUser.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
+            if (BotRole.Position < UserRole.Position + 1)
+            {
+                await ReplyAsync("`Bot cannot ban user with same or lower role`");
+                return;
+            }
+            if (Context.User.Id == Context.Guild.OwnerId)
+            {
+                await Context.Guild.AddBanAsync(GuildUser.Id, 0, $"[{Context.User.Username}]" + Reason);
+                if (CI.Bot.GuildPermissions.ManageMessages)
+                {
+                    await Context.Message.DeleteAsync();
+                }
+                await ReplyAsync($"`{Context.User.Username} has banned {GuildUser.Username}#{GuildUser.Discriminator}`");
+                return;
+            }
+            IGuildUser GuildStaff = Context.User as IGuildUser;
+            if (!GuildStaff.GuildPermissions.KickMembers)
+            {
+                await ReplyAsync("`You do not have permission to ban user`");
+                return;
+            }
+
+            if (GuildStaff.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
+            {
+                await ReplyAsync("`You do not have any roles`");
+                return;
+            }
+
+            IRole StaffRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildStaff.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
+            if (StaffRole.Position < UserRole.Position + 1)
+            {
+                await ReplyAsync("`You cannot kick user with same or lower role than you`");
+                return;
+            }
+            await Context.Guild.AddBanAsync(GuildUser.Id, 0, $"[{Context.User.Username}]" + Reason);
+            if (CI.Bot.GuildPermissions.ManageMessages)
+            {
+                await Context.Message.DeleteAsync();
+            }
+            await ReplyAsync($"`{Context.User.Username} has banned {GuildUser.Username}#{GuildUser.Discriminator}`");
+        }
+
+        [Command("kick"), Remarks("kick (@Mention/UserID) (Reason)"), Summary("Kick a user in this guild")]
+        public async Task Kick(string User = "", string Reason = "")
+        {
+            if (Context.Guild == null)
+            {
+                await ReplyAsync("`Cannot use command in DMs`");
+                return;
+            }
+            if (User == "")
+            {
+                await ReplyAsync("`Kick a user with p/hackban (@Mention/ID)`");
+                return;
+            }
+            _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
+            if (!CI.Bot.GuildPermissions.KickMembers)
+            {
+                await ReplyAsync("`Bot does not have permission to kick user`");
+                return;
+            }
+            IGuildUser GuildUser = await _Utils_Discord.MentionGetUser(Context.Guild, User);
+            if (GuildUser == null)
+            {
+                await ReplyAsync("`Could not find user`");
+                return;
+            }
+            if (GuildUser.Id == Context.Guild.OwnerId)
+            {
+                await ReplyAsync("`Cannot ban the guild owner silly :/`");
+                return;
+            }
+            IEnumerable<IRole> GuildRoles = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id);
+            if (GuildRoles.Count() == 0)
+            {
+                await ReplyAsync("`This guild has no roles`");
+                return;
+            }
+            if (CI.Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
+            {
+                await ReplyAsync("`Bot does not have any roles`");
+                return;
+            }
+            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && CI.Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
+            IRole UserRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildUser.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
+            if (BotRole.Position < UserRole.Position + 1)
+            {
+                await ReplyAsync("`Bot cannot kick user with same or lower role`");
+                return;
+            }
+            if (Context.User.Id == Context.Guild.OwnerId)
+            {
+                await GuildUser.KickAsync($"[{Context.User.Username}]" + Reason);
+                if (CI.Bot.GuildPermissions.ManageMessages)
+                {
+                    await Context.Message.DeleteAsync();
+                }
+                await ReplyAsync($"`{Context.User.Username} has kicked {GuildUser.Username}#{GuildUser.Discriminator}`");
+                return;
+            }
+            IGuildUser GuildStaff = Context.User as IGuildUser;
+            if (!GuildStaff.GuildPermissions.KickMembers)
+            {
+                await ReplyAsync("`You do not have permission to kick user`");
+                return;
+            }
+            if (GuildStaff.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
+            {
+                await ReplyAsync("`You do not have any roles`");
+                return;
+            }
+            IRole StaffRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildStaff.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
+            if (StaffRole.Position < UserRole.Position + 1)
+            {
+                await ReplyAsync("`You cannot kick user with same or lower role than you`");
+                return;
+            }
+            if (CI.Bot.GuildPermissions.ManageMessages)
+            {
+                await Context.Message.DeleteAsync();
+            }
+            await GuildUser.KickAsync($"[{Context.User.Username}]" + Reason);
+            await ReplyAsync($"`{Context.User.Username} has kicked {GuildUser.Username}#{GuildUser.Discriminator}`");
+        }
+
+        [Command("hackban"), Remarks("hackban (UserID) (Reason)"), Summary("Ban a user that is not in the guild")]
+        public async Task Hackban(ulong User = 0, string Reason = "")
+        {
+            if (Context.Guild == null)
+            {
+                await ReplyAsync("`Cannot use command in DMs`");
+                return;
+            }
+            if (User == 0)
+            {
+                await ReplyAsync("`Hackban a user id with p/hackban (ID)`");
+                return;
+            }
+            _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
+            if (!CI.Bot.GuildPermissions.BanMembers)
+            {
+                await ReplyAsync("`Bot does not have permission to ban user`");
+                return;
+            }
+            IGuildUser GuildUser = await _Utils_Discord.MentionGetUser(Context.Guild, User.ToString());
+            if (GuildUser != null)
+            {
+                await ReplyAsync("`This user is in the guild please user p/ban (User) (Reason)`");
+                return;
+            }
+            if (GuildUser.Id == Context.Guild.OwnerId)
+            {
+                await ReplyAsync("`Cannot ban the guild owner silly :/`");
+                return;
+            }
+            IEnumerable<IRole> GuildRoles = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id);
+            if (GuildRoles.Count() == 0)
+            {
+                await ReplyAsync("`This guild has no roles`");
+                return;
+            }
+            if (CI.Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
+            {
+                await ReplyAsync("`Bot does not have any roles`");
+                return;
+            }
+
+            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && CI.Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
+
+            if (Context.User.Id == Context.Guild.OwnerId)
+            {
+                await Context.Guild.AddBanAsync(User, 0, $"[{Context.User.Username}]" + Reason);
+                if (CI.Bot.GuildPermissions.ManageMessages)
+                {
+                    await Context.Message.DeleteAsync();
+                }
+                await ReplyAsync($"`{Context.User.Username} has banned id {User}`");
+                return;
+            }
+            IGuildUser GuildStaff = Context.User as IGuildUser;
+            if (!GuildStaff.GuildPermissions.KickMembers)
+            {
+                await ReplyAsync("`You do not have permission to ban user`");
+                return;
+            }
+
+            if (GuildStaff.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
+            {
+                await ReplyAsync("`You do not have any roles`");
+                return;
+            }
+
+            IRole StaffRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildStaff.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
+
+            await Context.Guild.AddBanAsync(User, 0, $"[{Context.User.Username}]" + Reason);
+            if (CI.Bot.GuildPermissions.ManageMessages)
+            {
+                await Context.Message.DeleteAsync();
+            }
+            await ReplyAsync($"`{Context.User.Username} has banned id {User}`");
+        }
+
+        [Group("prune"), Remarks("prune"), Summary("Prune lots of messages with options")]
+        [Alias("purge", "tidy", "clean")]
+        public class PruneGroup : ModuleBase
+        {
+            private readonly TimeSpan twoWeeks = TimeSpan.FromDays(14);
+            private readonly PruneService _prune;
+            private CommandService _Commands;
+            public PruneGroup(PruneService prune, CommandService Commands)
+            {
+                _prune = prune;
+                _Commands = Commands;
+            }
+            [Command]
+            public async Task Prune()
+            {
+                List<string> CommandList = new List<string>();
+                foreach (var CMD in _Commands.Commands.Where(x => x.Module.Name == "prune"))
+                {
+                    CommandList.Add($"[ p/{CMD.Remarks} ][ {CMD.Summary} ]");
+                }
+                string Commands = string.Join(Environment.NewLine, CommandList);
+                await Context.Channel.SendMessageAsync("Prune Commands```md" + Environment.NewLine + Commands + "```");
+            }
+
+            [Command("all"), Remarks("prune all (Ammount)"), Summary("Prune all messages | Not pinned")]
+            public async Task Pruneall(int Ammount = 100)
+            {
+                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id).ConfigureAwait(false);
+                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages");
+                    return;
+                }
+                await Context.Message.DeleteAsync().ConfigureAwait(false);
+                var GuildUser = Context.User as IGuildUser;
+                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
+                    return;
+                }
+                if (Ammount < 0)
+                {
+                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+                    return;
+                }
+                if (Ammount > 100)
+                {
+                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
+                    return;
+                }
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => !x.IsPinned).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted all messages (Not Pinned)`").ConfigureAwait(false);
+            }
+
+            [Command("user"), Remarks("prune user (@Mention/User ID) (Ammount)"), Summary("Prune messages made by thi user")]
+            public async Task Pruneuser(string User = "", int Ammount = 30)
+            {
+                if (User == null)
+                {
+                    await Context.Channel.SendMessageAsync("`You need to select a user p/prune user @User`");
+                    return;
+                }
+                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
+                    return;
+                }
+                await Context.Message.DeleteAsync();
+                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
+                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
+                    return;
+                }
+                if (Ammount < 0)
+                {
+                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+                    return;
+                }
+                if (Ammount > 30)
+                {
+                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
+                    return;
+                }
+                var user = await Context.Guild.GetUserAsync(Convert.ToUInt64(Utils._Utils_Discord.MentionToID(User))).ConfigureAwait(false);
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Author.Id == user.Id).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted user {user.Username} messages`");
+            }
+
+            [Command("bot"), Alias("bots"), Remarks("prune bot (Ammount)"), Summary("Prune messages made by bots")]
+            public async Task Prunebot(int Ammount = 30)
+            {
+                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
+                    return;
+                }
+                await Context.Message.DeleteAsync();
+                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
+                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
+                    return;
+                }
+                if (Ammount < 0)
+                {
+                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+                    return;
+                }
+                if (Ammount > 30)
+                {
+                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
+                    return;
+                }
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Author.IsBot).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted bot messages`");
+            }
+
+            [Command("image"), Alias("images"), Remarks("prune image (Ammount)"), Summary("Prune messages that have an attachment")]
+            public async Task Pruneimage(int Ammount = 30)
+            {
+                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
+                    return;
+                }
+                await Context.Message.DeleteAsync();
+                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
+                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
+                    return;
+                }
+                if (Ammount < 0)
+                {
+                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+                    return;
+                }
+                if (Ammount > 30)
+                {
+                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
+                    return;
+                }
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Attachments.Count != 0).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted images`");
+            }
+
+            [Command("embed"), Alias("embeds"), Remarks("prune embed (Ammount)"), Summary("Prune messages that have an embed")]
+            public async Task Pruneembed(int Ammount = 30)
+            {
+                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
+                    return;
+                }
+                await Context.Message.DeleteAsync();
+                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
+                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
+                    return;
+                }
+                if (Ammount < 0)
+                {
+                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+                    return;
+                }
+                if (Ammount > 30)
+                {
+                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
+                    return;
+                }
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Embeds.Count != 0).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted embeds`");
+            }
+
+            [Command("link"), Alias("links"), Remarks("prune link (Ammount)"), Summary("Prune messages that have a link")]
+            public async Task Prunelinks(int Ammount = 30)
+            {
+                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
+                    return;
+                }
+                await Context.Message.DeleteAsync();
+                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
+                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
+                    return;
+                }
+                if (Ammount < 0)
+                {
+                    await Context.Channel.SendMessageAsync("`Ammount cannot be less than 0`");
+                    return;
+                }
+                if (Ammount > 30)
+                {
+                    await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
+                    return;
+                }
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Content.Contains("http://") | x.Content.Contains("https://")).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted links`");
+            }
+
+            [Command("text"), Remarks("prune (Text Here)"), Summary("Prune messages that contain this text")]
+            public async Task Prunetext([Remainder] string Text = null)
+            {
+                IGuildUser Bot = await Context.Guild.GetUserAsync(Context.Client.CurrentUser.Id);
+                if (!Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`Bot does not have permission to manage messages`");
+                    return;
+                }
+                await Context.Message.DeleteAsync();
+                var GuildUser = await Context.Guild.GetUserAsync(Context.User.Id);
+                if (!GuildUser.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                {
+                    await Context.Channel.SendMessageAsync("`You do not have permission to manage messages`");
+                    return;
+                }
+                if (Text == null)
+                {
+                    await Context.Channel.SendMessageAsync("`You need to specify text | p/prune text (Text) | Replace (Text) with anything`");
+                }
+                await _prune.PruneWhere((ITextChannel)Context.Channel, 100, (x) => x.Content.Contains(Text)).ConfigureAwait(false);
+                await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted messages that contain ({Text})`");
+            }
+        }
+    }
 
     public class Help : ModuleBase
     {
@@ -2282,7 +2269,7 @@ namespace Bot.Commands
             else
             {
                 _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
-                string HelpText = "```md" + Environment.NewLine + "[ p/main ]( Info/Misc )" + Environment.NewLine + "[ p/game ]( Steam/Minecraft )" + Environment.NewLine + "[ p/media ]( Twitch )" + Environment.NewLine + "[ p/mod ]( Ban/Kick/Prune )" + Environment.NewLine + "[ p/bots ]( Get other bots info )```";
+                string HelpText = "```md" + Environment.NewLine + "[ p/main ]( Info/Misc )" + Environment.NewLine + "[ p/game ]( Steam/Minecraft )" + Environment.NewLine + "[ p/media ]( Twitch )" + Environment.NewLine + "[ p/mod ]( Ban/Kick/Prune )```";
                 if (!CI.Bot.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
                 {
                     await Context.Channel.SendMessageAsync(HelpText);
@@ -2314,8 +2301,7 @@ namespace Bot.Commands
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Info |     Main     | Games ► >" + Environment.NewLine + _Config.MainHelp + "```"},
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Main |     Games     | Media ► >" + Environment.NewLine + _Config.GameHelp + "```"},
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Games |     Media     | Mod ► >" + Environment.NewLine + _Config.MediaHelp + "```"},
-                    new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Media |     Mod     | Bots ► >" + Environment.NewLine + _Config.ModHelp + "```"},
-                    new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Mod |     Bots | >" + Environment.NewLine + _Config.DiscordHelp + "```"}
+                    new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Media |     Mod | >" + Environment.NewLine + _Config.ModHelp + "```"}
                 };
                 var message = new PaginationFull.PaginatedMessage(EmbedPages, "Commands", _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel), Context.User);
                 if (CI.Bot.GuildPermissions.ManageMessages)
@@ -2345,23 +2331,17 @@ namespace Bot.Commands
         [Command("game"), Alias("games")]
         public async Task Game()
         {
-
+            await ReplyAsync("Test");
         }
         [Command("media")]
         public async Task Media()
         {
-
+            await ReplyAsync("Test");
         }
         [Command("mod")]
         public async Task Mod()
         {
-
-        }
-
-        [Command("bots")]
-        public async Task Bots()
-        {
-
+            await ReplyAsync("Test");
         }
     }
 
@@ -2447,7 +2427,7 @@ namespace Bot.Commands
         [Command("createprofile")]
         public async Task CreateProfile()
         {
-
+            await ReplyAsync("Test");
         }
 
         [Command("claimsteam", RunMode = RunMode.Async)]
