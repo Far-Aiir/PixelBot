@@ -23,11 +23,12 @@ namespace Bot
         public static Class Tokens = new Class();
         public static bool Ready = false;
 
-        public static string MiscHelp = "";
+        public static string MainHelp = "";
         public static string GameHelp = "";
         public static string MediaHelp = "";
-        public static string PruneHelp = "";
-
+        public static string ModHelp = "";
+        public static string DiscordHelp = "";
+        public static string ProfileHelp = "";
         
         public class Class
         {
@@ -47,65 +48,55 @@ namespace Bot
             public string Riot { get; set; } = "";
             public string Wargaming { get; set; } = "";
         }
+
         public static void SetupHelpMenu(CommandService Commands)
         {
-          List<string> MiscList = new List<string>();
-        List<string> GameList = new List<string>();
-        List<string> MediaList = new List<string>();
-        List<string> PruneList = new List<string>();
-            foreach (var CMD in Commands.Commands.Where(x => x.Module.Name == "Misc"))
+          List<string> MainList = new List<string>();
+            List<string> GameList = new List<string>();
+            List<string> MediaList = new List<string>();
+            List<string> ModList = new List<string>();
+            List<string> DiscordList = new List<string>();
+
+            foreach (var i in Commands.Modules)
             {
                 try
                 {
-                    CMD.Summary.Trim();
-                    MiscList.Add($"[ p/{CMD.Remarks} ][ {CMD.Summary} ]");
-                }
-                catch
-                {
-
-                }
-
-            }
-            foreach (var CMD in Commands.Commands.Where(x => x.Module.Name == "Game"))
-            {
-                try
-                {
-                    CMD.Summary.Trim();
-                    GameList.Add($"[ p/{CMD.Remarks} ][ {CMD.Summary} ]");
+                    i.Summary.Trim();
+                    switch (i.Parent.Name)
+                    {
+                        case "Game":
+                        GameList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
+                            break;
+                    }
                 }
                 catch
                 {
 
                 }
             }
-            foreach (var CMD in Commands.Commands.Where(x => x.Module.Name == "Media"))
+            foreach (var i in Commands.Commands)
             {
                 try
                 {
-                    CMD.Summary.Trim();
-                    MediaList.Add($"[ p/{CMD.Remarks} ][ {CMD.Summary} ]");
+                    i.Summary.Trim();
+                    switch (i.Module.Name)
+                    {
+                        case "Game":
+                            GameList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
+                            break;
+                    }
                 }
                 catch
                 {
 
                 }
             }
-            foreach (var CMD in Commands.Commands.Where(x => x.Module.Name == "prune"))
-            {
-                try
-                {
-                    CMD.Summary.Trim();
-                    PruneList.Add($"[ p/{CMD.Remarks} ][ {CMD.Summary} ]");
-                }
-                catch
-                {
 
-                }
-            }
-            MiscHelp = string.Join(Environment.NewLine, MiscList);
+            MainHelp = string.Join(Environment.NewLine, MainList);
             GameHelp = string.Join(Environment.NewLine, GameList);
             MediaHelp = string.Join(Environment.NewLine, MediaList);
-            PruneHelp = string.Join(Environment.NewLine, PruneList);
+            ModHelp = string.Join(Environment.NewLine, ModList);
+            DiscordHelp = string.Join(Environment.NewLine, DiscordList);
     }
             public static IServiceProvider AddServices(_Bot ThisBot, DiscordSocketClient Client, CommandService CommandService)
         {

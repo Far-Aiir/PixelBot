@@ -1733,13 +1733,24 @@ namespace Bot.Utils
 
         public static Color GetRoleColor(IChannel Channel)
         {
-            Color RoleColor = new Discord.Color(30, 0, 200);
+            Color RoleColor = new Discord.Color(30, 50, 200);
             if (Channel is ITextChannel Chan)
             {
                 _Bot.GuildCache.TryGetValue(Chan.Guild.Id, out _CacheItem Cache);
-                if (Cache.Bot != null && Cache.Bot.RoleIds.Count != 1 && Cache.Bot.GuildPermissions.EmbedLinks || Cache.Bot.GetPermissions(Chan).EmbedLinks)
+                if (Cache.Bot != null && Cache.Bot.GuildPermissions.EmbedLinks || Cache.Bot.GetPermissions(Chan).EmbedLinks)
                 {
-                    RoleColor = Cache.Bot.Guild.Roles.Where(x => x.Id != Chan.Guild.EveryoneRole.Id && Cache.Bot.RoleIds.Contains(x.Id)).First().Color;
+                    if (Cache.Guild.Roles.Count() > 1 && Cache.Bot.RoleIds.Count() > 1)
+                    {
+                        foreach (var i in Cache.Bot.Guild.Roles.Where(x => x.Id != Chan.Guild.EveryoneRole.Id && Cache.Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position))
+                        {
+                            if (i.Color.R != 0 && i.Color.G != 0 && i.Color.B != 0)
+                            {
+                                RoleColor = i.Color;
+                                break;
+                            }
+                        }
+
+                    }
                 }
             }
             return RoleColor;
@@ -1762,33 +1773,51 @@ namespace Bot.Utils
 
     public class _Utils_Http
     {
-        public static string GetString(string Url)
+        public class Request
         {
-            string Response = "";
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url);
-            request.AutomaticDecompression = DecompressionMethods.GZip;
-            request.Proxy = null;
-            request.Method = WebRequestMethods.Http.Get;
-            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            public bool Success = false;
+            public string Error;
+            public string Content;
+            public dynamic Json;
+            public HttpStatusCode Code; 
+        }
+        public static Request GetString(string Url)
+        {
+            Request Request = new Request();
+            try
             {
-                if (response.StatusCode == HttpStatusCode.OK)
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url);
+                request.AutomaticDecompression = DecompressionMethods.GZip;
+                request.Proxy = null;
+                request.Method = WebRequestMethods.Http.Get;
+                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
                 {
-                    using (Stream stream = response.GetResponseStream())
-                    using (StreamReader reader = new StreamReader(stream))
+                    if (response.StatusCode == HttpStatusCode.OK)
                     {
-                        Response = reader.ReadToEnd();
+                        Request.Success = true;
+                        using (Stream stream = response.GetResponseStream())
+                        using (StreamReader reader = new StreamReader(stream))
+                        {
+                            Request.Content = reader.ReadToEnd();
+                        }
+                    }
+                    else
+                    {
+                        Request.Error = response.StatusCode.ToString();
+                        _Log.Error($"{Url} | {Request.Error}");
                     }
                 }
-                else
-                {
-                    return "";
-                }
             }
-            return Response;
+            catch(Exception ex)
+            {
+                _Log.Error($"{Url} {ex.Message}");
+                Request.Error = "Invalid request";
+            }
+            return Request;
         }
-        public static dynamic GetJsonObject(string Url, string Auth = "", string OtherHeader = "", string OtherValue = "")
+        public static Request GetJsonObject(string Url, string Auth = "", string OtherHeader = "", string OtherValue = "")
         {
-            dynamic Response = null;
+            Request Request = new Request();
             try
             {
                 HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url);
@@ -1808,29 +1837,27 @@ namespace Bot.Utils
                 {
                     if (response.StatusCode == HttpStatusCode.OK)
                     {
+                        Request.Success = true;
                         using (Stream stream = response.GetResponseStream())
                         using (StreamReader reader = new StreamReader(stream))
                         {
                             string ResponseText = reader.ReadToEnd();
-                            Response = Newtonsoft.Json.Linq.JObject.Parse(ResponseText);
+                            Request.Json = Newtonsoft.Json.Linq.JObject.Parse(ResponseText);
                         }
 
                     }
-                    else
-                    {
-                        return null;
-                    }
                 }
             }
-            catch
+            catch(Exception ex)
             {
-                return null;
+                _Log.Error($"{Url} {ex.Message}");
+                Request.Error = "Invalid request";
             }
-            return Response;
+            return Request;
         }
-        public static dynamic GetJsonArray(string Url, string Auth = "", string OtherHeader = "", string OtherValue = "")
+        public static Request GetJsonArray(string Url, string Auth = "", string OtherHeader = "", string OtherValue = "")
         {
-            dynamic Response = null;
+            Request Request = new Request();
             try
             {
                 HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url);
@@ -1850,24 +1877,22 @@ namespace Bot.Utils
                 {
                     if (response.StatusCode == HttpStatusCode.OK)
                     {
+                        Request.Success = true;
                         using (Stream stream = response.GetResponseStream())
                         using (StreamReader reader = new StreamReader(stream))
                         {
                             string ResponseText = reader.ReadToEnd();
-                            Response = Newtonsoft.Json.Linq.JArray.Parse(ResponseText);
+                            Request.Json = Newtonsoft.Json.Linq.JArray.Parse(ResponseText);
                         }
-                    }
-                    else
-                    {
-                        return null;
                     }
                 }
             }
-            catch
+            catch(Exception ex)
             {
-                return null;
+                _Log.Error($"{Url} {ex.Message}");
+                Request.Error = "Invalid request";
             }
-            return Response;
+            return Request;
         }
     }
     public class _Utils_Other
