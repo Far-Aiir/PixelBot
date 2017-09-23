@@ -89,9 +89,9 @@ namespace Bot.Game
             }
         }
 
-        public static int GetPokemonID(string Pokemon)
+        public static dynamic GetPokemon(string Pokemon)
         {
-            int ID = 0;
+            dynamic Data = null;
             HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create("http://pokeapi.co/api/v2/pokemon/" + Pokemon + "/");
             httpWebRequest.Method = WebRequestMethods.Http.Get;
             httpWebRequest.Accept = "application/json";
@@ -101,11 +101,10 @@ namespace Bot.Game
                 Stream receiveStream = response.GetResponseStream();
                 StreamReader readStream = new StreamReader(receiveStream, Encoding.UTF8);
                 var Req = readStream.ReadToEnd();
-                dynamic Data = JObject.Parse(Req);
-                ID = Data.id;
+                Data = JObject.Parse(Req);
             }
 
-            return ID;
+            return Data;
         }
         #endregion
     }

@@ -282,6 +282,9 @@ namespace Bot
 
         public async Task Start()
         {
+            int Test = Convert.ToInt32(83.2388136668853);
+            Console.WriteLine(Test);
+            //Bot.Apis.GetMeta.Test();
             DisableConsoleQuickEdit.Go();
             Console.Title = _Config.BotName;
             Console.ForegroundColor = ConsoleColor.White;
@@ -1710,6 +1713,18 @@ namespace Bot.Utils
             return GuildUser;
         }
 
+        public static string FormatMention(string Mention)
+        {
+            if (Mention.StartsWith("<@"))
+            {
+                Mention = Mention.Replace("<@", "").Replace(">", "");
+                if (Mention.Contains("!"))
+                {
+                    Mention = Mention.Replace("!", "");
+                }
+            }
+            return Mention;
+        }
         public static string MentionToID(string User)
         {
             if (User.StartsWith("("))

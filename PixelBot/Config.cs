@@ -23,12 +23,11 @@ namespace Bot
         public static Class Tokens = new Class();
         public static bool Ready = false;
 
-        public static string MainHelp = "";
+        public static string MiscHelp = "";
         public static string GameHelp = "";
         public static string MediaHelp = "";
         public static string ModHelp = "";
-        public static string DiscordHelp = "";
-        public static string ProfileHelp = "";
+        public static string DevHelp = "";
         
         public class Class
         {
@@ -47,15 +46,16 @@ namespace Bot
             public string DbotsV2 { get; set; } = "";
             public string Riot { get; set; } = "";
             public string Wargaming { get; set; } = "";
+            public string GameInfo = "";
         }
 
         public static void SetupHelpMenu(CommandService Commands)
         {
-          List<string> MainList = new List<string>();
+          List<string> MiscList = new List<string>();
             List<string> GameList = new List<string>();
             List<string> MediaList = new List<string>();
             List<string> ModList = new List<string>();
-            List<string> DiscordList = new List<string>();
+            List<string> DevList = new List<string>();
 
             foreach (var i in Commands.Modules)
             {
@@ -64,17 +64,20 @@ namespace Bot
                     i.Summary.Trim();
                     switch (i.Parent.Name)
                     {
-                        case "Main":
-                            MainList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
+                        case "Misc":
+                            MiscList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
                             break;
                         case "Game":
                         GameList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
                             break;
-                        case "tw":
+                        case "Media":
                             MediaList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
                             break;
                         case "Mod":
                             ModList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
+                            break;
+                        case "Dev":
+                            DevList.Add($"[ p/{i.Name.ToLower()} ][ {i.Summary} ]");
                             break;
 
                     }
@@ -91,17 +94,20 @@ namespace Bot
                     i.Summary.Trim();
                     switch (i.Module.Name)
                     {
-                        case "Main":
-                            MainList.Add($"[ p/{i.Remarks} ][ {i.Summary} ]");
+                        case "Misc":
+                            MiscList.Add($"[ p/{i.Remarks} ][ {i.Summary} ]");
                             break;
                         case "Game":
                             GameList.Add($"[ p/{i.Remarks} ][ {i.Summary} ]");
                             break;
-                        case "tw":
+                        case "Media":
                             MediaList.Add($"[ p/{i.Remarks} ][ {i.Summary} ]");
                             break;
                         case "Mod":
                             ModList.Add($"[ p/{i.Remarks} ][ {i.Summary} ]");
+                            break;
+                        case "Dev":
+                            DevList.Add($"[ p/{i.Remarks} ][ {i.Summary} ]");
                             break;
                     }
                 }
@@ -111,11 +117,11 @@ namespace Bot
                 }
             }
 
-            MainHelp = string.Join(Environment.NewLine, MainList);
+            MiscHelp = string.Join(Environment.NewLine, MiscList);
             GameHelp = string.Join(Environment.NewLine, GameList);
             MediaHelp = string.Join(Environment.NewLine, MediaList);
             ModHelp = string.Join(Environment.NewLine, ModList);
-            DiscordHelp = string.Join(Environment.NewLine, DiscordList);
+            DevHelp = string.Join(Environment.NewLine, DevList);
     }
             public static IServiceProvider AddServices(_Bot ThisBot, DiscordSocketClient Client, CommandService CommandService)
         {
@@ -128,7 +134,7 @@ namespace Bot
                    .AddSingleton<CommandService>(new CommandService())
                    .AddSingleton(new Stats(Client))
                    .AddSingleton(new Twitch(Client))
-                   //.AddSingleton(new DiscordStatus(Client))
+                   .AddSingleton(new DiscordStatus(Client, ThisBot))
                    .BuildServiceProvider();
             
         }
