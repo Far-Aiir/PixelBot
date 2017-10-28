@@ -123,55 +123,6 @@ namespace Bot.Services
             }
         }
     }
-    public class Stats
-    {
-        readonly DiscordSocketClient _Client;
-        public Stats(DiscordSocketClient client)
-        {
-            _Client = client;
-            Timer.Interval = 1800000;
-            Timer.Elapsed += PostStats;
-            Timer.Start();
-        }
-        public Timer Timer = new Timer();
-        public void PostStats(object sender, ElapsedEventArgs e)
-        {
-            string json = "{\"server_count\":\"" + _Client.Guilds.Count.ToString() + "\"}";
-            try
-            {
-                var request = (HttpWebRequest)WebRequest.Create("https://bots.discord.pw/api/bots/277933222015401985/stats");
-                request.ContentType = "application/json";
-                request.Headers.Add("Authorization", _Config.Tokens.Dbots);
-                request.Method = "POST";
-                using (var streamWriter = new StreamWriter(request.GetRequestStream()))
-                {
-
-
-                    streamWriter.Write(json);
-                }
-                request.GetResponse();
-            }
-            catch
-            {
-            }
-            try
-            {
-                var request = (HttpWebRequest)WebRequest.Create("https://discordbots.org/api/bots/277933222015401985/stats");
-                request.ContentType = "application/json";
-                request.Headers.Add("Authorization", _Config.Tokens.DbotsV2);
-                request.Method = "POST";
-                using (var streamWriter = new StreamWriter(request.GetRequestStream()))
-                {
-                    streamWriter.Write(json);
-                }
-                request.GetResponse();
-            }
-            catch
-            {
-
-            }
-        }
-    }
     public class Youtube
     {
         public void YTNOTIFY()

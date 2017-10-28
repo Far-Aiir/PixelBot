@@ -83,6 +83,9 @@
     <Reference Include="AngleSharp, Version=0.9.9.0, Culture=neutral, PublicKeyToken=e83494dcdc6d31ea, processorArchitecture=MSIL">
       <HintPath>..\packages\AngleSharp.0.9.9\lib\net45\AngleSharp.dll</HintPath>
     </Reference>
+    <Reference Include="Discord.Addons.EmojiTools, Version=2.0.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Discord.Addons.EmojiTools.2.0.1\lib\netstandard1.1\Discord.Addons.EmojiTools.dll</HintPath>
+    </Reference>
     <Reference Include="Discord.Net.Commands, Version=2.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Discord.Net.Commands.2.0.0-alpha-build-00840\lib\netstandard1.1\Discord.Net.Commands.dll</HintPath>
     </Reference>
@@ -137,8 +140,8 @@
     <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.10.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
-    <Reference Include="OverwatchDotNet, Version=2.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Overwatch.Net.2.1.0\lib\netstandard1.1\OverwatchDotNet.dll</HintPath>
+    <Reference Include="OverwatchAPI, Version=3.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Overwatch.Net.3.0.0-alpha\lib\netstandard1.1\OverwatchAPI.dll</HintPath>
     </Reference>
     <Reference Include="PortableSteam, Version=1.0.14.42195, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\SteamWebAPI.1.0.14.42195\lib\portable45-net45+win8+wp8\PortableSteam.dll</HintPath>
@@ -259,7 +262,6 @@
     <Compile Include="Game Apis\Vainglory.cs" />
     <Compile Include="Game Apis\World Of Tanks.cs" />
     <Compile Include="Other\ConcurrentHashSet.cs" />
-    <Compile Include="Apis\MineStat.cs" />
     <Compile Include="Other\ConsoleFix.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Services\Pagination.cs" />
@@ -295,7 +297,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Old\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>

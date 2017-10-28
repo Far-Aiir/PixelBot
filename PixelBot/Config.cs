@@ -14,6 +14,7 @@ namespace Bot
 {
     public class _Config
     {
+        public static OverwatchAPI.OverwatchClient OverwatchClient = new OverwatchAPI.OverwatchClient();
         public static bool DevMode = true;
         public static string BotName = "PixelBot";
         public static string Prefix = "p/";
@@ -125,6 +126,7 @@ namespace Bot
     }
             public static IServiceProvider AddServices(_Bot ThisBot, DiscordSocketClient Client, CommandService CommandService)
         {
+           
             return new ServiceCollection()
                    .AddSingleton<DiscordSocketClient>(Client)
                    .AddSingleton<_Bot>(ThisBot)
@@ -132,8 +134,6 @@ namespace Bot
                    .AddSingleton<PaginationFull>(new PaginationFull(Client))
                    .AddSingleton<CommandHandler>(new CommandHandler(ThisBot, Client))
                    .AddSingleton<CommandService>(new CommandService())
-                   .AddSingleton(new Stats(Client))
-                   .AddSingleton(new Twitch(Client))
                    .BuildServiceProvider();
             
         }

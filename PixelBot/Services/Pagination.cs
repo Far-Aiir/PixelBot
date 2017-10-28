@@ -38,7 +38,7 @@ namespace Bot.Services
             {
                 await message.AddReactionAsync(new Emoji(BACK));
                 await message.AddReactionAsync(new Emoji(NEXT));
-                await message.AddReactionAsync(new Emoji(STOP));
+                //await message.AddReactionAsync(new Emoji(STOP));
 
                 _messages.Add(message.Id, paginated);
             }
