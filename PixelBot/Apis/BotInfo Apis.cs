@@ -1,5 +1,4 @@
-﻿using Bot.Utils;
-using Discord;
+﻿using Discord;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -35,7 +34,7 @@ namespace Bot.Game
             if (LastDay == 0 || LastDay == DateTime.Now.Day)
             {
                 dynamic Data = null;
-                Data = _Utils_Http.GetJsonObject("https://bots.discord.pw/api/bots/" + ID, _Config.Tokens.Dbots) ?? null;
+                Data = _Utils.Http.JsonObject("https://bots.discord.pw/api/bots/" + ID, _Config.Tokens.Dbots) ?? null;
                 if (Data == null)
                 {
                     ThisBot = null;
@@ -53,7 +52,7 @@ namespace Bot.Game
                 ThisBot.Prefix = Data.prefix;
                 ThisBot.Website = Data.website;
                 ThisBot.Api = "(Main) Discord Bots";
-                dynamic ServerCount = _Utils_Http.GetJsonObject("https://bots.discord.pw/api/bots/" + ID + "/stats", _Config.Tokens.Dbots) ?? null;
+                dynamic ServerCount = _Utils.Http.JsonObject("https://bots.discord.pw/api/bots/" + ID + "/stats", _Config.Tokens.Dbots) ?? null;
                 if (ServerCount != null)
                 {
                     ThisBot.ServerCount = ServerCount.stats[0].server_count;
@@ -68,7 +67,7 @@ namespace Bot.Game
             if (LastDay == 0 || LastDay == DateTime.Now.Day)
             {
                 dynamic Data = null;
-                Data = _Utils_Http.GetJsonObject("https://discordbots.org/api/bots/" + ID, _Config.Tokens.Dbots);
+                Data = _Utils.Http.JsonObject("https://discordbots.org/api/bots/" + ID, _Config.Tokens.Dbots);
                 if (Data == null)
                 {
                     ThisBot = null;
@@ -100,20 +99,20 @@ namespace Bot.Game
             if (Channel.Guild.Id == 264445053596991498 || Api.Contains("list"))
             {
                 Api = "list";
-                GetBot = _BotApi.DiscordBotsList(_Utils_Discord.MentionToID(User));
+                GetBot = _BotApi.DiscordBotsList(_Utils.Discord.MentionToID(User));
 
                 if (GetBot == null)
                 {
-                    GetBot = _BotApi.MainDiscordBots(_Utils_Discord.MentionToID(User));
+                    GetBot = _BotApi.MainDiscordBots(_Utils.Discord.MentionToID(User));
                     Api = "";
                 }
             }
             else
             {
-                GetBot = _BotApi.MainDiscordBots(_Utils_Discord.MentionToID(User));
+                GetBot = _BotApi.MainDiscordBots(_Utils.Discord.MentionToID(User));
                 if (GetBot == null)
                 {
-                    GetBot = _BotApi.DiscordBotsList(_Utils_Discord.MentionToID(User));
+                    GetBot = _BotApi.DiscordBotsList(_Utils.Discord.MentionToID(User));
                     Api = "list";
                 }
             }
@@ -170,7 +169,7 @@ namespace Bot.Game
             {
                 embed = new EmbedBuilder()
                 {
-                    Color = _Utils_Discord.GetRoleColor(Channel as ITextChannel),
+                    Color = _Utils.Discord.GetRoleColor(Channel as ITextChannel),
                     Description = $"{Bot} | {Owner} ```md" + Environment.NewLine + $"<Prefix {GetBot.Prefix}> <Lib {GetBot.Libary}>" + Environment.NewLine + $"<Guilds {GetBot.ServerCount}> <Tags {string.Join(", ", GetBot.Tags)}>" + Environment.NewLine + $"<Points {GetBot.Points}> <Certified {GetBot.Certified}>```" + Links + Environment.NewLine + GetBot.Description
                 };
             }
@@ -178,7 +177,7 @@ namespace Bot.Game
             {
                 embed = new EmbedBuilder()
                 {
-                    Color = _Utils_Discord.GetRoleColor(Channel as ITextChannel),
+                    Color = _Utils.Discord.GetRoleColor(Channel as ITextChannel),
                     Description = $"{Bot} | {Owner} ```md" + Environment.NewLine + $"<Prefix {GetBot.Prefix}> <Lib {GetBot.Libary}>" + Environment.NewLine + $"<Guilds {GetBot.ServerCount}> <Tags {string.Join(", ", GetBot.Tags)}>```" + Links + Environment.NewLine + GetBot.Description
                 };
             }
@@ -187,25 +186,25 @@ namespace Bot.Game
 
         public static void GetInvite(ITextChannel Channel, string User, string Api)
         {
-            IGuildUser GuildUser = _Utils_Discord.MentionGetUser(Channel.Guild, User).GetAwaiter().GetResult();
+            IGuildUser GuildUser = _Utils.Discord.MentionGetUser(Channel.Guild, User).GetAwaiter().GetResult();
             BotClass GetBot = null;
             if (Channel.Guild.Id == 264445053596991498 || Api.Contains("list"))
             {
                 Api = "list";
-                GetBot = _BotApi.DiscordBotsList(_Utils_Discord.MentionToID(User));
+                GetBot = _BotApi.DiscordBotsList(_Utils.Discord.MentionToID(User));
 
                 if (GetBot == null)
                 {
-                    GetBot = _BotApi.MainDiscordBots(_Utils_Discord.MentionToID(User));
+                    GetBot = _BotApi.MainDiscordBots(_Utils.Discord.MentionToID(User));
                     Api = "";
                 }
             }
             else
             {
-                GetBot = _BotApi.MainDiscordBots(_Utils_Discord.MentionToID(User));
+                GetBot = _BotApi.MainDiscordBots(_Utils.Discord.MentionToID(User));
                 if (GetBot == null)
                 {
-                    GetBot = _BotApi.DiscordBotsList(_Utils_Discord.MentionToID(User));
+                    GetBot = _BotApi.DiscordBotsList(_Utils.Discord.MentionToID(User));
                     Api = "list";
                 }
             }
@@ -224,32 +223,32 @@ namespace Bot.Game
                 Author = new EmbedAuthorBuilder()
                 { Name = $"Invite for {GetBot.Name}", IconUrl = GuildUser?.GetAvatarUrl() },
                 Description = $"<@{GetBot.ID}> [Invite This Bot]({GetBot.Invite})",
-                Color = _Utils_Discord.GetRoleColor(Channel as ITextChannel)
+                Color = _Utils.Discord.GetRoleColor(Channel as ITextChannel)
             };
             Channel.SendMessageAsync("", false, embed.Build()).GetAwaiter();
         }
 
         public static void GetOwner(ITextChannel Channel, string User, string Api)
         {
-                IGuildUser GuildUser = _Utils_Discord.MentionGetUser(Channel.Guild, User).GetAwaiter().GetResult();
+                IGuildUser GuildUser = _Utils.Discord.MentionGetUser(Channel.Guild, User).GetAwaiter().GetResult();
                 BotClass GetBot = null;
                 if (Channel.Guild.Id == 264445053596991498 || Api.Contains("list"))
                 {
                     Api = "list";
-                    GetBot = _BotApi.DiscordBotsList(_Utils_Discord.MentionToID(User));
+                    GetBot = _BotApi.DiscordBotsList(_Utils.Discord.MentionToID(User));
 
                     if (GetBot == null)
                     {
-                        GetBot = _BotApi.MainDiscordBots(_Utils_Discord.MentionToID(User));
+                        GetBot = _BotApi.MainDiscordBots(_Utils.Discord.MentionToID(User));
                         Api = "";
                     }
                 }
                 else
                 {
-                    GetBot = _BotApi.MainDiscordBots(_Utils_Discord.MentionToID(User));
+                    GetBot = _BotApi.MainDiscordBots(_Utils.Discord.MentionToID(User));
                     if (GetBot == null)
                     {
-                        GetBot = _BotApi.DiscordBotsList(_Utils_Discord.MentionToID(User));
+                        GetBot = _BotApi.DiscordBotsList(_Utils.Discord.MentionToID(User));
                         Api = "list";
                     }
                 }
@@ -268,7 +267,7 @@ namespace Bot.Game
                     Author = new EmbedAuthorBuilder()
                     { Name = $"Owners for {GetBot.Name}", IconUrl = GuildUser?.GetAvatarUrl() },
                     Description = $"{string.Join(Environment.NewLine, Owners)}",
-                    Color = _Utils_Discord.GetRoleColor(Channel as ITextChannel)
+                    Color = _Utils.Discord.GetRoleColor(Channel as ITextChannel)
                 };
             Channel.SendMessageAsync("", false, embed.Build()).GetAwaiter();
         }
@@ -277,9 +276,9 @@ namespace Bot.Game
         {
             if (ID.Contains("<@"))
             {
-                ID = _Utils_Discord.MentionToID(ID);
+                ID = _Utils.Discord.MentionToID(ID);
             }
-            dynamic Json = _Utils_Http.GetJsonObject("https://discordbots.org/api/bots?search=owners," + ID, _Config.Tokens.DbotsV2);
+            dynamic Json = _Utils.Http.JsonObject("https://discordbots.org/api/bots?search=owners," + ID, _Config.Tokens.DbotsV2);
             List<string> Bots = new List<string>();
             JArray a = (JArray)Json.results;
 
@@ -317,7 +316,7 @@ namespace Bot.Game
             var embed = new EmbedBuilder()
             {
                 Description = $"<@{ID}> owns {Bots.Count} Bots" + Environment.NewLine + string.Join(Environment.NewLine, Bots),
-                Color = _Utils_Discord.GetRoleColor(Channel as ITextChannel)
+                Color = _Utils.Discord.GetRoleColor(Channel as ITextChannel)
             };
             Channel.SendMessageAsync("", false, embed.Build()).GetAwaiter();
         }
@@ -326,9 +325,9 @@ namespace Bot.Game
         {
             if (ID.Contains("<@"))
             {
-                ID = _Utils_Discord.MentionToID(ID);
+                ID = _Utils.Discord.MentionToID(ID);
             }
-            dynamic Json = _Utils_Http.GetJsonArray("https://discordbots.org/api/bots/" + ID + "/votes", _Config.Tokens.DbotsV2);
+            dynamic Json = _Utils.Http.JsonArray("https://discordbots.org/api/bots/" + ID + "/votes", _Config.Tokens.DbotsV2);
             List<string> Users = new List<string>();
             JArray a = (JArray)Json;
             foreach (JObject o in a.Children<JObject>())
@@ -361,7 +360,7 @@ namespace Bot.Game
             var embed = new EmbedBuilder()
             {
                 Description = $"<@{ID}> {Users.Count} Upvotes" + Environment.NewLine + string.Join(Environment.NewLine, Users),
-                Color = _Utils_Discord.GetRoleColor(Channel as ITextChannel)
+                Color = _Utils.Discord.GetRoleColor(Channel as ITextChannel)
             };
             Channel.SendMessageAsync("", false, embed.Build()).GetAwaiter();
         }

@@ -38,7 +38,7 @@ namespace Bot.Game
             {
                 return Player;
             }
-            dynamic GetID = Utils._Utils_Http.GetJsonObject(RegionUrl + "/wot/account/list/?application_id=" + _Config.Tokens.Wargaming + "&search=" + User + "&limit=1");
+            dynamic GetID = _Utils.Http.JsonObject(RegionUrl + "/wot/account/list/?application_id=" + _Config.Tokens.Wargaming + "&search=" + User + "&limit=1");
             if (GetID == null)
             {
                 Player.Status = RequestStatus.UnknownPlayer;
@@ -52,7 +52,7 @@ namespace Bot.Game
             }
 
             Player.ID = GetID.data[0].account_id;
-            dynamic GetInfo = Utils._Utils_Http.GetJsonObject(RegionUrl + "/wot/account/info/?application_id=" + _Config.Tokens.Wargaming + "&account_id=" + Player.ID);
+            dynamic GetInfo = _Utils.Http.JsonObject(RegionUrl + "/wot/account/info/?application_id=" + _Config.Tokens.Wargaming + "&account_id=" + Player.ID);
             JObject ConvertInfo = (JObject)GetInfo;
             dynamic Info = ConvertInfo.Last.First.First.First;
             if (Info == null)
@@ -63,8 +63,8 @@ namespace Bot.Game
             Player.Region = Info.Raiting;
             long Last = Info.last_battle_time;
             long Created = Info.created_at;
-            Player.LastBattle = Utils._Utils_Other.UlongToDateTime(Last);
-            Player.CreatedAt = Utils._Utils_Other.UlongToDateTime(Created);
+            Player.LastBattle = _Utils.UnixToDateTime(Last);
+            Player.CreatedAt = _Utils.UnixToDateTime(Created);
             Player.Raiting = Info.global_rating;
             Player.Win = Info.statistics.all.wins;
             Player.Loss = Info.statistics.all.losses;

@@ -134,7 +134,6 @@ namespace Bot
                    .AddSingleton<CommandService>(new CommandService())
                    .AddSingleton(new Stats(Client))
                    .AddSingleton(new Twitch(Client))
-                   .AddSingleton(new DiscordStatus(Client, ThisBot))
                    .BuildServiceProvider();
             
         }

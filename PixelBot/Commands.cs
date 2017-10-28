@@ -1,6 +1,5 @@
 ﻿using Bot.Game;
 using Bot.Services;
-using Bot.Utils;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
@@ -10,7 +9,6 @@ using OverwatchAPI;
 using PortableSteam;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -45,7 +43,7 @@ namespace Bot.Commands
                 var allemebed = new EmbedBuilder()
                 {
                     Title = "Commands List",
-                    Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
+                    Color = _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel)
                 };
                 allemebed.AddField(x =>
                 {
@@ -74,9 +72,9 @@ namespace Bot.Commands
             }
             else
             {
-                _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
+                IGuildUser Bot = await Context.Guild.GetCurrentUserAsync();
                 string HelpText = "```md" + Environment.NewLine + "[ p/main ]( Info/Misc )" + Environment.NewLine + "[ p/game ]( Steam/Minecraft )" + Environment.NewLine + "[ p/media ]( Twitch )" + Environment.NewLine + "[ p/mod ]( Ban/Kick/Prune )```";
-                if (!CI.Bot.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
+                if (!Bot.GetPermissions(Context.Channel as ITextChannel).EmbedLinks)
                 {
                     await Context.Channel.SendMessageAsync(HelpText);
                     return;
@@ -88,14 +86,14 @@ namespace Bot.Commands
                 };
                 embed.AddField("Commands list", HelpText + Environment.NewLine + "For a list of all the bot commands do **p/help all** | " + Environment.NewLine + "or visit the website **p/website**", true);
                 embed.AddField("Interactive Help", "For an interactive help menu" + Environment.NewLine + "Add these permissions" + Environment.NewLine + Environment.NewLine + PermReact + Environment.NewLine + Environment.NewLine + "(Optional)" + Environment.NewLine + PermManage, true);
-                if (!CI.Bot.GetPermissions(Context.Channel as ITextChannel).AddReactions || !CI.Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                if (!Bot.GetPermissions(Context.Channel as ITextChannel).AddReactions || !Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
                 {
 
-                    if (CI.Bot.GetPermissions(Context.Channel as ITextChannel).AddReactions)
+                    if (Bot.GetPermissions(Context.Channel as ITextChannel).AddReactions)
                     {
                         PermReact = "Add Reactions :white_check_mark: ";
                     }
-                    if (CI.Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
+                    if (Bot.GetPermissions(Context.Channel as ITextChannel).ManageMessages)
                     {
                         PermManage = "Manage Messages :white_check_mark: ";
                     }
@@ -110,8 +108,8 @@ namespace Bot.Commands
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Media |     Mod     | Dev >" + Environment.NewLine + _Config.ModHelp + "```"},
                     new PaginationFull.Page(){Description = "```md" + Environment.NewLine + "< ◄ Mod |     Dev | >" + Environment.NewLine + _Config.ModHelp + "```"}
                 };
-                var message = new PaginationFull.PaginatedMessage(EmbedPages, "Commands", _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel), Context.User);
-                if (CI.Bot.GuildPermissions.ManageMessages)
+                var message = new PaginationFull.PaginatedMessage(EmbedPages, "Commands", _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel), Context.User);
+                if (Bot.GuildPermissions.ManageMessages)
                 {
                     await _PagFull.SendPaginatedMessageAsync(Context.Channel, message, false);
                 }
@@ -122,11 +120,35 @@ namespace Bot.Commands
             }
         }
 
+        [Command("news"), RequireOwner]
+        public async Task News()
+        {
+            var embed = new EmbedBuilder()
+            {
+                Title = "Minotaur",
+                Description = "<@325892959130222592> | [Invite](https://discordapp.com/oauth2/authorize?&client_id=325892959130222592&scope=bot&permissions=0) | [Upvote](https://discordbots.org/bot/325892959130222592) | [Github](https://github.com/ArchboxDev/Starboat)" + Environment.NewLine + "A starboard bot for Discord give your favourite messages a nice star.",
+                Color = new Color(66, 131, 244),
+                ThumbnailUrl = "https://i.imgur.com/I7Jq2wo.png",
+                Footer = new EmbedFooterBuilder()
+                {
+                    Text = "Prefix: s/help"
+                }
+            };
+            var embed2 = new EmbedBuilder()
+            {
+                Title = "Roles",
+                Description = "You can request a colored role in <#370483498760404992>" + Environment.NewLine + "<@&370489106028822538> - Get pinged for announcements use `?news`" + Environment.NewLine + "<@&275064683130781706> - Ask xXBuilderBXx in DMs to add your bot" + Environment.NewLine + "<@&275738929959796736> - Access the nsfw channel with `?nsfw`" + Environment.NewLine + "<@&275739869358325760> - Show/Hide <#275127911080787980> use `?nogames`" + Environment.NewLine + "<@&370489043814842368> - Show/Hide <#275062471289602049> use `?noshitposting`"
+            };
+            var WH = new Discord.Webhook.DiscordWebhookClient(370459217578033162, "L7RKGvdIrBsu0NFunpgEN2a76XPk5OF2k2zca-nXKM6CWMHIELq1lD7puw4k0sMz9do9");
+            await WH.SendMessageAsync("", false, new Embed[] { embed2.Build() }  , "Discord Universe");
+        }
+
         [Command("misc")]
         public async Task Misc()
         {
             await ReplyAsync("Test");
         }
+
         [Command("media")]
         public async Task Media()
         {
@@ -220,7 +242,7 @@ namespace Bot.Commands
                     var embed = new EmbedBuilder()
                     {
                         Description = "```md" + Environment.NewLine + string.Join(Environment.NewLine, Output) + "```",
-                        Color = _Utils_Discord.GetRoleColor(Context.Channel)
+                        Color = _Utils.Discord.GetRoleColor(Context.Channel)
                     };
                     if (Context.Guild.Roles.Count > 10)
                     {
@@ -242,7 +264,7 @@ namespace Bot.Commands
                     var embed = new EmbedBuilder()
                     {
                         Description = string.Join(" | ", Output) + Environment.NewLine + Environment.NewLine + $"To get IDs use {Context.Message.Content} id",
-                        Color = _Utils_Discord.GetRoleColor(Context.Channel)
+                        Color = _Utils.Discord.GetRoleColor(Context.Channel)
                     };
                     await ReplyAsync("", false, embed.Build());
                 }
@@ -257,7 +279,7 @@ namespace Bot.Commands
                 var embed = new EmbedBuilder()
                 {
                     Description = string.Join(" | ", Emotes),
-                    Color = _Utils_Discord.GetRoleColor(Context.Channel)
+                    Color = _Utils.Discord.GetRoleColor(Context.Channel)
                     };
                 await ReplyAsync("", false, embed.Build());
             }
@@ -318,7 +340,7 @@ namespace Bot.Commands
                         Name = $"{Context.Guild.Name}"
                     },
                     ThumbnailUrl = Context.Guild.IconUrl,
-                    Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel),
+                    Color = _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel),
                     Description = $"Owner: {Owner.Mention}" + Environment.NewLine + $"{Context.Message.Content} roles | {Context.Message.Content} emotes```md" + Environment.NewLine + $"[Online](Offline)" + Environment.NewLine + $"<Users> [{MembersOnline}]({Members}) <Bots> [{BotsOnline}]({Bots})" + Environment.NewLine + $"Channels <Text {TextChan}> <Voice {VoiceChan}>" + Environment.NewLine + $"<Roles {Context.Guild.Roles.Count}> <Region {Context.Guild.VoiceRegionId}>" + Environment.NewLine + $"<CustomEmotes {CustomEmotes}>```",
                     Footer = new EmbedFooterBuilder()
                     {
@@ -337,7 +359,7 @@ namespace Bot.Commands
                 User = Context.User.Id.ToString();
             }
             string Mention = "";
-            User = _Utils_Discord.FormatMention(User);
+            User = _Utils.Discord.MentionToID(User);
             IGuildUser GU = null;
             int GuildCount = 0;
             Color EmbedColor = new Color(255, 165, 0);
@@ -389,7 +411,7 @@ namespace Bot.Commands
                 User = Context.User.Id.ToString();
             }
             string Mention = "";
-            User = _Utils_Discord.FormatMention(User);
+            User = _Utils.Discord.MentionToID(User);
             IGuildUser GU = null;
             int GuildCount = 0;
             Color EmbedColor = new Color(255, 165, 0);
@@ -551,17 +573,13 @@ namespace Bot.Commands
         [Command("dog"), Alias("doge"), Remarks("dog"), Summary("Get a random dog")]
         public async Task Dog()
         {
-            _Utils_Http.Request Request = _Utils_Http.GetString("http://random.dog/woof");
-            if (Request.Success == false)
-            {
-                await ReplyAsync($"`{Request.Error}");
-                return;
-            }
+            string Request = _Utils.Http.GetString("http://random.dog/woof");
+            
             var embed = new EmbedBuilder()
             {
                 Title = "Random Dog :dog:",
-                ImageUrl = "http://random.dog/" + Request.Content,
-                Color = _Utils_Discord.GetRoleColor(Context.Channel)
+                ImageUrl = "http://random.dog/" + Request,
+                Color = _Utils.Discord.GetRoleColor(Context.Channel)
             };
             await ReplyAsync("", false, embed.Build());
         }
@@ -579,7 +597,7 @@ namespace Bot.Commands
             {
                 Title = "Random Cat :cat:",
                 ImageUrl = Item.file,
-                Color = _Utils_Discord.GetRoleColor(Context.Channel)
+                Color = _Utils.Discord.GetRoleColor(Context.Channel)
             };
             reader.Close();
             response.Close();
@@ -589,7 +607,7 @@ namespace Bot.Commands
         [Command("neko"), Remarks("neko"), Summary("Get a random neko")]
         public async Task Neko()
         {
-            _Utils_Http.Request Request = _Utils_Http.GetJsonObject("https://nekos.life/api/neko", "", "key", "dnZ4fFJbjtch56pNbfrZeSRfgWqdPDgf");
+            dynamic Request = _Utils.Http.JsonObject("https://nekos.life/api/neko", "", "key", "dnZ4fFJbjtch56pNbfrZeSRfgWqdPDgf");
             if (Request.Success == false)
             {
                 await ReplyAsync($"`{Request.Error}");
@@ -599,7 +617,7 @@ namespace Bot.Commands
             {
                 Title = "Random Neko :cat:",
                 ImageUrl = Request.Json.neko,
-                Color = _Utils_Discord.GetRoleColor(Context.Channel)
+                Color = _Utils.Discord.GetRoleColor(Context.Channel)
             };
             await ReplyAsync("", false, embed.Build());
         }
@@ -607,7 +625,7 @@ namespace Bot.Commands
         [Command("hug"), Remarks("hug | p/hug (@Mention)"), Summary("Random hug pic/gif")]
         public async Task Hug(string User = "")
         {
-            _Utils_Http.Request Request = _Utils_Http.GetJsonObject("https://nekos.life/api/hug", "", "key", "dnZ4fFJbjtch56pNbfrZeSRfgWqdPDgf");
+            dynamic Request = _Utils.Http.JsonObject("https://nekos.life/api/hug", "", "key", "dnZ4fFJbjtch56pNbfrZeSRfgWqdPDgf");
             if (Request.Success == false)
             {
                 await ReplyAsync($"`{Request.Error}");
@@ -616,7 +634,7 @@ namespace Bot.Commands
             var embed = new EmbedBuilder()
             {
                 ImageUrl = Request.Json.url,
-                Color = _Utils_Discord.GetRoleColor(Context.Channel)
+                Color = _Utils.Discord.GetRoleColor(Context.Channel)
             };
             if (Context.Guild != null && User != "")
             {
@@ -632,7 +650,7 @@ namespace Bot.Commands
         [Command("pat"), Remarks("pat | p/pat (@Mention)"), Summary("Random pat pic/gif")]
         public async Task Pat(string User = "")
         {
-            _Utils_Http.Request Request = _Utils_Http.GetJsonObject("https://nekos.life/api/pat", "", "key", "dnZ4fFJbjtch56pNbfrZeSRfgWqdPDgf");
+            dynamic Request = _Utils.Http.JsonObject("https://nekos.life/api/pat", "", "key", "dnZ4fFJbjtch56pNbfrZeSRfgWqdPDgf");
             if (Request.Success == false)
             {
                 await ReplyAsync($"`{Request.Error}");
@@ -641,7 +659,7 @@ namespace Bot.Commands
             var embed = new EmbedBuilder()
             {
                 ImageUrl = Request.Json.url,
-                Color = _Utils_Discord.GetRoleColor(Context.Channel)
+                Color = _Utils.Discord.GetRoleColor(Context.Channel)
             };
             if (Context.Guild != null && User != "")
             {
@@ -657,7 +675,7 @@ namespace Bot.Commands
         [Command("kiss"), Remarks("kiss | kiss (@Mention)"), Summary("Random kiss pic/gif")]
         public async Task Kiss(string User = "")
         {
-            _Utils_Http.Request Request = _Utils_Http.GetJsonObject("https://nekos.life/api/kiss", "", "key", "dnZ4fFJbjtch56pNbfrZeSRfgWqdPDgf");
+            dynamic Request = _Utils.Http.JsonObject("https://nekos.life/api/kiss", "", "key", "dnZ4fFJbjtch56pNbfrZeSRfgWqdPDgf");
             if (Request.Success == false)
             {
                 await ReplyAsync($"`{Request.Error}");
@@ -666,7 +684,7 @@ namespace Bot.Commands
             var embed = new EmbedBuilder()
             {
                 ImageUrl = Request.Json.url,
-                Color = _Utils_Discord.GetRoleColor(Context.Channel)
+                Color = _Utils.Discord.GetRoleColor(Context.Channel)
             };
             if (Context.Guild != null && User != "")
             {
@@ -690,7 +708,7 @@ namespace Bot.Commands
                     {
                         Text = $"For a list of all commands do | p/help all"
                     },
-                    Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
+                    Color = _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel)
                 };
                 int Guilds = (await Context.Client.GetGuildsAsync().ConfigureAwait(false)).Count();
                 embed.AddField(x =>
@@ -744,7 +762,7 @@ namespace Bot.Commands
                 await ReplyAsync("Use `p/game (Name)` | `p/game rocket league` to search for a game");
                 return;
             }
-            var Data = Bot.Utils._Utils_Http.GetJsonArray("https://api-2445582011268.apicast.io/games/?search=" + Name.Replace(" ", "+") +"&fields=*", "", "user-key", _Config.Tokens.GameInfo);
+            var Data = _Utils.Http.JsonArray("https://api-2445582011268.apicast.io/games/?search=" + Name.Replace(" ", "+") +"&fields=*", "", "user-key", _Config.Tokens.GameInfo);
             
             if ((Data.Json as JArray).Count == 0)
             {
@@ -760,7 +778,7 @@ namespace Bot.Commands
                     Url = Game.Url
                 },
                 ThumbnailUrl = Game.ImageUrl,
-                Color = Utils._Utils_Discord.GetRoleColor(Context.Channel),
+                Color = _Utils.Discord.GetRoleColor(Context.Channel),
                 Description = Game.Desc + Environment.NewLine + string.Join(" | ", Game.Websites),
                 Footer = new EmbedFooterBuilder()
                 {
@@ -774,6 +792,8 @@ namespace Bot.Commands
         [Command("steam"), Remarks("steam (User)"), Summary("Lookup a steam user")]
         public async Task Steam(string User = "")
         {
+            await ReplyAsync("`Currently broken`");
+            return;
             if (User == "")
             {
                 var embed2 = new EmbedBuilder()
@@ -785,8 +805,7 @@ namespace Bot.Commands
                 return;
             }
             string Claim = "";
-            await ReplyAsync("`Currently broken`");
-            return;
+            
 
             try
             {
@@ -896,7 +915,7 @@ namespace Bot.Commands
                     Url = Player.ProfileUrl
                 },
                 ThumbnailUrl = Player.ProfileUrl,
-                Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel),
+                Color = _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel),
                 Timestamp = Player.LastPlayed.Date,
                 Description = "```md" + Environment.NewLine + $"<Achievements Broken Atm>" + Environment.NewLine + $"<Level {Player.Level}> <Rank {Player.CompetitiveRank}>" + Environment.NewLine + $"<Casual Games won {Player.CasualPlayed} | Time {Player.CasualPlaytime / 60} Mins>" + Environment.NewLine + $"<Ranked Games played {Player.RankPlayed} | Time {Player.RankPlaytime / 60} Mins>```",
                 Footer = new EmbedFooterBuilder()
@@ -913,7 +932,7 @@ namespace Bot.Commands
             var embed = new EmbedBuilder()
             {
                 Description = "All Minecraft commands have been moved to my Minecraft bot > [Invite Bot](https://discordapp.com/oauth2/authorize?&client_id=346346285953056770&scope=bot&permissions=0)" + Environment.NewLine + "For more info visit my [Website](https://blazeweb.ml/minecraft/)",
-                Color = _Utils_Discord.GetRoleColor(Context.Channel)
+                Color = _Utils.Discord.GetRoleColor(Context.Channel)
             };
             await ReplyAsync("", false, embed.Build());
         }
@@ -1117,7 +1136,7 @@ namespace Bot.Commands
         [Command("poke"), Alias("Pokemon"), Remarks("poke"), Summary("Pokemon lookup")]
         public async Task Pokemon(string Name)
         {
-            _Utils_Http.Request Data = _Utils_Http.GetJsonObject("http://pokeapi.co/api/v2/pokemon/" + Name + "/");
+            dynamic Data = _Utils.Http.JsonObject("http://pokeapi.co/api/v2/pokemon/" + Name + "/");
             if (Data.Json == null)
             {
                 await Context.Channel.SendMessageAsync($"`Cannot find pokemone {Name}`");
@@ -1127,7 +1146,7 @@ namespace Bot.Commands
             {
                 Title = $"{Data.Json.name} [{Data.Json.id}]",
                 Description = "```md" + Environment.NewLine + $"<Height {Data.Json.height}> <Weight {Data.Json.weight}>```",
-                Color = _Utils_Discord.GetRoleColor(Context.Channel),
+                Color = _Utils.Discord.GetRoleColor(Context.Channel),
                 ThumbnailUrl = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/sprites/pokemon/" + Data.Json.id + ".png"
             };
             await ReplyAsync("", false, embed.Build());
@@ -1191,17 +1210,63 @@ namespace Bot.Commands
             {
                 new PaginationFull.Page(){Description = embed1.Description, Author = embed1.Author, Fields = embed1.Fields }, new PaginationFull.Page(){Description = embed2.Description, Author = embed2.Author, Fields = embed2.Fields }, new PaginationFull.Page(){Description = embed3.Description, Author = embed3.Author, Fields = embed3.Fields }
             };
-            PaginationFull.PaginatedMessage message = new PaginationFull.PaginatedMessage(Embeds, "", _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel), Context.User);
+            PaginationFull.PaginatedMessage message = new PaginationFull.PaginatedMessage(Embeds, "", _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel), Context.User);
             await _PagFull.SendPaginatedMessageAsync(Context.Channel, message);
 
         }
     }
-
+    public class TestBot
+    {
+        public string BotName;
+        public ulong BotID;
+        public ulong BotOwner;
+    }
     public class Media : ModuleBase
     {
+        [Command("bottest")]
+        public async Task BotTest()
+        {
+            List<TestBot> ALL = new List<TestBot>();
+            var Req = _Utils.Http.JsonArray("https://bots.discord.pw/api/bots", _Config.Tokens.Dbots);
+            Dictionary<ulong, ulong> Bots = new Dictionary<ulong, ulong>();
+            foreach (var i in Req.Json)
+            {
+                if (i.owner_ids == null)
+                {
+                    Console.WriteLine($"Missing Owner - {i.name}");
+                }
+                else
+                {
+                    Bots.Add((ulong)i.user_id, (ulong)i.owner_ids[0]);
+                }
+            }
+            List<IGuildUser> Users = new List<IGuildUser>();
+            var GetUsers = await Context.Guild.GetUsersAsync();
+            foreach(var i in GetUsers)
+            {
+                Users.Add(i);
+            }
 
+            foreach (var i in Users.Where(x => x.IsBot))
+            {
+                if (Bots.Keys.Contains(i.Id))
+                {
+                    Bots.TryGetValue(i.Id, out ulong Owner);
+                    IGuildUser GU = await Context.Guild.GetUserAsync(Owner);
+                    if (GU == null)
+                    {
+                        ALL.Add(new TestBot() { BotName = i.Username, BotID = i.Id, BotOwner = Owner });
+                    }
+                }
+            }
+            using (StreamWriter file = File.CreateText(_Config.BotPath + "BotUsers" + ".json"))
+            {
+                JsonSerializer serializer = new JsonSerializer();
+                serializer.Serialize(file, ALL);
+            }
+            await Context.Channel.SendFileAsync(_Config.BotPath + "BotUsers" + ".json");
+        }
     }
-
     public class Mod : ModuleBase
     {
         [Command("ban"), Alias("banne"), Remarks("ban (@Mention/UserID) (Reason)"), Summary("Ban a user in this guild")]
@@ -1217,13 +1282,13 @@ namespace Bot.Commands
                 await ReplyAsync("`Kick a user with p/hackban (@Mention/ID)`");
                 return;
             }
-            _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
-            if (!CI.Bot.GuildPermissions.BanMembers)
+            IGuildUser Bot = await Context.Guild.GetCurrentUserAsync();
+            if (!Bot.GuildPermissions.BanMembers)
             {
                 await ReplyAsync("`Bot does not have permission to ban user`");
                 return;
             }
-            IGuildUser GuildUser = await _Utils_Discord.MentionGetUser(Context.Guild, User);
+            IGuildUser GuildUser = await _Utils.Discord.MentionGetUser(Context.Guild, User);
             if (GuildUser == null)
             {
                 await ReplyAsync("`Could not find user`");
@@ -1240,13 +1305,13 @@ namespace Bot.Commands
                 await ReplyAsync("`This guild has no roles`");
                 return;
             }
-            if (CI.Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
+            if (Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
             {
                 await ReplyAsync("`Bot does not have any roles`");
                 return;
             }
 
-            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && CI.Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
+            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
             IRole UserRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildUser.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
             if (BotRole.Position < UserRole.Position + 1)
             {
@@ -1256,7 +1321,7 @@ namespace Bot.Commands
             if (Context.User.Id == Context.Guild.OwnerId)
             {
                 await Context.Guild.AddBanAsync(GuildUser.Id, 0, $"[{Context.User.Username}]" + Reason);
-                if (CI.Bot.GuildPermissions.ManageMessages)
+                if (Bot.GuildPermissions.ManageMessages)
                 {
                     await Context.Message.DeleteAsync();
                 }
@@ -1283,7 +1348,7 @@ namespace Bot.Commands
                 return;
             }
             await Context.Guild.AddBanAsync(GuildUser.Id, 0, $"[{Context.User.Username}]" + Reason);
-            if (CI.Bot.GuildPermissions.ManageMessages)
+            if (Bot.GuildPermissions.ManageMessages)
             {
                 await Context.Message.DeleteAsync();
             }
@@ -1303,13 +1368,13 @@ namespace Bot.Commands
                 await ReplyAsync("`Kick a user with p/hackban (@Mention/ID)`");
                 return;
             }
-            _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
-            if (!CI.Bot.GuildPermissions.KickMembers)
+            IGuildUser Bot = await Context.Guild.GetCurrentUserAsync();
+            if (!Bot.GuildPermissions.KickMembers)
             {
                 await ReplyAsync("`Bot does not have permission to kick user`");
                 return;
             }
-            IGuildUser GuildUser = await _Utils_Discord.MentionGetUser(Context.Guild, User);
+            IGuildUser GuildUser = await _Utils.Discord.MentionGetUser(Context.Guild, User);
             if (GuildUser == null)
             {
                 await ReplyAsync("`Could not find user`");
@@ -1326,12 +1391,12 @@ namespace Bot.Commands
                 await ReplyAsync("`This guild has no roles`");
                 return;
             }
-            if (CI.Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
+            if (Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
             {
                 await ReplyAsync("`Bot does not have any roles`");
                 return;
             }
-            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && CI.Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
+            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
             IRole UserRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildUser.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
             if (BotRole.Position < UserRole.Position + 1)
             {
@@ -1341,7 +1406,7 @@ namespace Bot.Commands
             if (Context.User.Id == Context.Guild.OwnerId)
             {
                 await GuildUser.KickAsync($"[{Context.User.Username}]" + Reason);
-                if (CI.Bot.GuildPermissions.ManageMessages)
+                if (Bot.GuildPermissions.ManageMessages)
                 {
                     await Context.Message.DeleteAsync();
                 }
@@ -1365,7 +1430,7 @@ namespace Bot.Commands
                 await ReplyAsync("`You cannot kick user with same or lower role than you`");
                 return;
             }
-            if (CI.Bot.GuildPermissions.ManageMessages)
+            if (Bot.GuildPermissions.ManageMessages)
             {
                 await Context.Message.DeleteAsync();
             }
@@ -1386,13 +1451,13 @@ namespace Bot.Commands
                 await ReplyAsync("`Hackban a user id with p/hackban (ID)`");
                 return;
             }
-            _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
-            if (!CI.Bot.GuildPermissions.BanMembers)
+            IGuildUser Bot = await Context.Guild.GetCurrentUserAsync();
+            if (!Bot.GuildPermissions.BanMembers)
             {
                 await ReplyAsync("`Bot does not have permission to ban user`");
                 return;
             }
-            IGuildUser GuildUser = await _Utils_Discord.MentionGetUser(Context.Guild, User.ToString());
+            IGuildUser GuildUser = await _Utils.Discord.MentionGetUser(Context.Guild, User.ToString());
             if (GuildUser != null)
             {
                 await ReplyAsync("`This user is in the guild please user p/ban (User) (Reason)`");
@@ -1409,18 +1474,18 @@ namespace Bot.Commands
                 await ReplyAsync("`This guild has no roles`");
                 return;
             }
-            if (CI.Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
+            if (Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
             {
                 await ReplyAsync("`Bot does not have any roles`");
                 return;
             }
 
-            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && CI.Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
+            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
 
             if (Context.User.Id == Context.Guild.OwnerId)
             {
                 await Context.Guild.AddBanAsync(User, 0, $"[{Context.User.Username}]" + Reason);
-                if (CI.Bot.GuildPermissions.ManageMessages)
+                if (Bot.GuildPermissions.ManageMessages)
                 {
                     await Context.Message.DeleteAsync();
                 }
@@ -1443,7 +1508,7 @@ namespace Bot.Commands
             IRole StaffRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && GuildStaff.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
 
             await Context.Guild.AddBanAsync(User, 0, $"[{Context.User.Username}]" + Reason);
-            if (CI.Bot.GuildPermissions.ManageMessages)
+            if (Bot.GuildPermissions.ManageMessages)
             {
                 await Context.Message.DeleteAsync();
             }
@@ -1463,21 +1528,21 @@ namespace Bot.Commands
                 await ReplyAsync("`Unban a user id with p/unban (ID)`");
                 return;
             }
-            _Bot.GuildCache.TryGetValue(Context.Guild.Id, out _CacheItem CI);
-            if (!CI.Bot.GuildPermissions.BanMembers)
+            IGuildUser Bot = await Context.Guild.GetCurrentUserAsync();
+            if (!Bot.GuildPermissions.BanMembers)
             {
                 await ReplyAsync("`Bot does not have permission to ban user`");
                 return;
             }
             IEnumerable<IRole> GuildRoles = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id);
            
-            if (CI.Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
+            if (Bot.RoleIds.Where(x => x != Context.Guild.EveryoneRole.Id).Count() == 0)
             {
                 await ReplyAsync("`Bot does not have any roles`");
                 return;
             }
 
-            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && CI.Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
+            IRole BotRole = Context.Guild.Roles.Where(x => x.Id != Context.Guild.EveryoneRole.Id && Bot.RoleIds.Contains(x.Id)).OrderByDescending(x => x.Position).First();
             ulong UserID = Convert.ToUInt64(Lookup);
             if (Context.User.Id == Context.Guild.OwnerId)
             {
@@ -1490,7 +1555,7 @@ namespace Bot.Commands
                 }
                 await Context.Guild.RemoveBanAsync(UserID);
 
-                if (CI.Bot.GuildPermissions.ManageMessages)
+                if (Bot.GuildPermissions.ManageMessages)
                 {
                     await Context.Message.DeleteAsync();
                 }
@@ -1520,7 +1585,7 @@ namespace Bot.Commands
                 await ReplyAsync($"`{Lookup} is not on the banlist`");
                 return;
             }
-            if (CI.Bot.GuildPermissions.ManageMessages)
+            if (Bot.GuildPermissions.ManageMessages)
             {
                 await Context.Message.DeleteAsync();
             }
@@ -1612,8 +1677,8 @@ namespace Bot.Commands
                     await Context.Channel.SendMessageAsync("`Ammount cannot be more than 30`");
                     return;
                 }
-                var user = await Context.Guild.GetUserAsync(Convert.ToUInt64(Utils._Utils_Discord.MentionToID(User))).ConfigureAwait(false);
-                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Author.Id == user.Id).ConfigureAwait(false);
+                var user = await Context.Guild.GetUserAsync(Convert.ToUInt64(_Utils.Discord.MentionToID(User)));
+                await _prune.PruneWhere((ITextChannel)Context.Channel, Ammount, (x) => x.Author.Id == user.Id);
                 await Context.Channel.SendMessageAsync($"`{Context.User.Username} deleted user {user.Username} messages`");
             }
 

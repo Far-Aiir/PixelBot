@@ -1,9 +1,4 @@
-﻿using Bot.Utils;
-using Discord;
-using System;
-using System.Linq;
-
-namespace Bot.Game
+﻿namespace Bot.Game
 {
     class _Riot
     {
@@ -16,25 +11,18 @@ namespace Bot.Game
             public RegionTag Tag;
             public string Host = "";
         }
-        public static string CheckGetApi(string RegionTag, out UserRegion Region, out _Utils_Http.Request Request)
+        public static void CheckGetApi(string RegionTag, out UserRegion Region, out string Request)
         {
+            Request = "";
             CheckRegion(Region = new UserRegion(), RegionTag);
-            Request = new _Utils_Http.Request();
             if (Region.Host == "")
             {
-                return "Unknown region use p/lol regions";
+                _Log.ThrowError("Unknown region use p/lol regions");
             }
             else
             {
-                Request = _Utils_Http.GetJsonObject(Region.Host + "/lol/status/v3/shard-data", "", "X-Riot-Token", _Config.Tokens.Riot);
-                if (Request.Success)
-                {
-                    return "";
-                }
-                else
-                {
-                    return "API Error";
-                }
+                Request = _Utils.Http.JsonObject(Region.Host + "/lol/status/v3/shard-data", "", "X-Riot-Token", _Config.Tokens.Riot);
+                
             }
         }
 

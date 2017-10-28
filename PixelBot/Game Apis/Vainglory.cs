@@ -28,7 +28,7 @@ namespace Bot.Game
         public static Player GetPlayerStats(string Region, string User)
         {
             Player Player = new Player();
-            dynamic Request = Utils._Utils_Http.GetJsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerNames]=" + User, _Config.Tokens.Vainglory, "X-TITLE-ID", "semc-vainglory");
+            dynamic Request = _Utils.Http.JsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/players?filter[playerNames]=" + User, _Config.Tokens.Vainglory, "X-TITLE-ID", "semc-vainglory");
 
             Player.ID = Request.data[0].id;
             Player.User = User;
@@ -48,7 +48,7 @@ namespace Bot.Game
         public static dynamic GetPlayerMatch(string Region, string User)
         {
             Match Match = new Match();
-            dynamic Dynamic = Utils._Utils_Http.GetJsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/matches?sort=createdAt&page[limit]=3&filter[playerNames]=" + User, _Config.Tokens.Vainglory, "X-TITLE-ID", "semc-vainglory");
+            dynamic Dynamic = _Utils.Http.JsonObject("https://api.dc01.gamelockerapp.com/shards/" + Region + "/matches?sort=createdAt&page[limit]=3&filter[playerNames]=" + User, _Config.Tokens.Vainglory, "X-TITLE-ID", "semc-vainglory");
             return Match;
         }
         #endregion

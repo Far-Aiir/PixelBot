@@ -1,24 +1,15 @@
 ﻿using Bot.Game;
 using Bot.Services;
-using Bot.Utils;
 using Discord;
-using Discord.Addons.InteractiveCommands;
 using Discord.Commands;
 using Discord.WebSocket;
 using Google.Apis.Services;
 using Google.Apis.YouTube.v3;
-using MojangSharp.Endpoints;
-using MojangSharp.Responses;
 using Newtonsoft.Json;
-using OverwatchAPI;
-using PortableSteam;
-using SteamStoreQuery;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Text;
 using System.Threading.Tasks;
 using TwitchCSharp.Clients;
 
@@ -40,13 +31,13 @@ namespace Bot.Commands
             }
             else
             {
-                string Check = _Riot.CheckGetApi(Region, out _Riot.UserRegion UserRegion, out _Utils_Http.Request Request);
-                if (Check != "")
-                {
-                    await ReplyAsync($"`{Check}`");
-                    return;
-                }
-                await ReplyAsync($"Region {UserRegion.Tag}");
+               // string Check = _Riot.CheckGetApi(Region, out _Riot.UserRegion UserRegion, out _Utils_Http.Request Request);
+               // if (Check != "")
+             //   {
+              //      await ReplyAsync($"`{Check}`");
+               //     return;
+              //  }
+              //  await ReplyAsync($"Region {UserRegion.Tag}");
             }
 
         }
@@ -68,7 +59,7 @@ namespace Bot.Commands
                         Url = "http://leagueoflegends.com"
                     },
 
-                    Color = Utils._Utils_Discord.GetRoleColor(Context.Channel as ITextChannel),
+                    Color = _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel),
                     Description = "To get player stats do **p/lol (Region) (Summoner Name)** | Use the correct region!",
                 };
 
@@ -80,7 +71,7 @@ namespace Bot.Commands
                 {
                     x.Name = "Stats"; x.Value = "```md" + Environment.NewLine + "<Test Test>```"; x.IsInline = true;
                 });
-                await Context.Channel.SendMessageAsync("", false, embed);
+                await Context.Channel.SendMessageAsync("", false, embed.Build());
             }
             else
             {
@@ -94,11 +85,11 @@ namespace Bot.Commands
                         Description = "```md" + Environment.NewLine + $"```",
                         Footer = new EmbedFooterBuilder()
                         {
-                            Text = $"Last Played {(Utils._Utils_Other.UlongToDateTime(1111))}"
+                            Text = $"Last Played {(_Utils.UnixToDateTime(1111))}"
                         }
                     };
                     embed.AddField("Info", "```md" + Environment.NewLine + $"<Level {1}>" + Environment.NewLine + $"<ID {1}>```", true);
-                    await Context.Channel.SendMessageAsync("", false, embed);
+                    await Context.Channel.SendMessageAsync("", false, embed.Build());
                 }
                 catch (Exception ex)
                 {
@@ -126,7 +117,7 @@ namespace Bot.Commands
         [Command("getinvite"), Remarks("getinvite (@Mention/User ID)"), Summary("Get invite of a bot")]
         public async Task GetBotInvite(string User = "", string Api = "")
         {
-            _BotApi.GetInvite(Context.Channel as ITextChannel, _Utils_Discord.MentionToID(User), Api);
+            _BotApi.GetInvite(Context.Channel as ITextChannel, _Utils.Discord.MentionToID(User), Api);
         }
 
         [Command("getowner"), Remarks("getowner (@Mention/User ID)"), Summary("Get the owner of a bot"), Alias("getowners")]
@@ -180,13 +171,13 @@ namespace Bot.Commands
             [Command("test")]
             public async Task LolTest()
             {
-                string Check = _Riot.CheckGetApi("na", out _Riot.UserRegion UserRegion, out _Utils_Http.Request Request);
-                if (Check != "")
-                {
-                    await ReplyAsync($"`{Check}`");
-                    return;
-                }
-                await ReplyAsync("`API is working`");
+             //   string Check = _Riot.CheckGetApi("na", out _Riot.UserRegion UserRegion, out _Utils_Http.Request Request);
+            //    if (Check != "")
+              //  {
+               //     await ReplyAsync($"`{Check}`");
+              //      return;
+              //  }
+              //  await ReplyAsync("`API is working`");
             }
 
             [Command("status")]
@@ -201,16 +192,16 @@ namespace Bot.Commands
                 {
                     RegionTag = Option;
                 }
-                string Check = _Riot.CheckGetApi(RegionTag, out _Riot.UserRegion RegionNA, out Utils._Utils_Http.Request ReqNA);
-                if (Check != "")
-                {
-                    await ReplyAsync($"`{Check}`");
-                    return;
-                }
-                if (ReqNA.Success == false)
-                {
-                    await ReplyAsync($"`{ReqNA.Error}`");
-                }
+              //  string Check = _Riot.CheckGetApi(RegionTag, out _Riot.UserRegion RegionNA, out _Utils.Http.Request ReqNA);
+             //   if (Check != "")
+             //   {
+             //       await ReplyAsync($"`{Check}`");
+            //        return;
+            //    }
+           //     if (ReqNA.Success == false)
+            //    {
+              //      await ReplyAsync($"`{ReqNA.Error}`");
+           //     }
                 if (Option == "")
                 {
                     var embed = new EmbedBuilder()
@@ -223,42 +214,42 @@ namespace Bot.Commands
                             Text = "To get a list of regions use p/lol regions"
                         }
                     };
-                    if (ReqNA.Json.services[0].status != "online")
-                    {
-                        embed.Description = "API Issues! with Game";
-                        embed.Color = new Color(200, 0, 0);
-                    }
-                    if (ReqNA.Json.services[1].status != "online")
-                    {
-                        embed.Description = "API Issues! with Store";
-                        embed.Color = new Color(200, 0, 0);
-                    }
-                    if (ReqNA.Json.services[2].status != "online")
-                    {
-                        embed.Description = "API Issues! with Website";
-                        embed.Color = new Color(200, 0, 0);
-                    }
-                    if (ReqNA.Json.services[3].status != "online")
-                    {
-                        embed.Description = "API Issues! with Client";
-                        embed.Color = new Color(200, 0, 0);
-                    }
-                    embed.Description = embed.Description + Environment.NewLine + Environment.NewLine + "Other Options" + Environment.NewLine + "p/lol status (RegionTag)" + Environment.NewLine + "p/lol status all";
-                    await ReplyAsync("", false, embed.Build());
+             //       if (ReqNA.Json.services[0].status != "online")
+               //     {
+             //           embed.Description = "API Issues! with Game";
+             //           embed.Color = new Color(200, 0, 0);
+             //       }
+            //        if (ReqNA.Json.services[1].status != "online")
+            //        {
+             //           embed.Description = "API Issues! with Store";
+             //           embed.Color = new Color(200, 0, 0);
+            //        }
+             //       if (ReqNA.Json.services[2].status != "online")
+            //        {
+             //           embed.Description = "API Issues! with Website";
+             //           embed.Color = new Color(200, 0, 0);
+             //       }
+             //       if (ReqNA.Json.services[3].status != "online")
+             //       {
+             //           embed.Description = "API Issues! with Client";
+               //         embed.Color = new Color(200, 0, 0);
+              //      }
+              //      embed.Description = embed.Description + Environment.NewLine + Environment.NewLine + "Other Options" + Environment.NewLine + "p/lol status (RegionTag)" + Environment.NewLine + "p/lol status all";
+             //       await ReplyAsync("", false, embed.Build());
                 }
                 else if (Option == "all")
                 {
                     IUserMessage Wait = await ReplyAsync("`Please wait...`");
-                    _Riot.CheckGetApi("eune", out _Riot.UserRegion RegionEUNE, out _Utils_Http.Request ReqEUNE);
-                    _Riot.CheckGetApi("euw", out _Riot.UserRegion RegionEUW, out _Utils_Http.Request ReqEUW);
-                    _Riot.CheckGetApi("jp", out _Riot.UserRegion RegionJP, out _Utils_Http.Request ReqJP);
-                    _Riot.CheckGetApi("kr", out _Riot.UserRegion RegionKR, out _Utils_Http.Request ReqKR);
-                    _Riot.CheckGetApi("lan", out _Riot.UserRegion RegionLAN, out _Utils_Http.Request ReqLAN);
-                    _Riot.CheckGetApi("las", out _Riot.UserRegion RegionLAS, out _Utils_Http.Request ReqLAS);
-                    _Riot.CheckGetApi("br", out _Riot.UserRegion RegionBR, out _Utils_Http.Request ReqBR);
-                    _Riot.CheckGetApi("oce", out _Riot.UserRegion RegionOCE, out _Utils_Http.Request ReqOCE);
-                    _Riot.CheckGetApi("tr", out _Riot.UserRegion RegionTR, out _Utils_Http.Request ReqTR);
-                    _Riot.CheckGetApi("ru", out _Riot.UserRegion RegionRU, out _Utils_Http.Request ReqRU);
+                //    _Riot.CheckGetApi("eune", out _Riot.UserRegion RegionEUNE, out _Utils_Http.Request ReqEUNE);
+               //     _Riot.CheckGetApi("euw", out _Riot.UserRegion RegionEUW, out _Utils_Http.Request ReqEUW);
+               //     _Riot.CheckGetApi("jp", out _Riot.UserRegion RegionJP, out _Utils_Http.Request ReqJP);
+               //     _Riot.CheckGetApi("kr", out _Riot.UserRegion RegionKR, out _Utils_Http.Request ReqKR);
+                //    _Riot.CheckGetApi("lan", out _Riot.UserRegion RegionLAN, out _Utils_Http.Request ReqLAN);
+                //    _Riot.CheckGetApi("las", out _Riot.UserRegion RegionLAS, out _Utils_Http.Request ReqLAS);
+                 //   _Riot.CheckGetApi("br", out _Riot.UserRegion RegionBR, out _Utils_Http.Request ReqBR);
+                 //   _Riot.CheckGetApi("oce", out _Riot.UserRegion RegionOCE, out _Utils_Http.Request ReqOCE);
+                 //   _Riot.CheckGetApi("tr", out _Riot.UserRegion RegionTR, out _Utils_Http.Request ReqTR);
+                 //   _Riot.CheckGetApi("ru", out _Riot.UserRegion RegionRU, out _Utils_Http.Request ReqRU);
                     string BR = "<Brazil Issue = BR>";
                     string EUNE = "<EU-Nordic-East Issue = EUNE>";
                     string EUW = "<EU-West Issue = EUW>";
@@ -270,55 +261,55 @@ namespace Bot.Commands
                     string OCE = "<Oceania Issue = OCE>";
                     string TR = "<Turkey Issue = TR>";
                     string RU = "<Russia Issue = RU>";
-                    if (ReqNA.Success)
-                    {
-                        NA = "<North-America Online = NA>";
-                    }
-                    if (ReqBR.Success)
-                    {
-                        BR = "<Brazil Online = BR>";
-                    }
-                    if (ReqEUNE.Success)
-                    {
-                        EUNE = "<EU-Nordic-East Online = EUNE>";
-                    }
-                    if (ReqEUW.Success)
-                    {
-                        EUW = "<EU-West Online = EUW>";
-                    }
-                    if (ReqJP.Success)
-                    {
-                        JP = "<Japan Online = JP>";
-                    }
-                    if (ReqKR.Success)
-                    {
-                        KR = "<Korea Online = KR>";
-                    }
-                    if (ReqLAN.Success)
-                    {
-                        LAN = "<Latin-North-America Online = LAN>";
-                    }
-                    if (ReqLAS.Success)
-                    {
-                        LAS = "<Latin-South-America Online = LAS>";
-                    }
-                    if (ReqOCE.Success)
-                    {
-                        OCE = "<Oceania Online = OCE>";
-                    }
-                    if (ReqTR.Success)
-                    {
-                        TR = "<Turkey Online = TR>";
-                    }
-                    if (ReqRU.Success)
-                    {
-                        RU = "<Russia Online = RU>";
-                    }
+              //      if (ReqNA.Success)
+             //       {
+               //         NA = "<North-America Online = NA>";
+               //     }
+               //     if (ReqBR.Success)
+               //     {
+                //        BR = "<Brazil Online = BR>";
+                //    }
+                //    if (ReqEUNE.Success)
+                 //   {
+                 //       EUNE = "<EU-Nordic-East Online = EUNE>";
+                 //   }
+                 //   if (ReqEUW.Success)
+               //     {
+               //         EUW = "<EU-West Online = EUW>";
+               //     }
+               //     if (ReqJP.Success)
+              //      {
+              //          JP = "<Japan Online = JP>";
+              //      }
+              //      if (ReqKR.Success)
+              //      {
+             //           KR = "<Korea Online = KR>";
+              //      }
+              //      if (ReqLAN.Success)
+              //      {
+              //          LAN = "<Latin-North-America Online = LAN>";
+              //      }
+             //       if (ReqLAS.Success)
+              //      {
+              //          LAS = "<Latin-South-America Online = LAS>";
+              //      }
+             //       if (ReqOCE.Success)
+             //       {
+              //          OCE = "<Oceania Online = OCE>";
+             //       }
+            //        if (ReqTR.Success)
+            //        {
+            //            TR = "<Turkey Online = TR>";
+            //        }
+            //        if (ReqRU.Success)
+             //       {
+             //           RU = "<Russia Online = RU>";
+            //        }
                     var embed = new EmbedBuilder()
                     {
                         Title = "<:LeagueOfLegends:358409851270856714> All API Stats",
                         Description = "```md" + Environment.NewLine + string.Join(Environment.NewLine, new string[] { BR, EUNE, EUW, JP, KR, LAN, LAS, NA, OCE, TR, RU }) + "```",
-                        Color = _Utils_Discord.GetRoleColor(Context.Channel),
+                        Color = _Utils.Discord.GetRoleColor(Context.Channel),
                         Footer = new EmbedFooterBuilder()
                         {
                             Text = "For more info use p/lol status (RegionTag) | p/lol status euw"
@@ -335,29 +326,29 @@ namespace Bot.Commands
                     string ClientStat = "Online";
                     Color Color = new Color(0, 200, 0);
 
-                    if (ReqNA.Json.services[0].status != "online")
-                    {
-                        GameStat = "Issue";
-                        Color = new Color(200, 0, 0);
-                    }
-                    if (ReqNA.Json.services[1].status != "online")
-                    {
-                        StoreStat = "Issue";
-                        Color = new Color(200, 0, 0);
-                    }
-                    if (ReqNA.Json.services[2].status != "online")
-                    {
-                        WebsiteStat = "Issue";
-                        Color = new Color(200, 0, 0);
-                    }
-                    if (ReqNA.Json.services[3].status != "online")
-                    {
-                        ClientStat = "Issue";
-                        Color = new Color(200, 0, 0);
-                    }
+              //      if (ReqNA.Json.services[0].status != "online")
+               //     {
+              //          GameStat = "Issue";
+               //         Color = new Color(200, 0, 0);
+              //      }
+             //       if (ReqNA.Json.services[1].status != "online")
+             //       {
+            //            StoreStat = "Issue";
+             //           Color = new Color(200, 0, 0);
+            //        }
+            //        if (ReqNA.Json.services[2].status != "online")
+             //       {
+             //           WebsiteStat = "Issue";
+            //            Color = new Color(200, 0, 0);
+             //       }
+            //        if (ReqNA.Json.services[3].status != "online")
+             //       {
+             //           ClientStat = "Issue";
+            //            Color = new Color(200, 0, 0);
+             //       }
                     var embed = new EmbedBuilder()
                     {
-                        Title = $"<:LeagueOfLegends:358409851270856714> {ReqNA.Json.name} API Status",
+                     //   Title = $"<:LeagueOfLegends:358409851270856714> {ReqNA.Json.name} API Status",
                         Description = "API is online and working!" + Environment.NewLine + "```md" + Environment.NewLine + $"<Game {GameStat}> <Store {StoreStat}> <Website {WebsiteStat}> <Client {ClientStat}>```",
                         Color = Color,
                         Footer = new EmbedFooterBuilder()
@@ -394,7 +385,7 @@ namespace Bot.Commands
                     {
                         Name = "World Of Tanks"
                     },
-                    Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
+                    Color = _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel)
                 };
                 embed.AddField("Regions", "```md" + Environment.NewLine + "<RU Russia>" + Environment.NewLine + "<EU Europe>" + Environment.NewLine + "<NA America>" + Environment.NewLine + "<AS Asia>```", true);
                 embed.AddField("Stats", "Player data available" + Environment.NewLine + "New features coming soon", true);
@@ -430,7 +421,7 @@ namespace Bot.Commands
                     {
                         Text = $"Created {Player.CreatedAt.ToShortDateString()} | Last Battle {Player.LastBattle.ToShortDateString()}"
                     },
-                    Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel),
+                    Color = _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel),
                     Description = "```md" + Environment.NewLine + $"<Battles {Player.Battles}> <Win {Player.Win}> <Loss {Player.Loss}> <Draw {Player.Draws}>" + Environment.NewLine + $"<Shots {Player.Shots}> <Hits {Player.Hits}> <Miss {Convert.ToUInt32(Player.Shots) - Convert.ToUInt32(Player.Hits)}>```More stats coming soon this is a test"
                 };
                 await Context.Channel.SendMessageAsync("", false, embed.Build());
@@ -476,7 +467,7 @@ namespace Bot.Commands
                         Title = $"Vainglory | {User}",
                         Description = "```md" + Environment.NewLine + $"<Level {Player.Level}> <XP {Player.XP}> <LifetimeGold {Player.LifetimeGold}>" + Environment.NewLine + $"<Wins {Player.Wins}> <Played {Player.Played}> <PlayedRank {Player.PlayedRanked}>" + Environment.NewLine + $"<KarmaLevel {Player.KarmaLevel}> <skillTier {Player.SkillTier}>```"
                     };
-                    await Context.Channel.SendMessageAsync("", false, embed).ConfigureAwait(false);
+                    await Context.Channel.SendMessageAsync("", false, embed.Build());
 
                 }
                 else
@@ -547,7 +538,7 @@ namespace Bot.Commands
                     {
                         Text = "Options > ME (User DM) | HERE (Guild Channel)"
                     },
-                    Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
+                    Color = _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel)
                 };
                 if (Context.Channel is IPrivateChannel)
                 {
@@ -584,7 +575,7 @@ namespace Bot.Commands
                     {
                         Title = "Twitch Channels",
                         Description = $"{Usearch[0].Name} | {Usearch[1].Name} | {Usearch[2].Name}",
-                        Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
+                        Color = _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel)
                     };
                     if (Context.Channel is IPrivateChannel)
                     {
@@ -731,15 +722,15 @@ namespace Bot.Commands
                 {
                     List<string> TWList = _Twitch.NotificationList.Where(x => x.User == Context.User.Id & x.Type == "user").Select(x => x.Twitch).ToList();
                     var embed = new EmbedBuilder()
-                    { Title = "Twitch Notifications For You", Description = string.Join(", ", TWList), Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel) };
-                    await Context.Channel.SendMessageAsync("", false, embed);
+                    { Title = "Twitch Notifications For You", Description = string.Join(", ", TWList), Color = _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel) };
+                    await Context.Channel.SendMessageAsync("", false, embed.Build());
                 }
                 if (Option == "guild")
                 {
                     List<string> TWList = _Twitch.NotificationList.Where(x => x.Guild == Context.Guild.Id & x.Type == "channel").Select(x => x.Twitch).ToList();
                     var embed = new EmbedBuilder()
-                    { Title = "Twitch Notifications For This Guild", Description = string.Join(", ", TWList), Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel) };
-                    await Context.Channel.SendMessageAsync("", false, embed);
+                    { Title = "Twitch Notifications For This Guild", Description = string.Join(", ", TWList), Color = _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel) };
+                    await Context.Channel.SendMessageAsync("", false, embed.Build());
                 }
                 if (Option == "here")
                 {
@@ -748,9 +739,9 @@ namespace Bot.Commands
                     {
                         Title = $"Twitch Notifications For #{Context.Channel.Name}",
                         Description = string.Join(", ", TWList),
-                        Color = _Utils_Discord.GetRoleColor(Context.Channel as ITextChannel)
+                        Color = _Utils.Discord.GetRoleColor(Context.Channel as ITextChannel)
                     };
-                    await Context.Channel.SendMessageAsync("", false, embed);
+                    await Context.Channel.SendMessageAsync("", false, embed.Build());
                 }
             }
 
